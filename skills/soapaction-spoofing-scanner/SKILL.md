@@ -68,4 +68,4 @@ SOAP 1.2에서는 `Content-Type: application/soap+xml; action="..."` 형태로 A
 2. **Phase 2 (동적 테스트)**: `phase2.md` 참조
 
 개별 실행 시, 이 디렉토리의 `phase1.md`와 `phase2.md`를 순서대로 읽고 수행한다.
-공통 유의사항은 `~/.claude/skills/noah-sast/agent-guidelines.md`를 참조한다.
+공통 유의사항은 이 스킬과 같은 skills 디렉토리 내의 `noah-sast/agent-guidelines.md`를 참조한다. 이 파일의 위치를 기준으로 `../noah-sast/agent-guidelines.md` 경로로 접근할 수 있다.

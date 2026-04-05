@@ -1,7 +1,7 @@
 import html as html_mod, re, sys, os
 
 _base = os.getcwd()
-_skill_dir = os.path.expanduser('~/.claude/skills/scan-report')
+_skill_dir = os.path.dirname(os.path.abspath(__file__))
 _md_path = os.path.join(_base, 'noah-sast-report.md')
 _html_path = os.path.join(_base, 'noah-sast-report.html')
 

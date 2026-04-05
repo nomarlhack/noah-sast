@@ -7,6 +7,8 @@ description: "취약점 스캔 결과를 보고서로 작성하는 스킬. noah-
 
 취합된 분석 결과 데이터를 입력받아 보고서를 작성한다.
 
+**SKILLS_DIR**: noah-sast에서 호출된 경우 이미 결정된 `<SKILLS_DIR>` 값을 사용한다. 독립 실행 시에는 이 파일의 위치를 기준으로 상위 디렉토리를 `SKILLS_DIR`로 사용한다.
+
 > `[필수]`는 과거 위반 이력이 있어 추가 강조된 항목이다. 태그가 없는 항목도 모두 준수 의무가 있다.
 
 **입력:**
@@ -91,7 +93,7 @@ Agent 5: File Upload + Host Header + CSV Scanner (확인됨 1건 + 후보 5건) 
 ## 미적용 스캐너 목록
 ```
 
-**조립 스크립트:** `~/.claude/skills/scan-report/assemble_report.py`를 참조한다. 스크립트 내의 `skeleton`, `subagent_results`, `report_name` 변수를 설정한 후 Bash로 실행한다.
+**조립 스크립트:** `<SKILLS_DIR>/scan-report/assemble_report.py`를 참조한다. 스크립트 내의 `skeleton`, `subagent_results`, `report_name` 변수를 설정한 후 Bash로 실행한다.
 
 스크립트가 수행하는 처리:
 - `normalize_vuln_headings()`: `**N번 - ID**: 제목` → `#### N. 제목` 자동 변환
@@ -104,7 +106,7 @@ Agent 5: File Upload + Host Header + CSV Scanner (확인됨 1건 + 후보 5건) 
 **[필수] 직접 HTML을 작성하지 않는다.** 반드시 스킬 디렉토리에 저장된 변환기를 사용한다.
 
 ```bash
-python3 ~/.claude/skills/scan-report/md_to_html.py
+python3 <SKILLS_DIR>/scan-report/md_to_html.py
 ```
 
 이 스크립트는 `noah-sast-report.md`를 읽어 `noah-sast-report.html`을 생성한다.
@@ -128,24 +130,24 @@ python3 ~/.claude/skills/scan-report/md_to_html.py
 **[필수]** HTML 생성 직후, 요약 테이블의 `#vuln-N` 링크가 실제로 HTML 내 `id="vuln-N"` 요소와 1:1 대응되는지 검증한다. 링크가 끊겨 있으면 MD를 수정하고 HTML을 재생성해야 한다.
 
 ```bash
-python3 ~/.claude/skills/scan-report/validate_links.py noah-sast-report.html
+python3 <SKILLS_DIR>/scan-report/validate_links.py noah-sast-report.html
 ```
 
 **LINK FAIL 시 처리:**
 1. `missing_ids`에 해당하는 MD 섹션을 찾아 헤딩 형식 확인
 2. `**N번 - ID**: 제목` 형식이면 `#### N. 제목`으로 변환
-3. HTML 재생성(`python3 ~/.claude/skills/scan-report/md_to_html.py`)
+3. HTML 재생성(`python3 <SKILLS_DIR>/scan-report/md_to_html.py`)
 4. 링크 검증 재실행 → LINK OK 확인 후 Step 5로 진행
 
 ### Step 5: 정량적 검증 (자동화 필수)
 
 **[필수]** 보고서 생성 후, 검증 스크립트를 실행한다. 자율적 판단으로 검증을 대체하지 않는다. PASS를 반환할 때까지 Step 6으로 진행하지 않는다.
 
-**검증 스크립트:** `~/.claude/skills/scan-report/validate_report.py`를 사용한다.
+**검증 스크립트:** `<SKILLS_DIR>/scan-report/validate_report.py`를 사용한다.
 
 **실행:**
 ```bash
-python3 ~/.claude/skills/scan-report/validate_report.py [확인됨+후보 건수]
+python3 <SKILLS_DIR>/scan-report/validate_report.py [확인됨+후보 건수]
 ```
 
 **동작:**
