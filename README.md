@@ -234,7 +234,7 @@ Phase 1 후보가 2건 이상이면 `chain-analysis` 스킬이 실행됩니다:
 각 스캐너는 동일한 디렉토리 구조를 따릅니다:
 
 ```
-~/.claude/skills/{scanner-name}/
+noah-sast/scanners/{scanner-name}/
 ├── SKILL.md       # 스캐너 정의 (frontmatter에 grep_patterns 포함)
 ├── phase1.md      # 정적 분석 지침 (Sink 목록, 판정 기준, 안전 패턴)
 └── phase2.md      # 동적 테스트 지침 (테스트 절차, 도구, 판정 기준)
@@ -368,14 +368,12 @@ flowchart TD
     style Check fill:#533483,stroke:#533483,color:#fff
 ```
 
-### 개별 스캐너 실행
+### 설치
 
-특정 취약점만 점검하고 싶을 때:
+`skills/noah-sast/` 디렉토리를 `~/.claude/skills/` 또는 프로젝트의 `.claude/skills/`에 복사합니다:
 
-```
-XSS 취약점 찾아줘
-SSRF 스캔해줘
-SQL injection 점검
+```bash
+cp -r skills/noah-sast ~/.claude/skills/
 ```
 
 ---
@@ -383,30 +381,32 @@ SQL injection 점검
 ## 디렉토리 구조
 
 ```
-~/.claude/skills/
-├── noah-sast/                       # 통합 오케스트레이터
-│   ├── SKILL.md                     # 전체 프로세스 정의
-│   ├── scanner-selector.py          # 스캐너 자동 선별 스크립트
-│   ├── agent-guidelines-phase1.md   # 정적 분석 공통 지침
-│   └── agent-guidelines-phase2.md   # 동적 분석 공통 지침
+~/.claude/skills/noah-sast/
+├── SKILL.md                          # 통합 오케스트레이터
+├── scanner-selector.py               # 스캐너 자동 선별 스크립트
+├── agent-guidelines.md               # 공통 지침 (Phase별 분기)
+├── agent-guidelines-phase1.md        # 정적 분석 공통 지침
+├── agent-guidelines-phase2.md        # 동적 분석 공통 지침
 │
-├── scan-report/                     # 보고서 생성
-│   ├── SKILL.md                     # 보고서 작성 프로세스
-│   ├── assemble_report.py           # MD 조립 스크립트
-│   ├── md_to_html.py                # HTML 변환기
-│   ├── validate_links.py            # 앵커 링크 검증
-│   └── validate_report.py           # 정량 검증
+├── scanners/                         # 35개 취약점 스캐너
+│   ├── xss-scanner/
+│   │   ├── SKILL.md                  # grep_patterns + 설명
+│   │   ├── phase1.md                 # 정적 분석 지침
+│   │   └── phase2.md                 # 동적 테스트 지침
+│   ├── sqli-scanner/
+│   └── ... (35개)
 │
-├── scan-report-review/              # 보고서 정확성 검증
-│   └── SKILL.md
-│
-├── chain-analysis/                  # 연계 분석
-│   └── SKILL.md
-│
-├── xss-scanner/                     # 개별 스캐너 (35개)
-│   ├── SKILL.md                     # grep_patterns + 설명
-│   ├── phase1.md                    # 정적 분석 지침
-│   └── phase2.md                    # 동적 테스트 지침
-│
-└── ... (34개 추가 스캐너)
+└── utils/                            # 보고서·분석·테스트 도구
+    ├── scan-report/
+    │   ├── SKILL.md                  # 보고서 작성 프로세스
+    │   ├── assemble_report.py        # MD 조립 스크립트
+    │   ├── md_to_html.py             # HTML 변환기
+    │   ├── validate_links.py         # 앵커 링크 검증
+    │   └── validate_report.py        # 정량 검증
+    ├── scan-report-review/
+    │   └── SKILL.md                  # 보고서 정확성 검증
+    ├── chain-analysis/
+    │   └── SKILL.md                  # 연계 분석
+    └── webapp-testing/
+        └── SKILL.md                  # Playwright 동적 테스트 도구
 ```
