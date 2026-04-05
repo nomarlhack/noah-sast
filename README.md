@@ -383,13 +383,14 @@ cp -r skills/noah-sast ~/.claude/skills/
 ```
 ~/.claude/skills/noah-sast/
 ├── SKILL.md                          # 통합 오케스트레이터
+├── grep-patterns.yml                 # 35개 스캐너 grep 패턴 통합
 ├── scanner-selector.py               # 스캐너 자동 선별 스크립트
 ├── agent-guidelines-phase1.md        # 정적 분석 공통 지침
 ├── agent-guidelines-phase2.md        # 동적 분석 공통 지침
 │
 ├── scanners/                         # 35개 취약점 스캐너
 │   ├── xss-scanner/
-│   │   ├── SKILL.md                  # grep_patterns + 설명
+│   │   ├── SKILL.md                  # 스캐너 설명 + 분석 원칙
 │   │   ├── phase1.md                 # 정적 분석 지침
 │   │   └── phase2.md                 # 동적 테스트 지침
 │   ├── sqli-scanner/
