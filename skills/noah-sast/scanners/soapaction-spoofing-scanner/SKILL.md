@@ -1,6 +1,4 @@
 ---
-name: soapaction-spoofing-scanner
-description: "소스코드 분석과 동적 테스트를 통해 SOAPAction Spoofing 취약점을 탐지하는 스킬. SOAP 웹 서비스에서 SOAPAction 헤더와 실제 SOAP Body의 오퍼레이션이 불일치할 때 인증/인가를 우회할 수 있는지 분석하고 검증한다. 사용자가 'SOAPAction spoofing', 'SOAPAction 변조', 'SOAP 취약점', 'WS-Security 우회', 'SOAP audit', 'SOAP 점검' 등을 요청할 때 이 스킬을 사용한다."
 grep_patterns:
   - "SOAPAction"
   - "@WebService"
@@ -67,5 +65,3 @@ SOAP 1.2에서는 `Content-Type: application/soap+xml; action="..."` 형태로 A
 1. **Phase 1 (소스코드 분석)**: `phase1.md` 참조
 2. **Phase 2 (동적 테스트)**: `phase2.md` 참조
 
-개별 실행 시, 이 디렉토리의 `phase1.md`와 `phase2.md`를 순서대로 읽고 수행한다.
-공통 유의사항은 `../../agent-guidelines.md` (이 파일 기준 상대 경로)를 참조한다.

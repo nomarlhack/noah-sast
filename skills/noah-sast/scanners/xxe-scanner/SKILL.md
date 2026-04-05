@@ -1,6 +1,4 @@
 ---
-name: xxe-scanner
-description: "소스코드 분석과 동적 테스트를 통해 XXE(XML External Entity) 취약점을 탐지하는 스킬. XML 파서가 외부 엔티티를 처리하도록 설정되어 있는지 분석하고, 실제로 외부 엔티티를 통해 파일 읽기나 SSRF가 가능한지 검증한다. 사용자가 'XXE 찾아줘', 'XXE 스캔', 'XML external entity', 'XXE injection', 'XXE 점검', 'XML 파싱 취약점' 등을 요청할 때 이 스킬을 사용한다."
 grep_patterns:
   - "Nokogiri"
   - "REXML"
@@ -51,5 +49,3 @@ grep_patterns:
 1. **Phase 1 (소스코드 분석)**: `phase1.md` 참조
 2. **Phase 2 (동적 테스트)**: `phase2.md` 참조
 
-개별 실행 시, 이 디렉토리의 `phase1.md`와 `phase2.md`를 순서대로 읽고 수행한다.
-공통 유의사항은 `../../agent-guidelines.md` (이 파일 기준 상대 경로)를 참조한다.

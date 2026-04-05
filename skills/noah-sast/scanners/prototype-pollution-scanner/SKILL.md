@@ -1,6 +1,4 @@
 ---
-name: prototype-pollution-scanner
-description: "소스코드 분석과 동적 테스트를 통해 Prototype Pollution 취약점을 탐지하는 스킬. 사용자 입력이 객체의 프로토타입 체인을 오염시켜 애플리케이션 동작을 변조하거나, 이를 가젯(gadget)과 연결하여 XSS/RCE 등으로 이어질 수 있는지 분석하고 검증한다. 사용자가 'prototype pollution 찾아줘', '프로토타입 오염', 'prototype pollution 스캔', '__proto__ 취약점', 'constructor pollution', 'prototype pollution audit', '프로토타입 체인 오염' 등을 요청할 때 이 스킬을 사용한다."
 grep_patterns:
   - "__proto__"
   - "constructor\\.prototype"
@@ -60,5 +58,3 @@ Prototype Pollution 자체는 속성 추가/변경이지만, 이를 활용하는
 1. **Phase 1 (소스코드 분석)**: `phase1.md` 참조
 2. **Phase 2 (동적 테스트)**: `phase2.md` 참조
 
-개별 실행 시, 이 디렉토리의 `phase1.md`와 `phase2.md`를 순서대로 읽고 수행한다.
-공통 유의사항은 `../../agent-guidelines.md` (이 파일 기준 상대 경로)를 참조한다.

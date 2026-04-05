@@ -1,6 +1,4 @@
 ---
-name: css-injection-scanner
-description: "소스코드 분석과 동적 테스트를 통해 CSS Injection 취약점을 탐지하는 스킬. 사용자 입력이 CSS 스타일에 반영되는 경로를 추적하고, 실제로 CSS를 조작하여 데이터 탈취나 UI 변조가 가능한지 검증한다. 사용자가 'CSS injection 찾아줘', 'CSS 인젝션 스캔', 'style injection', '스타일 인젝션', 'CSS 점검', 'CSS injection audit' 등을 요청할 때 이 스킬을 사용한다."
 grep_patterns:
   - "style="
   - "cssText"
@@ -62,5 +60,3 @@ CSS를 조작하여 버튼이나 링크의 위치를 변경하거나, 투명한 
 1. **Phase 1 (소스코드 분석)**: `phase1.md` 참조
 2. **Phase 2 (동적 테스트)**: `phase2.md` 참조
 
-개별 실행 시, 이 디렉토리의 `phase1.md`와 `phase2.md`를 순서대로 읽고 수행한다.
-공통 유의사항은 `../../agent-guidelines.md` (이 파일 기준 상대 경로)를 참조한다.

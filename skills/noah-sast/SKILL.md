@@ -31,7 +31,6 @@ fi
 ```
 <NOAH_SAST_DIR>/
   SKILL.md                          ← 이 파일 (오케스트레이터)
-  agent-guidelines.md
   agent-guidelines-phase1.md
   agent-guidelines-phase2.md
   scanner-selector.py

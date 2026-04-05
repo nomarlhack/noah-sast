@@ -1,6 +1,4 @@
 ---
-name: http-smuggling-scanner
-description: "소스코드 분석과 동적 테스트를 통해 HTTP Request Smuggling 취약점을 탐지하는 스킬. 프론트엔드(프록시/로드밸런서)와 백엔드 서버 간의 Content-Length / Transfer-Encoding 헤더 해석 차이를 분석하고, 실제로 요청 경계 불일치를 통해 요청을 밀수(smuggle)할 수 있는지 검증한다. 사용자가 'HTTP smuggling', 'request smuggling', 'CL.TE', 'TE.CL', 'HTTP desync', 'HTTP 스머글링', 'HTTP 요청 밀수' 등을 요청할 때 이 스킬을 사용한다."
 grep_patterns:
   - "Transfer-Encoding"
   - "Content-Length"
@@ -42,5 +40,3 @@ grep_patterns:
 1. **Phase 1 (소스코드 분석)**: `phase1.md` 참조
 2. **Phase 2 (동적 테스트)**: `phase2.md` 참조
 
-개별 실행 시, 이 디렉토리의 `phase1.md`와 `phase2.md`를 순서대로 읽고 수행한다.
-공통 유의사항은 `../../agent-guidelines.md` (이 파일 기준 상대 경로)를 참조한다.

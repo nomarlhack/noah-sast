@@ -1,6 +1,4 @@
 ---
-name: zipslip-scanner
-description: "소스코드 분석과 동적 테스트를 통해 Zip Slip(Archive Path Traversal) 취약점을 탐지하는 스킬. 압축 파일(ZIP, TAR, JAR 등) 해제 시 엔트리 경로에 대한 검증이 누락되어 의도하지 않은 디렉토리에 파일이 덮어쓰여질 수 있는지 분석하고 검증한다. 사용자가 'Zip Slip 찾아줘', 'ZipSlip 스캔', 'archive path traversal', '압축 해제 취약점', 'Zip Slip audit', 'tar slip', 'zip 경로 조작' 등을 요청할 때 이 스킬을 사용한다."
 grep_patterns:
   - "adm-zip"
   - "unzipper"
@@ -57,5 +55,3 @@ data/report.csv → /tmp/extract/data/report.csv
 1. **Phase 1 (소스코드 분석)**: `phase1.md` 참조
 2. **Phase 2 (동적 테스트)**: `phase2.md` 참조
 
-개별 실행 시, 이 디렉토리의 `phase1.md`와 `phase2.md`를 순서대로 읽고 수행한다.
-공통 유의사항은 `../../agent-guidelines.md` (이 파일 기준 상대 경로)를 참조한다.

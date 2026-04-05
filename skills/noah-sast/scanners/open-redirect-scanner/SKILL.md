@@ -1,6 +1,4 @@
 ---
-name: open-redirect-scanner
-description: "소스코드 분석과 동적 테스트를 통해 Open Redirect 취약점을 탐지하는 스킬. 사용자 입력이 리다이렉트 대상 URL에 반영되는 경로를 추적하고, 실제로 외부 도메인으로 리다이렉트가 발생하는지 검증한다. 사용자가 '오픈리다이렉트 찾아줘', 'open redirect 스캔', '리다이렉트 취약점', 'URL 리다이렉션 점검', 'open redirect audit' 등을 요청할 때 이 스킬을 사용한다."
 grep_patterns:
   - "res\\.redirect("
   - "res\\.writeHead("
@@ -56,5 +54,3 @@ grep_patterns:
 1. **Phase 1 (소스코드 분석)**: `phase1.md` 참조
 2. **Phase 2 (동적 테스트)**: `phase2.md` 참조
 
-개별 실행 시, 이 디렉토리의 `phase1.md`와 `phase2.md`를 순서대로 읽고 수행한다.
-공통 유의사항은 `../../agent-guidelines.md` (이 파일 기준 상대 경로)를 참조한다.

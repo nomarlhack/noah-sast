@@ -384,7 +384,6 @@ cp -r skills/noah-sast ~/.claude/skills/
 ~/.claude/skills/noah-sast/
 ├── SKILL.md                          # 통합 오케스트레이터
 ├── scanner-selector.py               # 스캐너 자동 선별 스크립트
-├── agent-guidelines.md               # 공통 지침 (Phase별 분기)
 ├── agent-guidelines-phase1.md        # 정적 분석 공통 지침
 ├── agent-guidelines-phase2.md        # 동적 분석 공통 지침
 │

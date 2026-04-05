@@ -1,6 +1,4 @@
 ---
-name: dom-xss-scanner
-description: "클라이언트사이드 소스(location.hash, window.name, postMessage 등)에서 DOM Sink로 이어지는 DOM-based XSS 취약점을 탐지하는 스킬. 서버를 경유하지 않는 순수 클라이언트사이드 공격 경로만 다루며, Playwright로만 검증한다. xss-scanner가 커버하는 Reflected/Stored XSS는 이 스킬의 범위가 아니다."
 grep_patterns:
   - "location\\.hash"
   - "location\\.search"
@@ -53,5 +51,3 @@ grep_patterns:
 1. **Phase 1 (소스코드 분석)**: `phase1.md` 참조
 2. **Phase 2 (동적 테스트)**: `phase2.md` 참조
 
-개별 실행 시, 이 디렉토리의 `phase1.md`와 `phase2.md`를 순서대로 읽고 수행한다.
-공통 유의사항은 `../../agent-guidelines.md` (이 파일 기준 상대 경로)를 참조한다.

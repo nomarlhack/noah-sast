@@ -1,6 +1,4 @@
 ---
-name: ssrf-scanner
-description: "소스코드 분석과 동적 테스트를 통해 SSRF(Server-Side Request Forgery) 취약점을 탐지하는 스킬. 사용자 입력이 서버사이드 HTTP 요청의 URL에 반영되는 경로를 추적하고, 실제로 내부 네트워크나 임의 외부 호스트로 요청이 발생하는지 검증한다. 사용자가 'SSRF 취약점 찾아줘', 'SSRF 스캔', 'SSRF 점검', 'ssrf audit', 'ssrf 검사', '서버사이드 요청 위조' 등을 요청할 때 이 스킬을 사용한다."
 grep_patterns:
   - "axios"
   - "node-fetch"
@@ -62,5 +60,3 @@ URL의 일부(호스트명, 경로, 포트 등)만 제어 가능한 경우. URL 
 1. **Phase 1 (소스코드 분석)**: `phase1.md` 참조
 2. **Phase 2 (동적 테스트)**: `phase2.md` 참조
 
-개별 실행 시, 이 디렉토리의 `phase1.md`와 `phase2.md`를 순서대로 읽고 수행한다.
-공통 유의사항은 `../../agent-guidelines.md` (이 파일 기준 상대 경로)를 참조한다.

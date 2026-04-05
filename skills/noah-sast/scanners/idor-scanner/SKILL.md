@@ -1,6 +1,4 @@
 ---
-name: idor-scanner
-description: "소스코드 분석과 동적 테스트를 통해 IDOR(Insecure Direct Object Reference) 취약점을 탐지하는 스킬. 사용자가 제공한 객체 식별자(ID, UUID 등)로 다른 사용자의 리소스에 접근할 수 있는지 분석하고 검증한다. 사용자가 'IDOR 찾아줘', 'IDOR 스캔', '권한 검증 미흡', '접근 제어 점검', 'broken access control', '인가 우회', '타인 데이터 접근', 'IDOR audit' 등을 요청할 때 이 스킬을 사용한다."
 grep_patterns:
   # 엔드포인트 파라미터 (식별자 수신 지점)
   - "@PathVariable"
@@ -52,5 +50,3 @@ grep_patterns:
 1. **Phase 1 (소스코드 분석)**: `phase1.md` 참조
 2. **Phase 2 (동적 테스트)**: `phase2.md` 참조
 
-개별 실행 시, 이 디렉토리의 `phase1.md`와 `phase2.md`를 순서대로 읽고 수행한다.
-공통 유의사항은 `../../agent-guidelines.md` (이 파일 기준 상대 경로)를 참조한다.

@@ -1,6 +1,4 @@
 ---
-name: xss-scanner
-description: "소스코드 분석과 동적 테스트를 통해 XSS(Cross-Site Scripting) 취약점을 탐지하는 스킬. Reflected, Stored, DOM-based XSS를 모두 커버하며, 실제 스크립트 실행이 확인된 취약점만 보고한다. 사용자가 'XSS 취약점 찾아줘', 'XSS 스캔', 'XSS 점검', '크로스사이트 스크립팅', 'XSS audit' 등을 요청할 때 이 스킬을 사용한다."
 grep_patterns:
   - "innerHTML"
   - "dangerouslySetInnerHTML"
@@ -45,5 +43,3 @@ grep_patterns:
 1. **Phase 1 (소스코드 분석)**: `phase1.md` 참조
 2. **Phase 2 (동적 테스트)**: `phase2.md` 참조
 
-개별 실행 시, 이 디렉토리의 `phase1.md`와 `phase2.md`를 순서대로 읽고 수행한다.
-공통 유의사항은 `../../agent-guidelines.md` (이 파일 기준 상대 경로)를 참조한다.

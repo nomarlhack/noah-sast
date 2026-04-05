@@ -1,6 +1,4 @@
 ---
-name: file-upload-scanner
-description: "소스코드 분석과 동적 테스트를 통해 File Upload 취약점을 탐지하는 스킬. 파일 업로드 기능에서 파일 유형/확장자/크기 검증이 누락되어 웹셸이나 악성 파일이 업로드·실행될 수 있는지 분석하고 검증한다. 사용자가 '파일 업로드 취약점 찾아줘', 'file upload 스캔', '업로드 취약점 점검', '웹셸 업로드', 'unrestricted file upload', '파일 업로드 audit' 등을 요청할 때 이 스킬을 사용한다."
 grep_patterns:
   - "multer"
   - "formidable"
@@ -56,5 +54,3 @@ HTML/SVG 파일을 업로드하고 같은 도메인에서 서빙되어 Stored XS
 1. **Phase 1 (소스코드 분석)**: `phase1.md` 참조
 2. **Phase 2 (동적 테스트)**: `phase2.md` 참조
 
-개별 실행 시, 이 디렉토리의 `phase1.md`와 `phase2.md`를 순서대로 읽고 수행한다.
-공통 유의사항은 `../../agent-guidelines.md` (이 파일 기준 상대 경로)를 참조한다.

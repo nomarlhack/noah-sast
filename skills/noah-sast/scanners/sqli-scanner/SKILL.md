@@ -1,6 +1,4 @@
 ---
-name: sqli-scanner
-description: "소스코드 분석과 동적 테스트를 통해 SQL Injection 취약점을 탐지하는 스킬. 사용자 입력이 SQL 쿼리에 반영되는 경로를 추적하고, 실제로 쿼리 구조를 변경하여 의도하지 않은 데이터를 조회하거나 조작할 수 있는지 검증한다. 사용자가 'SQL injection 찾아줘', 'SQLi 스캔', 'SQL 인젝션 점검', 'sqli audit', 'SQL 삽입 취약점', 'blind sql injection' 등을 요청할 때 이 스킬을 사용한다."
 grep_patterns:
   - "connection\\.query("
   - "sequelize\\.query("
@@ -51,5 +49,3 @@ ORM(Sequelize, TypeORM, Prisma, Django ORM 등)을 사용하는 코드는 기본
 1. **Phase 1 (소스코드 분석)**: `phase1.md` 참조
 2. **Phase 2 (동적 테스트)**: `phase2.md` 참조
 
-개별 실행 시, 이 디렉토리의 `phase1.md`와 `phase2.md`를 순서대로 읽고 수행한다.
-공통 유의사항은 `../../agent-guidelines.md` (이 파일 기준 상대 경로)를 참조한다.
