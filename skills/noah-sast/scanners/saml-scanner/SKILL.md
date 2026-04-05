@@ -1,16 +1,3 @@
----
-grep_patterns:
-  - "saml"
-  - "SAML"
-  - "omniauth-saml"
-  - "ruby-saml"
-  - "passport-saml"
-  - "python-saml"
-  - "onelogin"
-  - "SAMLResponse"
-  - "ds:Signature"
-  - "ACS"
----
 
 # SAML Scanner
 

@@ -1,33 +1,3 @@
----
-grep_patterns:
-  - "res\\.redirect("
-  - "res\\.writeHead("
-  - "HttpResponseRedirect("
-  - "redirect("
-  - "redirect_to"
-  - "redirect_back"
-  - "header('Location"
-  - "window\\.location\\.href\\s*="
-  - "window\\.location\\.replace("
-  - "window\\.location\\.assign("
-  - "window\\.location\\s*="
-  - "location\\.href\\s*="
-  - "window\\.open("
-  - "router\\.push("
-  - "router\\.replace("
-  - "navigate("
-  - "webview_mount("
-  - "webview_load("
-  - "postMessage("
-  # Source patterns
-  - "searchParams\\.get("
-  - "useParams("
-  - "useSearchParams"
-  - "@RequestParam"
-  - "@PathVariable"
-  - "req\\.query"
-  - "req\\.params"
----
 
 # Open Redirect Scanner
 

@@ -1,36 +1,3 @@
----
-grep_patterns:
-  - "axios"
-  - "node-fetch"
-  - "http\\.get("
-  - "https\\.get("
-  - "http\\.request("
-  - "urllib"
-  - "httpx"
-  - "aiohttp"
-  - "HttpURLConnection"
-  - "RestTemplate"
-  - "WebClient"
-  - "Net::HTTP"
-  - "open-uri"
-  - "HTTParty"
-  - "Faraday"
-  - "RestClient"
-  - "http-proxy-middleware"
-  - "requests\\.get("
-  - "requests\\.post("
-  - "OkHttpClient"
-  - "Retrofit"
-  - "HttpClient"
-  - "fetch("
-  - "got("
-  # Source patterns
-  - "searchParams\\.get("
-  - "@RequestParam"
-  - "@RequestBody"
-  - "req\\.query"
-  - "req\\.body"
----
 
 # SSRF Scanner
 

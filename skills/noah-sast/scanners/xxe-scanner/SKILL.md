@@ -1,22 +1,3 @@
----
-grep_patterns:
-  - "Nokogiri"
-  - "REXML"
-  - "xml2js"
-  - "libxmljs"
-  - "xmldom"
-  - "fast-xml-parser"
-  - "DocumentBuilderFactory"
-  - "SAXParserFactory"
-  - "XMLInputFactory"
-  - "simplexml_load_string"
-  - "DOMDocument"
-  - "lxml\\.etree"
-  - "xml\\.etree"
-  - "noent"
-  - "resolve_entities"
-  - "parseXML"
----
 
 # XXE Scanner
 

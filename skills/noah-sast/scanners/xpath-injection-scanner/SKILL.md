@@ -1,16 +1,3 @@
----
-grep_patterns:
-  - "\\.xpath("
-  - "XPath\\.evaluate("
-  - "XPath\\.compile("
-  - "DOMXPath::query("
-  - "DOMXPath::evaluate("
-  - "SimpleXMLElement::xpath("
-  - "Nokogiri.*xpath"
-  - "REXML::XPath"
-  - "lxml\\.etree\\.xpath"
-  - "XPathFactory"
----
 
 # XPath Injection Scanner
 

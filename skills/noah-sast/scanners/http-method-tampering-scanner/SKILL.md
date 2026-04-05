@@ -1,16 +1,3 @@
----
-grep_patterns:
-  - "method-override"
-  - "X-HTTP-Method-Override"
-  - "X-Method-Override"
-  - "_method"
-  - "app\\.all("
-  - "Rack::MethodOverride"
-  - "limit_except"
-  - "<Limit"
-  - "<LimitExcept"
-  - "http_method_names"
----
 
 # HTTP Method Tampering Scanner
 

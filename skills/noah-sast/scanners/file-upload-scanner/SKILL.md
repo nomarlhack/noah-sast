@@ -1,24 +1,3 @@
----
-grep_patterns:
-  - "multer"
-  - "formidable"
-  - "busboy"
-  - "multiparty"
-  - "express-fileupload"
-  - "FileField"
-  - "ImageField"
-  - "request\\.files"
-  - "UploadFile"
-  - "MultipartFile"
-  - "move_uploaded_file"
-  - "ActiveStorage"
-  - "CarrierWave"
-  - "Shrine"
-  - "multipart/form-data"
-  - "content_type"
-  - "@RequestPart"
-  - "contentType"
----
 
 # File Upload Scanner
 

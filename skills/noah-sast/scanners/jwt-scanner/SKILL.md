@@ -1,27 +1,3 @@
----
-grep_patterns:
-  - "jwt\\.verify("
-  - "jwt\\.decode("
-  - "jwt\\.sign("
-  - "JWT\\.decode("
-  - "JWT\\.encode("
-  - "jsonwebtoken"
-  - "express-jwt"
-  - "passport-jwt"
-  - "PyJWT"
-  - "python-jose"
-  - "ruby-jwt"
-  - "firebase/php-jwt"
-  - "ignoreExpiration"
-  - "algorithms.*none"
-  - "bearer"
-  - "ExpiredJwtException"
-  - "ExpiredSignatureError"
-  - "TokenExpiredError"
-  - "ExpiredSignature"
-  - "parseClaimsJwt"
-  - "verify_signature.*false"
----
 
 # JWT Scanner
 

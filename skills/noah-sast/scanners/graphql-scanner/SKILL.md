@@ -1,19 +1,3 @@
----
-grep_patterns:
-  - "graphql"
-  - "GraphQL"
-  - "apollo-server"
-  - "express-graphql"
-  - "graphql-yoga"
-  - "graphene"
-  - "strawberry"
-  - "ariadne"
-  - "graphql-java"
-  - "graphql-ruby"
-  - "__schema"
-  - "introspection"
-  - "/graphql"
----
 
 # GraphQL Scanner
 

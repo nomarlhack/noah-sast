@@ -1,25 +1,3 @@
----
-grep_patterns:
-  - "\\.test("
-  - "\\.match("
-  - "new RegExp("
-  - "re\\.match("
-  - "re\\.search("
-  - "re\\.findall("
-  - "Pattern\\.compile("
-  - "String\\.matches("
-  - "String\\.replaceAll("
-  - "=~"
-  - "\\.scan("
-  - "Regexp\\.new("
-  - "\\.toRegex("
-  - "\\.replace("
-  # Source patterns
-  - "@RequestParam"
-  - "@RequestBody"
-  - "req\\.query"
-  - "req\\.body"
----
 
 # ReDoS Scanner
 

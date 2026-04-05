@@ -1,19 +1,3 @@
----
-grep_patterns:
-  - "oauth"
-  - "OAuth"
-  - "omniauth"
-  - "authorization_code"
-  - "access_token"
-  - "redirect_uri"
-  - "client_secret"
-  - "code_verifier"
-  - "code_challenge"
-  - "passport-oauth"
-  - "openid-client"
-  - "next-auth"
-  - "authlib"
----
 
 # OAuth Scanner
 

@@ -1,17 +1,3 @@
----
-grep_patterns:
-  - "wkhtmltopdf"
-  - "puppeteer"
-  - "WeasyPrint"
-  - "PDFKit"
-  - "prawn"
-  - "html-pdf"
-  - "pdf-creator-node"
-  - "pdfmake"
-  - "html.*pdf"
-  - "pdf.*generat"
-  - "playwright.*pdf"
----
 
 # PDF Generation Scanner
 

@@ -1,21 +1,3 @@
----
-grep_patterns:
-  - "adm-zip"
-  - "unzipper"
-  - "unzip-stream"
-  - "yauzl"
-  - "decompress"
-  - "zipfile\\.extractall("
-  - "zipfile\\.extract("
-  - "tarfile\\.extractall("
-  - "ZipInputStream"
-  - "ZipFile"
-  - "ZipArchive::extractTo("
-  - "extractAllTo("
-  - "extractEntryTo("
-  - "Zip::"
-  - "tar\\.extract"
----
 
 # Zip Slip Scanner
 

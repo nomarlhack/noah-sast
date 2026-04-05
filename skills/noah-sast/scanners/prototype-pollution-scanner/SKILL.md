@@ -1,20 +1,3 @@
----
-grep_patterns:
-  - "__proto__"
-  - "constructor\\.prototype"
-  - "merge("
-  - "extend("
-  - "deepMerge("
-  - "deepCopy("
-  - "defaultsDeep("
-  - "lodash\\.merge"
-  - "lodash\\.set"
-  - "jQuery\\.extend"
-  - "Object\\.assign("
-  - "dot-prop"
-  - "set-value"
-  - "object-path"
----
 
 # Prototype Pollution Scanner
 

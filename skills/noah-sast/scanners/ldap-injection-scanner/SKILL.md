@@ -1,19 +1,3 @@
----
-grep_patterns:
-  - "ldapjs"
-  - "activedirectory2"
-  - "passport-ldapauth"
-  - "python-ldap"
-  - "ldap3"
-  - "django-auth-ldap"
-  - "DirContext\\.search("
-  - "LdapTemplate\\.search("
-  - "Net::LDAP"
-  - "ldap_search("
-  - "ldap_bind("
-  - "ldap"
-  - "LDAP"
----
 
 # LDAP Injection Scanner
 

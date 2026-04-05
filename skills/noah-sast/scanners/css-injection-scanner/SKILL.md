@@ -1,18 +1,3 @@
----
-grep_patterns:
-  - "style="
-  - "cssText"
-  - "insertRule("
-  - "setAttribute.*style"
-  - "document\\.styleSheets"
-  - "CSSStyleDeclaration"
-  - "style\\s*\\+\\s*="
-  - "\\[style\\]"
-  # Source patterns
-  - "searchParams\\.get("
-  - "@RequestParam"
-  - "req\\.query"
----
 
 # CSS Injection Scanner
 

@@ -1,25 +1,3 @@
----
-grep_patterns:
-  - "pickle\\.loads("
-  - "pickle\\.load("
-  - "yaml\\.load("
-  - "Marshal\\.load("
-  - "unserialize("
-  - "ObjectInputStream"
-  - "readObject("
-  - "XMLDecoder"
-  - "XStream\\.fromXML("
-  - "BinaryFormatter"
-  - "node-serialize"
-  - "cryo\\.parse("
-  - "jsonpickle\\.decode("
-  - "maybe_unserialize("
-  - "shelve\\.open("
-  - "activateDefaultTyping"
-  - "enableDefaultTyping"
-  - "@JsonTypeInfo"
-  - "GenericJackson2JsonRedisSerializer"
----
 
 # Deserialization Scanner
 

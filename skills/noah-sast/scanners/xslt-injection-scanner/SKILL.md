@@ -1,18 +1,3 @@
----
-grep_patterns:
-  - "TransformerFactory"
-  - "XSLTProcessor"
-  - "lxml\\.etree\\.XSLT"
-  - "Nokogiri::XSLT"
-  - "xslt-processor"
-  - "XslCompiledTransform"
-  - "registerPHPFunctions"
-  - "XsltSettings"
-  - "saxon"
-  - "Xalan"
-  - "XSLT"
-  - "xslt"
----
 
 # XSLT Injection Scanner
 

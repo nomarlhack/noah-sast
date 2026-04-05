@@ -1,32 +1,3 @@
----
-grep_patterns:
-  - "location\\.hash"
-  - "location\\.search"
-  - "document\\.referrer"
-  - "window\\.name"
-  - "addEventListener.*message"
-  - "onmessage"
-  - "localStorage\\.getItem"
-  - "sessionStorage\\.getItem"
-  - "\\.innerHTML"
-  - "\\.outerHTML"
-  - "document\\.write"
-  - "\\beval("
-  - "setTimeout("
-  - "setInterval("
-  - "new Function("
-  - "insertAdjacentHTML"
-  - "\\.html("
-  - "\\.append("
-  - "\\.prepend("
-  - "location\\.href\\s*="
-  - "location\\.assign("
-  - "location\\.replace("
-  # Source patterns
-  - "searchParams\\.get("
-  - "useParams("
-  - "useSearchParams"
----
 
 # DOM XSS Scanner
 

@@ -1,21 +1,3 @@
----
-grep_patterns:
-  - "SOAPAction"
-  - "@WebService"
-  - "@WebMethod"
-  - "Apache CXF"
-  - "Apache Axis"
-  - "@Endpoint"
-  - "@PayloadRoot"
-  - "zeep"
-  - "spyne"
-  - "SoapServer"
-  - "wsdl"
-  - "WSDL"
-  - "savon"
-  - "soap"
-  - "SOAP"
----
 
 # SOAPAction Spoofing Scanner
 

@@ -1,19 +1,3 @@
----
-grep_patterns:
-  - "\\.github\\.io"
-  - "\\.s3\\.amazonaws\\.com"
-  - "\\.s3-website"
-  - "\\.herokuapp\\.com"
-  - "\\.herokudns\\.com"
-  - "\\.azurewebsites\\.net"
-  - "\\.cloudapp\\.azure\\.com"
-  - "\\.blob\\.core\\.windows\\.net"
-  - "\\.cloudfront\\.net"
-  - "aws_route53_record"
-  - "cloudflare_record"
-  - "CNAME"
-  - "github\\.io"
----
 
 # Subdomain Takeover Scanner
 

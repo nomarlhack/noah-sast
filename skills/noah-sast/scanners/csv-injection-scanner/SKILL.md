@@ -1,20 +1,3 @@
----
-grep_patterns:
-  - "json2csv"
-  - "csv-stringify"
-  - "csv-writer"
-  - "exceljs"
-  - "xlsx"
-  - "csv\\.writer"
-  - "pandas\\.to_csv("
-  - "openpyxl"
-  - "xlsxwriter"
-  - "fputcsv("
-  - "text/csv"
-  - "format\\.csv"
-  - "CSV\\.generate"
-  - "CSV\\.open"
----
 
 # CSV Injection Scanner
 

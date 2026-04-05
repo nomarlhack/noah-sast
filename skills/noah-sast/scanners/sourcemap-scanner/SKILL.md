@@ -1,15 +1,3 @@
----
-grep_patterns:
-  - "devtool"
-  - "sourcemap"
-  - "source-map"
-  - "productionBrowserSourceMaps"
-  - "productionSourceMap"
-  - "GENERATE_SOURCEMAP"
-  - "sourceMappingURL"
-  - "build\\.sourcemap"
-  - "webpack"
----
 
 # Source Map Scanner
 

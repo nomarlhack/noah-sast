@@ -1,15 +1,3 @@
----
-grep_patterns:
-  - "Transfer-Encoding"
-  - "Content-Length"
-  - "chunked"
-  - "proxy_pass"
-  - "ProxyPass"
-  - "http-proxy-middleware"
-  - "proxy_http_version"
-  - "changeOrigin"
-  - "http-reuse"
----
 
 # HTTP Request Smuggling Scanner
 

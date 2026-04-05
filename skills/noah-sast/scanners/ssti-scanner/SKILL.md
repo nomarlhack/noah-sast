@@ -1,24 +1,3 @@
----
-grep_patterns:
-  - "ejs\\.render("
-  - "pug\\.render("
-  - "nunjucks\\.renderString("
-  - "render_template_string("
-  - "ERB\\.new("
-  - "Liquid::Template\\.parse"
-  - "Template("
-  - "renderString("
-  - "render_string("
-  - "template_string"
-  - "parseExpression("
-  - "SpelExpressionParser"
-  - "Freemarker"
-  # Source patterns
-  - "@RequestParam"
-  - "@RequestBody"
-  - "req\\.query"
-  - "req\\.body"
----
 
 # SSTI Scanner
 

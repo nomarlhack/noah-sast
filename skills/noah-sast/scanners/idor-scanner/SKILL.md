@@ -1,28 +1,3 @@
----
-grep_patterns:
-  # 엔드포인트 파라미터 (식별자 수신 지점)
-  - "@PathVariable"
-  - "@RequestParam"
-  - "@RequestBody"
-  - "req\\.params"
-  - "req\\.query"
-  - "request\\.args"
-  - "params\\[:"
-  # 데이터 접근 (식별자로 객체 조회)
-  - "findById"
-  - "findOne"
-  - "getById"
-  - "getOne"
-  - "findByPk"
-  - "Model\\.find("
-  - "repository\\."
-  # 접근 제어 설정
-  - "permitAll"
-  - "hasAnyRole"
-  - "@PreAuthorize"
-  - "@Secured"
-  - "authorize"
----
 
 # IDOR Scanner
 

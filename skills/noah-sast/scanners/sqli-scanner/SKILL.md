@@ -1,25 +1,3 @@
----
-grep_patterns:
-  - "connection\\.query("
-  - "sequelize\\.query("
-  - "knex\\.raw("
-  - "\\$queryRaw"
-  - "\\$queryRawUnsafe("
-  - "pool\\.query("
-  - "cursor\\.execute("
-  - "Model\\.objects\\.raw("
-  - "Model\\.objects\\.extra("
-  - "session\\.execute("
-  - "find_by_sql"
-  - "connection\\.execute"
-  - "db\\.run("
-  - "db\\.query("
-  - "prepareStatement"
-  - "createNativeQuery"
-  - "nativeQuery"
-  - "jdbcTemplate"
-  - "NamedParameterJdbcTemplate"
----
 
 # SQL Injection Scanner
 

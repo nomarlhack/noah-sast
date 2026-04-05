@@ -1,18 +1,3 @@
----
-grep_patterns:
-  - "csrf_exempt"
-  - "skip_before_action.*verify_authenticity_token"
-  - "csrf\\.disable"
-  - "csurf"
-  - "csrf-csrf"
-  - "csrf-sync"
-  - "protect_from_forgery"
-  - "SameSite"
-  - "X-CSRF-Token"
-  - "X-Requested-With"
-  - "verify_authenticity_token"
-  - "@csrf_exempt"
----
 
 # CSRF Scanner
 

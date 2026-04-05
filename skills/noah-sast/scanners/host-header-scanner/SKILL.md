@@ -1,23 +1,3 @@
----
-grep_patterns:
-  - "req\\.headers\\.host"
-  - "req\\.hostname"
-  - "req\\.get('host')"
-  - "request\\.get_host("
-  - "HTTP_HOST"
-  - "request\\.build_absolute_uri("
-  - "request\\.host"
-  - "request\\.getServerName("
-  - "X-Forwarded-For"
-  - "X-Real-IP"
-  - "X-Forwarded-Host"
-  - "remote_ip"
-  - "remote_addr"
-  - "REMOTE_ADDR"
-  - "getHeader("
-  - "request\\.remoteAddr"
-  - "X-Original-Forwarded-For"
----
 
 # Host Header Scanner
 

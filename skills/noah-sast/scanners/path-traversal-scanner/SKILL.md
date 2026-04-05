@@ -1,27 +1,3 @@
----
-grep_patterns:
-  - "fs\\.readFile"
-  - "fs\\.readFileSync"
-  - "fs\\.createReadStream"
-  - "path\\.join("
-  - "path\\.resolve("
-  - "fs\\.writeFile"
-  - "send_file"
-  - "render.*file:"
-  - "File\\.open"
-  - "File\\.read"
-  - "file_get_contents("
-  - "include("
-  - "require("
-  - "open("
-  - "readFile"
-  # Source patterns
-  - "searchParams\\.get("
-  - "@RequestParam"
-  - "@PathVariable"
-  - "req\\.query"
-  - "req\\.params"
----
 
 # Path Traversal Scanner
 

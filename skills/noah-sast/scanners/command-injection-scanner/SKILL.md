@@ -1,26 +1,3 @@
----
-grep_patterns:
-  - "child_process"
-  - "exec("
-  - "execSync("
-  - "spawn("
-  - "spawnSync("
-  - "os\\.system("
-  - "os\\.popen("
-  - "subprocess\\.call("
-  - "subprocess\\.run("
-  - "subprocess\\.Popen("
-  - "Runtime\\.getRuntime"
-  - "ProcessBuilder"
-  - "%x{"
-  - "shell: true"
-  - "shell=True"
-  # Source patterns
-  - "@RequestParam"
-  - "@RequestBody"
-  - "req\\.query"
-  - "req\\.body"
----
 
 # Command Injection Scanner
 

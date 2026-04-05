@@ -1,18 +1,3 @@
----
-grep_patterns:
-  - "collection\\.find("
-  - "collection\\.findOne("
-  - "Model\\.find("
-  - "Model\\.findOne("
-  - "\\$where"
-  - "\\$regex"
-  - "\\$ne"
-  - "\\$gt"
-  - "collection\\.aggregate("
-  - "client\\.eval("
-  - "mongoose"
-  - "mongodb"
----
 
 # NoSQL Injection Scanner
 

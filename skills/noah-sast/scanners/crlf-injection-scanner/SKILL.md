@@ -1,26 +1,3 @@
----
-grep_patterns:
-  - "res\\.setHeader("
-  - "res\\.writeHead("
-  - "res\\.header("
-  - "res\\.set("
-  - "res\\.cookie("
-  - "res\\.attachment("
-  - "response\\.headers\\["
-  - "response\\.set_cookie("
-  - "HttpResponseRedirect("
-  - "response\\.setHeader("
-  - "response\\.addHeader("
-  - "redirect_to"
-  - "cookies\\["
-  - "header("
-  - "setcookie("
-  # Source patterns
-  - "@RequestParam"
-  - "@RequestBody"
-  - "req\\.query"
-  - "req\\.body"
----
 
 # CRLF Injection Scanner
 

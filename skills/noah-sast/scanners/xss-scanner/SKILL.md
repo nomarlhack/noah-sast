@@ -1,27 +1,3 @@
----
-grep_patterns:
-  - "innerHTML"
-  - "dangerouslySetInnerHTML"
-  - "html_safe"
-  - "v-html"
-  - "\\.html("
-  - "outerHTML"
-  - "document\\.write"
-  - "insertAdjacentHTML"
-  - "\\beval("
-  - "raw("
-  - "<%=="
-  - "bypassSecurityTrustHtml"
-  - "\\[innerHTML\\]"
-  # Source patterns
-  - "searchParams\\.get("
-  - "useParams("
-  - "@RequestParam"
-  - "@PathVariable"
-  - "@RequestBody"
-  - "req\\.query"
-  - "req\\.body"
----
 
 # XSS Scanner
 

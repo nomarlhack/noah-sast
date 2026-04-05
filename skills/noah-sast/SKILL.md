@@ -31,6 +31,7 @@ fi
 ```
 <NOAH_SAST_DIR>/
   SKILL.md                          ← 이 파일 (오케스트레이터)
+  grep-patterns.yml                 ← 35개 스캐너 grep 패턴 통합
   agent-guidelines-phase1.md
   agent-guidelines-phase2.md
   scanner-selector.py
@@ -72,32 +73,13 @@ Agent 도구로 grep 인덱싱 에이전트를 생성한다. 프롬프트는 아
 
 ## 임무
 
-34개 취약점 스캐너의 grep 패턴을 각 SKILL.md frontmatter에서 읽어,
+35개 취약점 스캐너의 grep 패턴을 통합 패턴 파일에서 읽어,
 프로젝트 전체를 grep한 뒤 결과를 파일로 저장한다.
 
-## 단계 1: 각 스캐너 SKILL.md frontmatter에서 grep_patterns 추출
+## 단계 1: 통합 패턴 파일 읽기
 
-아래 34개 파일의 첫 60줄만 Read 도구로 읽어 YAML frontmatter의
-grep_patterns 배열을 추출한다. 60줄을 초과하여 읽지 않는다.
-
-읽을 파일 목록 (모두 `<NOAH_SAST_DIR>/scanners/` 하위):
-xss-scanner/SKILL.md, dom-xss-scanner/SKILL.md, ssrf-scanner/SKILL.md,
-open-redirect-scanner/SKILL.md, crlf-injection-scanner/SKILL.md,
-csrf-scanner/SKILL.md, path-traversal-scanner/SKILL.md,
-file-upload-scanner/SKILL.md, command-injection-scanner/SKILL.md,
-sqli-scanner/SKILL.md, http-method-tampering-scanner/SKILL.md,
-xxe-scanner/SKILL.md, deserialization-scanner/SKILL.md,
-ssti-scanner/SKILL.md, jwt-scanner/SKILL.md, oauth-scanner/SKILL.md,
-nosqli-scanner/SKILL.md, ldap-injection-scanner/SKILL.md,
-host-header-scanner/SKILL.md, xslt-injection-scanner/SKILL.md,
-css-injection-scanner/SKILL.md, xpath-injection-scanner/SKILL.md,
-soapaction-spoofing-scanner/SKILL.md, redos-scanner/SKILL.md,
-pdf-generation-scanner/SKILL.md, saml-scanner/SKILL.md,
-http-smuggling-scanner/SKILL.md, zipslip-scanner/SKILL.md,
-graphql-scanner/SKILL.md, sourcemap-scanner/SKILL.md,
-csv-injection-scanner/SKILL.md, prototype-pollution-scanner/SKILL.md,
-websocket-scanner/SKILL.md, subdomain-takeover-scanner/SKILL.md,
-idor-scanner/SKILL.md
+`<NOAH_SAST_DIR>/grep-patterns.yml`을 Read 도구로 읽는다.
+이 파일에 35개 스캐너의 모든 grep 패턴이 스캐너별로 정의되어 있다.
 
 ## 단계 2: 패턴 일괄 grep 실행
 

@@ -1,18 +1,3 @@
----
-grep_patterns:
-  - "new WebSocket("
-  - "socket\\.io"
-  - "WebSocket"
-  - "ActionCable"
-  - "io\\.on('connection'"
-  - "io\\.of("
-  - "verifyClient"
-  - "allowedOrigins"
-  - "wss://"
-  - "ws://"
-  - "express-ws"
-  - "gorilla/websocket"
----
 
 # WebSocket Scanner
 
