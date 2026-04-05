@@ -1,0 +1,28 @@
+> **호출부 추적 — 실제 URL 경로 확정**: 모든 후보에 대해 라우트 정의 파일을 Read로 읽어 실제 URL 경로를 확정한다. 컴포넌트/파일 이름에서 경로를 유추하는 것은 확정이 아니다. 절차: (1) Sink의 호출부를 Grep → 최종 페이지 컴포넌트/컨트롤러 식별 (2) 라우트 정의(routes/index.tsx, @RequestMapping 등)를 Read로 읽어 경로 문자열 확인 (3) 후보 반환 시 근거 포함: `실제 경로: /home/apply (src/routes/index.tsx:42)`
+
+### Phase 1: 정찰 (소스코드/설정 분석)
+
+프로젝트 설정과 인프라 구성에서 외부 서비스를 참조하는 DNS 레코드를 식별한다.
+
+1. **DNS/인프라 설정 파일 분석**:
+   - `Terraform` 파일 (`*.tf`): `aws_route53_record`, `cloudflare_record` 등 DNS 리소스
+   - `CloudFormation` 템플릿: `AWS::Route53::RecordSet`
+   - `Kubernetes` Ingress: `host` 필드의 도메인
+   - `nginx.conf`: `server_name`, `proxy_pass` 설정
+   - `docker-compose.yml`: 외부 서비스 참조
+   - DNS 존 파일 (`.zone`)
+
+2. **소스코드에서 서브도메인 참조 식별**:
+   - 환경변수/설정 파일에서 외부 서비스 URL
+   - 프론트엔드 코드에서 참조하는 서브도메인
+   - CI/CD 파이프라인에서 배포 대상 서비스
+   - README/문서에서 언급하는 서브도메인
+
+3. **CNAME 패턴 확인**:
+   - 소스코드/설정에서 발견된 서브도메인이 위 "취약한 외부 서비스 목록"의 CNAME 패턴과 일치하는지 확인
+
+4. **후보 목록 작성**: 외부 서비스를 가리키는 서브도메인 중, 해당 서비스에서 리소스가 해제되어 있을 가능성이 있는 것을 정리.
+
+## 후보 판정 제한
+
+프로젝트 소유 도메인의 DNS CNAME이 외부 서비스를 가리키는 경우만 후보. 주석 내 참조 링크는 제외.
