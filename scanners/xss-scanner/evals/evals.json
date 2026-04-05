@@ -1,0 +1,23 @@
+{
+  "skill_name": "xss-scanner",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "이 프로젝트에서 XSS 취약점을 찾아줘",
+      "expected_output": "프로젝트 전반의 XSS 취약점을 Source-Sink 추적 방식으로 분석하여 보고",
+      "files": []
+    },
+    {
+      "id": 1,
+      "prompt": "댓글 기능에서 XSS 취약점이 있는지 점검해줘",
+      "expected_output": "댓글 관련 컨트롤러/헬퍼/뷰에서 XSS 취약점 분석 및 재현 Step 제공",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "클라이언트 사이드 JavaScript에서 DOM-based XSS 취약점을 찾아줘",
+      "expected_output": "React 컴포넌트 및 JS 파일에서 DOM-based XSS 취약점 탐지",
+      "files": []
+    }
+  ]
+}
