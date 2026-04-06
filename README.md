@@ -84,7 +84,7 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-    Skills["34개 스캐너\nSKILL.md"] -->|grep_patterns 추출| Grep["grep -rn 일괄 실행\n80+ 확장자 화이트리스트"]
+    Skills["35개 스캐너\nSKILL.md"] -->|grep_patterns 추출| Grep["grep -rn 일괄 실행\n80+ 확장자 화이트리스트"]
     Grep -->|스캐너별 JSON 저장| Dir[("/tmp/scan_index_{project}/\nxss-scanner.json\nssrf-scanner.json\n...")]
 
     style Skills fill:#16213e,stroke:#0f3460,color:#eee
