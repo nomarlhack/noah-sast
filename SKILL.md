@@ -31,7 +31,6 @@ fi
 ```
 <NOAH_SAST_DIR>/
   SKILL.md                          ← 이 파일 (오케스트레이터)
-  grep-patterns.yml                 ← 35개 스캐너 grep 패턴 통합
   agent-guidelines-phase1.md
   agent-guidelines-phase2.md
   scanner-selector.py

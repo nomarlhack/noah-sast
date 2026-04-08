@@ -1,83 +1,78 @@
+---
+grep_patterns:
+  - "collection\\.find\\s*\\("
+  - "collection\\.findOne\\s*\\("
+  - "Model\\.find\\s*\\("
+  - "Model\\.findOne\\s*\\("
+  - "\\$where"
+  - "\\$regex"
+  - "\\$ne"
+  - "\\$gt"
+  - "\\$or"
+  - "\\$and"
+  - "\\$not"
+  - "collection\\.aggregate\\s*\\("
+  - "client\\.eval\\s*\\("
+  - "mongoose"
+  - "mongodb"
+---
+
 > ## 핵심 원칙: "쿼리 로직이 변경되지 않으면 취약점이 아니다"
 >
-> 소스코드에서 `db.collection.find(userInput)`이 있다고 바로 NoSQL Injection으로 보고하지 않는다. 실제로 사용자가 제어한 입력으로 쿼리 연산자(`$gt`, `$ne`, `$regex` 등)를 삽입하여 쿼리 로직을 변경할 수 있는 것을 확인해야 취약점이다.
->
+> `db.collection.find(userInput)`이 있다고 바로 NoSQLi로 보고하지 않는다. 사용자가 제어한 입력으로 쿼리 연산자(`$gt`, `$ne`, `$regex`, `$where` 등)를 삽입하여 쿼리 로직을 실제로 변경할 수 있어야 취약점이다.
 
-### Phase 1: 정찰 (소스코드 분석)
+## Sink 의미론
 
-사용자 입력 → NoSQL 쿼리 경로를 추적하여 취약점 **후보**를 식별한다.
+NoSQLi sink는 "JS/JSON 객체 형태의 쿼리 명세에 사용자 입력이 객체로 들어올 수 있는 지점"이다. 문자열 sink가 아니라 **객체 sink**라는 점이 SQLi와 다르다. 핵심 위험: HTTP body parser(`express.json()`, `qs.parse({extended:true})`)가 `{password: {$ne: ""}}` 같은 객체를 만들고, 코드가 그것을 그대로 쿼리에 전달.
 
-1. **프로젝트 스택 파악**: NoSQL 데이터베이스/드라이버/ODM 확인
-   - **MongoDB**: `mongodb` (native driver), `mongoose` (ODM)
-   - **Redis**: `redis`, `ioredis`
-   - **CouchDB**: `nano`, `pouchdb`
-   - **DynamoDB**: `aws-sdk`, `@aws-sdk/client-dynamodb`
-   - **Firestore**: `firebase-admin`, `@google-cloud/firestore`
+| 라이브러리 | 위험 sink |
+|---|---|
+| MongoDB native | `collection.find(q)`, `findOne(q)`, `updateOne(q,u)`, `deleteOne(q)`, `aggregate(pipeline)` |
+| Mongoose | `Model.find(q)`, `findOne(q)`, `findById(id)` (id가 객체면 위험), `Model.find({$where: x})` |
+| Mongoose 안전 한정 | `Model.where('field').equals(v)` 체이닝 |
+| Redis | `client.eval(script, ..., userInput)` (Lua), 키 이름에 입력 사용 |
+| CouchDB | `db.find({selector: q})`, `_design` view에 사용자 함수 |
+| Firestore | `collection.where(field, op, value)` — `op`이 사용자 입력이면 위험 |
 
-2. **Source 식별**: 사용자가 제어 가능한 입력 중 NoSQL 쿼리에 사용될 수 있는 것
-   - HTTP 요청 본문 (JSON) — `req.body.username`, `req.body.password` 등
-   - HTTP 쿼리 파라미터 — `req.query.filter`, `req.query.sort` 등
-   - URL 경로 파라미터 — `req.params.id`
+## Source-first 추가 패턴
 
-3. **Sink 식별**: NoSQL 쿼리를 실행하는 코드
+- `req.body.*` 전체를 spread로 쿼리에 삽입: `find({...req.body})`
+- `req.query.*` (qs `extended:true` 또는 `allowDots`로 객체 파싱)
+- GraphQL/JSON-RPC resolver 인자
+- WebSocket 메시지 payload
+- 메시지 큐(Kafka/SQS) consumer가 외부 메시지를 그대로 쿼리에 전달
+- `JSON.parse(cookie)` 후 쿼리에 사용
 
-   **MongoDB Native Driver:**
-   - `collection.find(query)` — query에 사용자 입력이 직접 삽입되면 위험
-   - `collection.findOne(query)`
-   - `collection.updateOne(query, update)`
-   - `collection.deleteOne(query)`
-   - `collection.aggregate(pipeline)` — pipeline에 사용자 입력 삽입 시 위험
+## 자주 놓치는 패턴 (Frequently Missed)
 
-   **Mongoose:**
-   - `Model.find(query)` — query에 사용자 입력이 객체로 전달되면 위험
-   - `Model.findOne(query)`
-   - `Model.findById(id)` — id가 문자열이면 안전, 객체면 위험
-   - `Model.where(field).equals(value)` — 체이닝은 상대적으로 안전
-   - `Model.find({ $where: userInput })` — JavaScript 실행, 매우 위험
+- **로그인 우회**: `User.findOne({username: req.body.username, password: req.body.password})` — body가 `{username: "admin", password: {"$ne": null}}`이면 패스워드 검증 우회.
+- **`$where` JavaScript 실행**: `db.users.find({$where: \`this.name == '${x}'\`})` — JS 코드 실행, RCE에 가깝다.
+- **`$regex` ReDoS**: 사용자 입력이 정규식 패턴으로 들어가면 ReDoS 가능.
+- **`$expr` + `$function` (MongoDB 4.4+)**: 서버사이드 JS 실행.
+- **aggregate pipeline `$lookup`**: 사용자 입력으로 다른 컬렉션 조인 → 권한 우회.
+- **Mongoose `findById(req.body.id)`**: id가 객체로 오면 cast 우회.
+- **`.populate(req.query.populate)`**: 사용자가 populate 경로를 지정하면 정보 노출.
+- **NoSQL injection in projection**: `find(q, req.query.fields)` → 숨겨진 필드(password hash) 노출.
+- **Operator injection via key prefix**: 중첩 객체 키 `user.role` 형식이 `qs`로 객체화되어 `{user: {role: ...}}`로 변환.
 
-   **Redis:**
-   - `client.eval(script)` — Lua 스크립트에 사용자 입력 삽입 시 위험
-   - 키 이름에 사용자 입력이 사용되는 경우 (키 추측/조작)
+## 안전 패턴 카탈로그 (FP Guard)
 
-4. **핵심 취약 패턴 확인**:
+- **명시적 String 캐스트**: `findOne({username: String(req.body.username), password: String(req.body.password)})`.
+- **mongo-sanitize / express-mongo-sanitize 미들웨어 등록 확인**: `app.use(mongoSanitize())` — `$` prefix 키 제거.
+- **Mongoose Schema validator**: 필드 type이 `String`이면 객체가 들어와도 cast 에러로 거부 (단, `findById` 같은 raw 메서드는 우회 가능).
+- **Joi/Zod/express-validator로 type 검증 후 쿼리 진입**: validator 통과 보장 필요.
+- **체이닝 API만 사용**: `Model.where('email').equals(email).exec()`.
 
-   **패턴 1: 요청 본문을 쿼리에 직접 전달**
-   ```javascript
-   // 위험: req.body가 {"password": {"$ne": ""}} 이면 패스워드 우회
-   db.users.findOne({ username: req.body.username, password: req.body.password })
-   ```
+## 후보 판정 의사결정
 
-   **패턴 2: 쿼리 파라미터를 필터로 사용**
-   ```javascript
-   // 위험: req.query.filter가 {"role": {"$ne": "user"}} 이면 admin 조회
-   db.users.find(req.query.filter)
-   ```
-
-   **패턴 3: $where에 사용자 입력**
-   ```javascript
-   // 위험: JavaScript 코드 실행
-   db.users.find({ $where: `this.username == '${userInput}'` })
-   ```
-
-   **안전한 패턴:**
-   ```javascript
-   // 안전: 문자열로 명시적 캐스팅
-   db.users.findOne({ username: String(req.body.username), password: String(req.body.password) })
-
-   // 안전: mongo-sanitize 사용
-   const sanitize = require('mongo-sanitize');
-   db.users.findOne({ username: sanitize(req.body.username) })
-
-   // 안전: Mongoose Schema validation으로 타입 강제
-   ```
-
-5. **Express 미들웨어/파서 확인**:
-   - `express.json()` 또는 `body-parser`가 사용되면 `req.body`에 객체가 들어올 수 있음 (Operator Injection 가능)
-   - `qs` 라이브러리의 `allowDots: true` 또는 depth 설정에 따라 쿼리 파라미터에서도 객체 생성 가능
-   - `express.urlencoded({ extended: true })` — `qs` 사용, 중첩 객체 가능
-
-6. **후보 목록 작성**: 각 후보에 대해 "어떤 입력으로 어떻게 쿼리 로직을 변경할 수 있는지"를 구체적으로 구상. 데이터 흐름 추적을 완료한 뒤에도 공격 경로가 없으면 버린다. 추적 없이 직관으로 버리지 않는다..
+| 조건 | 판정 |
+|---|---|
+| `req.body`/`req.query`가 spread/직접 객체로 쿼리에 전달 | 후보 |
+| 인증 관련 쿼리에서 비밀번호 필드를 객체로 받을 수 있음 (mongo-sanitize 없음) | 후보 (라벨: `AUTH_BYPASS`) |
+| `$where`/`$function`/`$accumulator`에 사용자 입력 | 후보 (라벨: `SERVER_SIDE_JS`) |
+| 명시적 String/Number 캐스트 직전에 적용됨 | 제외 |
+| express-mongo-sanitize 전역 미들웨어 등록 확인됨 | 제외 단, 미들웨어를 우회하는 raw body parser 라우트 없음을 확인 |
 
 ## 후보 판정 제한
 
-사용자 입력이 쿼리 연산자 위치에 삽입되는 경우만 후보. 프레임워크 방어 적용 시 제외.
+사용자 입력이 쿼리 연산자 위치에 객체로 삽입되는 경우만 후보. 명시적 캐스트나 sanitize 미들웨어 적용 확인 시 제외.

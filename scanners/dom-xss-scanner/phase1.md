@@ -1,55 +1,97 @@
-## Phase 1: 소스코드 분석
+---
+grep_patterns:
+  - "location\\.hash"
+  - "location\\.search"
+  - "document\\.referrer"
+  - "window\\.name"
+  - "addEventListener.*message"
+  - "onmessage"
+  - "localStorage\\.getItem"
+  - "sessionStorage\\.getItem"
+  - "\\.innerHTML"
+  - "\\.outerHTML"
+  - "document\\.write"
+  - "\\beval\\s*\\("
+  - "setTimeout\\s*\\("
+  - "setInterval\\s*\\("
+  - "new Function\\s*\\("
+  - "insertAdjacentHTML"
+  - "\\.html\\s*\\("
+  - "\\.append\\s*\\("
+  - "\\.prepend\\s*\\("
+  - "location\\.href\\s*="
+  - "location\\.assign\\s*\\("
+  - "location\\.replace\\s*\\("
+  - "searchParams\\.get\\s*\\("
+  - "useParams\\s*\\("
+  - "useSearchParams"
+---
 
-### 1-1. Source 패턴 grep
+> ## 핵심 원칙: "사용자 제어 클라이언트 source가 DOM sink에 도달하지 않으면 취약점이 아니다"
+>
+> 패턴 인덱스에 source/sink가 잡혔다고 바로 보고하지 않는다. 데이터 흐름을 직접 추적하고, sanitizer 부재와 source 제어 가능성을 함께 확인해야 후보다.
 
-아래 패턴을 프론트엔드 JS 코드 전체에서 grep하여 파일 목록을 수집한다.
-`--include` 없이 전체 텍스트 파일을 대상으로 한다.
+## Sink 의미론
 
-| Source | grep 패턴 |
-|--------|-----------|
-| URL fragment | `location\.hash` |
-| URL query (클라이언트 처리) | `location\.search`, `location\.href` |
-| Referrer | `document\.referrer` |
-| Window name | `window\.name` |
-| postMessage | `addEventListener.*message`, `onmessage` |
-| localStorage / sessionStorage | `localStorage\.getItem`, `sessionStorage\.getItem` |
+DOM XSS sink는 "클라이언트 측에서 문자열을 코드/마크업으로 해석하는 지점"이다. 실행 컨텍스트별로 필요한 sanitizer 종류가 다르다.
 
-### 1-2. Sink 패턴 grep
+| 컨텍스트 | sink 예시 | 필요 sanitizer |
+|---|---|---|
+| HTML parse | `innerHTML`/`outerHTML`/`insertAdjacentHTML`/`document.write`, jQuery `.html`/`.append`/`.prepend`/`.after`/`.before`/`.replaceWith` | HTML sanitizer (DOMPurify) |
+| 프레임워크 HTML bypass | React `dangerouslySetInnerHTML`, Vue `v-html`, Angular `[innerHTML]`/`bypassSecurityTrust*`, Svelte `{@html}` | 동일 |
+| JS eval | `eval`, `new Function`, 문자열 인자 `setTimeout`/`setInterval` | 차단 또는 화이트리스트 |
+| URL navigation | `location.href=`/`assign`/`replace`, `anchor.href` | 스킴 검증 (`javascript:`/`data:` 차단) |
+| 동적 import/script | `import(x)`, `new Worker(x)`, `<script src=x>` | URL origin 검증 |
 
-아래 패턴을 프론트엔드 JS 코드 전체에서 grep하여 파일 목록을 수집한다.
+## Source-first 추가 패턴
 
-| Sink | grep 패턴 |
-|------|-----------|
-| innerHTML / outerHTML | `\.innerHTML`, `\.outerHTML` |
-| document.write | `document\.write` |
-| eval | `\beval(` |
-| setTimeout / setInterval (문자열 인자) | `setTimeout(`, `setInterval(` |
-| Function 생성자 | `new Function(` |
-| insertAdjacentHTML | `insertAdjacentHTML` |
-| jQuery | `\.html(`, `\.append(`, `\.prepend(` |
-| location 조작 | `location\.href\s*=`, `location\.assign(`, `location\.replace(` |
+| 카테고리 | 예시 | 신뢰 등급 |
+|---|---|---|
+| URL-derived | `location.href/search/hash`, `URLSearchParams`, `document.URL`/`documentURI` | 직접 제어 |
+| Cross-window | `postMessage` (origin 검증 없음), `window.name`, `document.referrer` | origin 검증 여부 |
+| Storage-derived | `localStorage`/`sessionStorage`/`IndexedDB` | 2차 (선행 주입 전제) |
+| WebSocket | `event.data` from `WebSocket.onmessage` | 서버/MITM 신뢰도 |
+| DOM clobbering | `document.X` 가 HTML 요소에 의해 덮어쓰임 | 별도 |
 
-### 1-3. Source → Sink 데이터 흐름 추적
+## 자주 놓치는 패턴 (Frequently Missed)
 
-Source grep 결과와 Sink grep 결과에서 **같은 파일 또는 동일 데이터 흐름**에 속하는 것을 대조한다.
+- **`location.hash` → `decodeURIComponent` → sink**: hash는 서버로 전송되지 않아 WAF/서버 로그에 안 잡힘.
+- **`postMessage`에서 origin 검증 누락**: `window.addEventListener('message', e => element.innerHTML = e.data)` — 어떤 origin이라도 메시지 전송 가능.
+- **`window.name` persistence**: 탭을 가로질러 유지되는 `window.name`을 사용하는 코드.
+- **jQuery `$(userInput)`**: selector에 `<img src=x onerror=...>` 같은 HTML이 들어가면 sink로 작동.
+- **`history.pushState`/`replaceState`의 URL 인자에 사용자 입력**: 자체로 XSS는 아니지만 후속 hash 처리가 sink면 연결.
+- **template literal로 HTML 조립 후 innerHTML**: ``` `<div>${x}</div>` ``` → `el.innerHTML = ...`. taint 추적이 함수 경계를 넘어야 함.
+- **DOMParser + innerHTML**: `new DOMParser().parseFromString(x, 'text/html')` 자체는 안전하지만 결과를 `appendChild`하면 sink.
+- **CSP report-only 모드**: 차단 안 되고 보고만. enforce가 아니면 방어 아님.
+- **Trusted Types report-only**: 동일.
+- **Vue `v-bind:href`/`:href` + `javascript:` 스킴**: Vue 자동 escape는 텍스트만 적용, href 스킴 차단 안 함 (Vue 2 일부 버전).
+- **Angular DomSanitizer `bypassSecurityTrustHtml/Url/Script/ResourceUrl`**: 명시적 우회.
+- **`document.write` after page load**: 페이지 전체를 덮어씀.
+- **`eval` in JSON.parse fallback**: legacy `eval('(' + json + ')')`.
 
-각 후보에 대해 다음을 반드시 코드에서 읽어 확인한다:
+## 안전 패턴 카탈로그 (FP Guard)
 
-1. Source 값이 어떤 변수에 할당되는가
-2. 그 변수가 Sink에 도달하기까지 중간에 인코딩·이스케이프·검증이 적용되는가
-3. 공격자가 Source 값을 제어할 수 있는가
-   - `location.hash`: URL 뒤 `#` 이후 값 → 공격자가 URL을 제어하면 조작 가능
-   - `window.name`: 링크로 열린 탭에서 이전 페이지가 설정 가능 → 제어 가능
-   - `postMessage`: 발신 출처(origin) 검증이 없으면 제어 가능
-   - `document.referrer`: Referer 헤더 → 제어 가능하나 브라우저 제한 있음
-   - `localStorage`: 다른 XSS가 선행돼야 주입 가능 → 2차 공격 경로로 분류
+- **React JSX 텍스트 보간 `{value}`**: 자동 escape.
+- **Vue `{{ value }}` mustache, `v-text`**: 자동 escape.
+- **Angular `{{ value }}` interpolation**: 자동 escape.
+- **`element.textContent`/`innerText` 할당**: HTML 파싱 안 함.
+- **DOMPurify.sanitize 직전 호출** + 옵션 기본값.
+- **Trusted Types enforce 모드** + sink별 정책 정의 + CSP `require-trusted-types-for 'script'`.
+- **`URL` 객체로 파싱 후 origin/protocol 화이트리스트 검증**.
+- **`postMessage` 핸들러에서 `event.origin` 화이트리스트 검증**.
+- **CSP `script-src` strict (`'self'` 또는 nonce/hash 기반)** + `unsafe-inline`/`unsafe-eval` 미허용.
 
-**후보 제외 기준 (코드에서 직접 확인한 경우에만 적용):**
-- Source 값이 Sink 도달 전 `encodeURIComponent`, `DOMPurify.sanitize`, `escapeHtml` 등으로 완전히 새니타이징됨이 코드에서 확인된 경우
-- Source 값이 Sink에 도달하는 코드 경로가 존재하지 않음이 코드에서 확인된 경우
+## 후보 판정 의사결정
 
-코드를 읽지 않고 직관이나 추정으로 제외하지 않는다.
+아래 4 조건을 **모두** 만족해야 후보:
+
+1. Source → Sink 경로가 코드상 연결되어 있다.
+2. 경로 중간에 sanitizer/이스케이프가 없다. 프레임워크 HTML bypass sink는 자동 escape가 무력화되므로 sanitizer 부재로 간주.
+3. Source가 공격자 제어 가능 등급. URL-derived는 무조건 가능, postMessage는 origin 검증 없을 때, storage는 선행 주입 경로 식별 시.
+4. Sink 실행 컨텍스트에 맞는 sanitizer가 부재. 컨텍스트별 필요 sanitizer 종류가 다르므로 적용된 sanitizer가 컨텍스트와 맞아야 한다.
+
+CSP `script-src`/Trusted Types가 sink 실행을 코드상 명백히 차단(enforce + sink별 정책)하는 경우에 한해 등급을 한 단계 낮출 수 있다.
 
 ## 후보 판정 제한
 
-클라이언트 source에서 DOM sink까지 코드상 연결된 데이터 흐름이 있는 경우만 후보. source를 읽어서 DOM sink에 도달하지 않으면 제외.
+위 4 조건을 모두 만족하는 경우만 후보. reflected XSS 케이스(서버 응답에 페이로드 반사)는 xss-scanner 범주이므로 제외.

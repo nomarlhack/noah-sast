@@ -84,7 +84,7 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-    Skills["grep-patterns.yml\n35개 스캐너 통합 패턴"] -->|패턴 로드| Grep["grep -rn 일괄 실행\n80+ 확장자 화이트리스트"]
+    Skills["scanners/*/phase1.md\nfrontmatter grep_patterns"] -->|패턴 로드| Grep["grep -rn 일괄 실행\n80+ 확장자 화이트리스트"]
     Grep -->|스캐너별 JSON 저장| Dir[("/tmp/scan_index_{project}/\nxss-scanner.json\nssrf-scanner.json\n...")]
 
     style Skills fill:#16213e,stroke:#0f3460,color:#eee
@@ -235,26 +235,31 @@ Phase 1 후보가 2건 이상이면 `chain-analysis` 스킬이 실행됩니다:
 
 ```
 noah-sast/scanners/{scanner-name}/
-├── phase1.md      # 정적 분석 지침 (Sink 목록, 판정 기준, 안전 패턴, 핵심 원칙)
+├── phase1.md      # 정적 분석 지침 (frontmatter grep_patterns + Sink 의미·판정·안전 패턴)
 └── phase2.md      # 동적 테스트 지침 (테스트 절차, 도구, 스캐너별 확인됨 조건)
 ```
 
-> grep 패턴은 35개 스캐너 모두 `noah-sast/grep-patterns.yml`에 통합되어 있다. 스캐너 디렉토리에 별도 SKILL.md는 두지 않는다.
+> grep 패턴은 각 스캐너의 `phase1.md` 최상단 YAML frontmatter (`grep_patterns:`)에 정의되어 있다. Step 0 grep 인덱싱 에이전트가 35개 phase1.md frontmatter를 직접 파싱하여 사용한다. 별도 통합 yml 파일은 없다.
 
 ### phase1.md 핵심 구조
 
 ```markdown
-# Sink 목록
-- innerHTML, outerHTML, document.write, ...
+---
+grep_patterns:
+  - "innerHTML"
+  - "dangerouslySetInnerHTML"
+  - "\\.html\\s*\\("
+  # ...
+---
 
-# 안전 패턴 (제외 조건)
-- React JSX의 일반 렌더링 ({variable})
-- DOMPurify/sanitize-html 적용된 경우
-- iframe srcDoc (origin 격리)
+> ## 핵심 원칙: "..."
 
-# 판정 기준
-- Source(사용자 입력) → Sink(DOM 삽입) 경로가 존재하고
-- 중간에 sanitize/escape가 없으면 → 후보
+## Sink 의미론
+## Source-first 추가 패턴
+## 자주 놓치는 패턴 (Frequently Missed)
+## 안전 패턴 카탈로그 (FP Guard)
+## 후보 판정 의사결정
+## 후보 판정 제한
 ```
 
 ---
@@ -368,7 +373,6 @@ cp -r skills/noah-sast ~/.claude/skills/
 ```
 ~/.claude/skills/noah-sast/
 ├── SKILL.md                          # 통합 오케스트레이터
-├── grep-patterns.yml                 # 35개 스캐너 grep 패턴 통합
 ├── scanner-selector.py               # 스캐너 자동 선별 스크립트
 ├── agent-guidelines-phase1.md        # 정적 분석 공통 지침
 ├── agent-guidelines-phase2.md        # 동적 분석 공통 지침

@@ -1,64 +1,113 @@
+---
+grep_patterns:
+  - "Nokogiri"
+  - "REXML"
+  - "xml2js"
+  - "libxmljs"
+  - "xmldom"
+  - "fast-xml-parser"
+  - "DocumentBuilderFactory"
+  - "SAXParserFactory"
+  - "XMLInputFactory"
+  - "simplexml_load_string"
+  - "DOMDocument"
+  - "lxml\\.etree"
+  - "xml\\.etree"
+  - "noent"
+  - "resolve_entities"
+  - "parseXML"
+  - "XMLReader"
+  - "load_external_dtd"
+  - "external-general-entities"
+  - "external-parameter-entities"
+  - "DOCTYPE"
+  - "SYSTEM\\s+['\"]"
+  - "setExpandEntityReferences"
+---
+
 > ## 핵심 원칙: "외부 엔티티가 처리되지 않으면 취약점이 아니다"
 >
-> 소스코드에서 XML 파서를 사용한다고 바로 XXE로 보고하지 않는다. 실제로 `<!DOCTYPE>` 선언에 외부 엔티티를 정의하고, 해당 엔티티가 파서에 의해 해석되어 파일 내용이 반환되거나 외부 요청이 발생하는 것을 확인해야 취약점이다.
->
-> 대부분의 최신 XML 파서는 기본적으로 외부 엔티티를 비활성화하고 있다. 파서 버전과 설정을 반드시 확인해야 한다.
->
+> XML 파서 사용 자체는 XXE가 아니다. `<!DOCTYPE>` 외부 엔티티가 파서에 의해 실제로 해석되어 파일/SSRF가 발생해야 한다. 대부분의 최신 파서는 기본적으로 외부 엔티티를 비활성화한다 — **파서 종류와 버전, 그리고 명시 옵션**을 확인해야 한다.
 
-### Phase 1: 정찰 (소스코드 분석)
+## Sink 의미론
 
-XML 파서 사용처를 찾고, 외부 엔티티 처리가 활성화되어 있는지 확인한다.
+XXE sink는 "사용자 제어 XML이 파서에 입력되고, 그 파서가 외부 엔티티/DTD를 해석하도록 설정된 지점"이다. 핵심은 **파서 설정**이다. 같은 라이브러리도 옵션에 따라 안전/위험이 갈린다.
 
-1. **프로젝트 스택 파악**: 프레임워크/언어/XML 파서 라이브러리 확인
+| 언어 | 라이브러리 | 기본값 | 위험 옵션 |
+|---|---|---|---|
+| Node.js | `xml2js` | 안전 | (외부 엔티티 미지원) |
+| Node.js | `libxmljs` | 안전 | `noent: true` 또는 `dtdload: true` |
+| Node.js | `@xmldom/xmldom` | 부분적 안전 | DOCTYPE 처리 확인 필요 |
+| Node.js | `fast-xml-parser` | 안전 | — |
+| Python | `xml.etree.ElementTree` (3.7.1+) | 안전 | 구버전 위험 |
+| Python | `lxml.etree` | 위험 | `resolve_entities=True` (기본), `no_network=False` |
+| Python | `xml.dom.minidom` | 부분 위험 | DTD 처리 |
+| Python | `xml.sax` | 위험 | `feature_external_ges=True` |
+| Python | `defusedxml` | 안전 | (안전 래퍼) |
+| Java | `DocumentBuilderFactory` | **위험 (기본)** | `disallow-doctype-decl=false` |
+| Java | `SAXParserFactory` | **위험 (기본)** | `external-general-entities=true` |
+| Java | `XMLInputFactory` (StAX) | 위험 | `IS_SUPPORTING_EXTERNAL_ENTITIES=true` |
+| Java | `TransformerFactory` (XSLT) | 위험 | `ACCESS_EXTERNAL_DTD/STYLESHEET` |
+| Java | JAXB `Unmarshaller` | 위험 | XMLStreamReader 설정에 의존 |
+| Ruby | `Nokogiri` | 안전 | `Nokogiri::XML::ParseOptions::NONET` 미적용 + DTDLOAD |
+| Ruby | `REXML` | 위험 | DTD 엔티티 확장 |
+| PHP | `simplexml_load_string` | 안전 | `LIBXML_NOENT` 옵션 |
+| PHP | `DOMDocument::loadXML` | 안전 (PHP 8.0+) | `LIBXML_NOENT` 또는 PHP < 8 + `libxml_disable_entity_loader(false)` |
 
-2. **XML 입력 경로 식별**: 사용자가 XML을 제출할 수 있는 진입점
-   - `Content-Type: application/xml` 또는 `text/xml`을 처리하는 엔드포인트
-   - SOAP API 엔드포인트
-   - XML 파일 업로드 (SVG, XLSX, DOCX, RSS 피드 등 — XML 기반 포맷 포함)
-   - XML-RPC 엔드포인트
-   - SAML 인증 처리
-   - 설정 파일 파싱 (사용자가 업로드하는 설정 XML)
+## Source-first 추가 패턴
 
-3. **Sink 식별**: XML을 파싱하는 코드
+- `Content-Type: application/xml`/`text/xml` 엔드포인트
+- SOAP API
+- XML 기반 파일 업로드: SVG, XLSX/DOCX/PPTX (Office Open XML), RSS/Atom
+- XML-RPC
+- SAML SSO assertion 처리
+- 사용자 업로드 설정 XML
+- KML/GPX 등 도메인 XML
 
-   **Node.js:**
-   - `xml2js` — 기본적으로 외부 엔티티 비활성화 (안전)
-   - `libxmljs` — `noent: true` 옵션 시 위험
-   - `xmldom` / `@xmldom/xmldom` — 외부 엔티티 처리 여부 확인
-   - `fast-xml-parser` — 기본적으로 안전
-   - `sax` — 스트리밍 파서, 엔티티 처리 설정 확인
-   - `express-xml-bodyparser` — 내부 파서 설정 확인
+## 자주 놓치는 패턴 (Frequently Missed)
 
-   **Python:**
-   - `xml.etree.ElementTree` — Python 3.8+ 기본 안전, 이전 버전 위험
-   - `lxml.etree` — `resolve_entities=True` (기본값) 시 위험
-   - `xml.dom.minidom` — 외부 엔티티 처리 가능
-   - `xml.sax` — `feature_external_ges` 활성화 시 위험
-   - `defusedxml` — 안전한 래퍼 (사용하면 안전)
+- **OOXML 파일 업로드 (XLSX/DOCX/PPTX)**: 내부적으로 XML. zip 해제 후 XML 파싱 시 XXE.
+- **SVG 업로드**: SVG는 XML. `<svg><image href="file:///etc/passwd"/></svg>` + 이미지 처리 라이브러리.
+- **SAML XXE**: SAML response를 파싱할 때. 인증 우회로도 이어짐.
+- **XInclude 공격**: `<xi:include href="file:///etc/passwd"/>` — DOCTYPE 차단해도 XInclude가 활성화되어 있으면 우회.
+- **Parameter entity (OOB XXE)**: `<!ENTITY % x SYSTEM "...">` — 일반 엔티티만 차단하고 parameter entity 미차단 케이스. Java에서 흔함.
+- **Blind XXE → SSRF**: 외부 DTD를 fetch하여 내부 IP 스캔.
+- **Java SAXParser의 setFeature 누락**: `disallow-doctype-decl`, `external-general-entities`, `external-parameter-entities`, `load-external-dtd` 4개 모두 설정해야 안전. 1개만 누락해도 우회 가능.
+- **XSLT 처리기**: TransformerFactory도 XML 파싱하므로 동일 설정 필요.
+- **JAXB Unmarshaller**: 내부적으로 SAX/StAX 사용. XMLStreamReader 직접 생성 후 전달해야 안전.
+- **Nokogiri의 `parse(io)` vs `parse(string)`** 옵션 차이.
+- **PHP < 8.0의 `libxml_disable_entity_loader`**: PHP 8에서 deprecated/no-op. PHP 8 코드에 이 함수가 있다면 방어가 안 됨.
+- **XML signature wrapping (XSW)**: SAML 등에서 서명 검증과 파싱 노드가 다르면 우회.
+- **DTD validation 활성화**: `setValidating(true)`만으로도 외부 DTD fetch.
 
-   **Java:**
-   - `DocumentBuilderFactory` — 기본적으로 외부 엔티티 활성화 (위험)
-   - `SAXParserFactory` — 기본적으로 위험
-   - `XMLInputFactory` (StAX) — `IS_SUPPORTING_EXTERNAL_ENTITIES` 설정 확인
-   - `TransformerFactory` — XSLT 처리 시 XXE 가능
-   - `javax.xml.bind.Unmarshaller` (JAXB) — 설정에 따라 위험
+## 안전 패턴 카탈로그 (FP Guard)
 
-   **Ruby:**
-   - `Nokogiri` — 기본적으로 외부 엔티티 비활성화 (안전), `NONET` 옵션 확인
-   - `REXML` — 외부 엔티티 처리 가능
+- **`defusedxml` 사용** (Python).
+- **`Nokogiri`** 기본 옵션 (Ruby).
+- **Java DocumentBuilderFactory**:
+  ```
+  factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+  factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+  factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+  factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+  factory.setXIncludeAware(false);
+  factory.setExpandEntityReferences(false);
+  ```
+  — **6개 모두** 적용 확인 필요.
+- **lxml `etree.XMLParser(resolve_entities=False, no_network=True, dtd_validation=False, load_dtd=False)`**.
+- **`xml2js`/`fast-xml-parser`** 기본값 (Node).
 
-   **PHP:**
-   - `simplexml_load_string()` — `LIBXML_NOENT` 플래그 시 위험
-   - `DOMDocument::loadXML()` — 기본적으로 외부 엔티티 활성화 (위험)
-   - `libxml_disable_entity_loader(true)` — PHP 8.0 이전 방어 함수
+## 후보 판정 의사결정
 
-4. **파서 설정 확인**: 외부 엔티티 처리가 활성화되어 있는지 확인
-   - Java: `setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)` 또는 `setFeature("http://xml.org/sax/features/external-general-entities", false)` 설정 여부
-   - Python/lxml: `resolve_entities=False` 설정 여부
-   - Node.js: 파서별 옵션 확인
-   - PHP: `libxml_disable_entity_loader()` 호출 여부
-
-5. **후보 목록 작성**: 외부 엔티티 처리가 활성화된 XML 파서 사용처를 정리. 파서가 기본 안전 설정이면 후보에서 제외.
+| 조건 | 판정 |
+|---|---|
+| Java DocumentBuilderFactory/SAXParserFactory + 위 6개 setFeature 누락 | 후보 |
+| lxml + `resolve_entities=True` (또는 옵션 미지정) + 사용자 입력 파싱 | 후보 |
+| `defusedxml`/`Nokogiri` 기본 사용 | 제외 |
+| SVG/OOXML 업로드 처리 + 내부 XML 파서 미설정 | 후보 (라벨: `OOXML_XXE`) |
+| SAML response 파싱 + 파서 설정 미확인 | 후보 (라벨: `SAML_XXE`) |
+| `libxml_disable_entity_loader(true)` 호출하지만 PHP 8.0+ | 후보 (no-op이므로 방어 없음) |
+| 정적 XML만 파싱 (사용자 입력 없음) | 제외 |
 
 ## 후보 판정 제한
 

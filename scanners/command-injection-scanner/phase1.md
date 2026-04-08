@@ -1,70 +1,102 @@
-> ## 핵심 원칙: "명령어가 실행되지 않으면 취약점이 아니다"
+---
+grep_patterns:
+  - "child_process"
+  - "exec\\s*\\("
+  - "execSync\\s*\\("
+  - "execFile\\s*\\("
+  - "spawn\\s*\\("
+  - "spawnSync\\s*\\("
+  - "os\\.system\\s*\\("
+  - "os\\.popen\\s*\\("
+  - "subprocess\\.call\\s*\\("
+  - "subprocess\\.run\\s*\\("
+  - "subprocess\\.Popen\\s*\\("
+  - "subprocess\\.check_output\\s*\\("
+  - "commands\\.getoutput\\s*\\("
+  - "Runtime\\.getRuntime"
+  - "ProcessBuilder"
+  - "%x{"
+  - "shell\\s*:\\s*true"
+  - "shell\\s*=\\s*True"
+  - "shell_exec\\s*\\("
+  - "passthru\\s*\\("
+  - "\\bsystem\\s*\\("
+  - "popen\\s*\\("
+  - "proc_open\\s*\\("
+  - "pcntl_exec\\s*\\("
+  - "IO\\.popen"
+  - "Open3\\.capture3"
+  - "Kernel\\.system"
+  - "Runtime\\.exec\\s*\\("
+  - "bash\\s+-c"
+  - "/bin/sh\\s+-c"
+  - "@RequestParam"
+  - "@RequestBody"
+  - "req\\.query"
+  - "req\\.body"
+---
+
+> ## 핵심 원칙: "추가 명령어가 실행되지 않으면 취약점이 아니다"
 >
-> 소스코드에서 `exec(userInput)`이 있다고 바로 Command Injection으로 보고하지 않는다. 실제로 사용자가 제어한 입력에 `;`, `|`, `&&`, `` ` `` 등 명령어 구분자를 삽입하여 추가 명령어가 실행되는 것을 확인해야 취약점이다.
->
+> `exec(userInput)`이 있다고 바로 Command Injection으로 보고하지 않는다. 사용자 입력에 `;`/`|`/`&&`/`` ` ``/`$()` 등 셸 메타문자를 삽입하여 추가 명령어가 실제로 실행되어야 취약점이다.
 
-### Phase 1: 정찰 (소스코드 분석)
+## Sink 의미론
 
-사용자 입력 → 시스템 명령어 실행 경로를 추적하여 취약점 **후보**를 식별한다.
+Command Injection sink는 "사용자 입력이 셸(`/bin/sh -c`, `cmd.exe /c`)에 의해 파싱되는 지점"이다. 핵심 구분: **셸을 거치는가**. 셸을 거치지 않는 `execFile`/`spawn(cmd, [args])`/`subprocess.run([...])`은 인자가 그대로 argv로 전달되어 sink가 아니다.
 
-1. **프로젝트 스택 파악**: 프레임워크/언어 확인
+| 언어 | 위험 (셸 경유) | 안전 (셸 미경유) |
+|---|---|---|
+| Node.js | `child_process.exec`, `execSync`, `spawn(..., {shell:true})`, `spawnSync(..., {shell:true})` | `execFile`, `spawn(cmd, [args])` (기본 shell:false) |
+| Python | `os.system`, `os.popen`, `subprocess.* (shell=True)`, `commands.getoutput` | `subprocess.run([...])`, `subprocess.Popen([...])` (기본 shell=False) |
+| Java | `Runtime.exec(String)` (단일 문자열, 내부적으로 토큰화하지만 메타문자 처리 안 함), `Runtime.exec("sh -c ...")` | `ProcessBuilder(List<String>)`, `Runtime.exec(String[])` |
+| Ruby | `` `cmd` ``, `%x{cmd}`, `system("string")`, `exec("string")`, `IO.popen("string")` | `system("cmd", "arg1", "arg2")`, `Open3.capture3("cmd", "arg")` |
+| PHP | `exec`, `system`, `passthru`, `shell_exec`, `` `cmd` ``, `proc_open("string")`, `popen` | `proc_open(array)` (PHP 7.4+) |
+| Go | `exec.Command("sh", "-c", x)` | `exec.Command("cmd", "arg1", "arg2")` |
 
-2. **Source 식별**: 사용자가 제어 가능한 입력 중 명령어에 사용될 수 있는 것
-   - HTTP 파라미터: `host`, `ip`, `address`, `domain`, `cmd`, `command`, `filename`, `path`, `url`, `ping`, `target`
-   - 파일 업로드의 파일명 (파일 처리 명령어에 사용되는 경우)
-   - API 요청 본문의 필드
+## Source-first 추가 패턴
 
-3. **Sink 식별**: 시스템 명령어를 실행하는 코드
+- 파일 업로드의 원본 파일명이 ImageMagick/ffmpeg/pdftotext 인자로 흘러가는 경로 (`originalname`)
+- 아카이브 내 파일명 (zip/tar entry)
+- DNS lookup/ping 기능의 호스트명 입력
+- Git 클론 URL/브랜치명 입력
+- Webhook payload의 필드가 변환 스크립트로 흘러가는 경로
+- 메일/SMS 발송의 sender 필드
+- 정적 자산 변환 파이프라인(npm scripts, webpack loader)에 사용자 데이터가 흘러가는 경우
 
-   **Node.js:**
-   - `child_process.exec()` — 셸을 통해 실행, 가장 위험
-   - `child_process.execSync()`
-   - `child_process.spawn()` — `shell: true` 옵션 시 위험
-   - `child_process.spawnSync()` — `shell: true` 옵션 시 위험
-   - `child_process.execFile()` — 셸 미사용, 상대적으로 안전
-   - `child_process.fork()` — Node.js 모듈 실행
-   - `` require('child_process') `` 전체
+## 자주 놓치는 패턴 (Frequently Missed)
 
-   **Python:**
-   - `os.system()`
-   - `os.popen()`
-   - `subprocess.call()`, `subprocess.run()`, `subprocess.Popen()` — `shell=True` 시 위험
-   - `subprocess.check_output()` — `shell=True` 시 위험
-   - `commands.getoutput()` (Python 2)
+- **이미지/미디어 변환**: `ImageMagick`(convert), `ffmpeg`, `gs`(Ghostscript), `wkhtmltopdf` — 파일명/옵션에 사용자 입력. ImageTragick(CVE-2016-3714) 같은 형식 자체 RCE는 별개.
+- **Git/SVN 명령**: `git clone ${url}`, `git checkout ${branch}` — 옵션 주입(`--upload-pack`)으로 RCE.
+- **압축 도구**: `tar`/`unzip`/`7z`의 `-T`/`@filelist` 옵션 주입.
+- **`spawn(cmd, args, {shell: true})`**: shell 옵션이 true로 명시된 경우. 기본값(false)이 아님에 주의.
+- **Java `Runtime.exec(String)`**: 단일 문자열 형태는 공백으로 토큰화만 하고 셸 메타문자는 처리 안 함. `;`는 안 통하지만 `cmd1\ncmd2`나 인자 주입은 가능.
+- **`subprocess.run("ls " + path, shell=True)`**: f-string과 함께 자주 등장.
+- **인자 주입 (메타문자 없이도)**: `tar -xzf ${file}`에서 `file=--checkpoint=1 --checkpoint-action=exec=sh`. shell=False여도 옵션 시작 문자(`-`/`--`)를 차단 안 하면 위험. `--` 구분자나 `./` prefix로 방어.
+- **환경변수 경유**: `LD_PRELOAD`/`PATH`를 사용자 입력으로 설정한 후 외부 명령 실행.
+- **셸 스크립트 wrapping**: 코드는 `execFile`인데 호출 대상이 셸 스크립트이고 그 스크립트 내부에서 인자를 unquoted로 사용.
+- **NodeJS `child_process.fork(modulePath)`**: modulePath가 사용자 입력이면 임의 JS 실행.
 
-   **Java:**
-   - `Runtime.getRuntime().exec()`
-   - `ProcessBuilder`
-   - `new ProcessBuilder().command()`
+## 안전 패턴 카탈로그 (FP Guard)
 
-   **Ruby:**
-   - `` `command` `` (backtick)
-   - `system()`, `exec()`
-   - `IO.popen()`, `Open3.capture3()`
-   - `%x{command}`
+- **`execFile`/`spawn(cmd, [args])` (shell:false 명시 또는 기본값)**: 인자 배열로 전달, 메타문자 무력화. 단, 인자 주입(`-`로 시작) 가능성은 별도 확인.
+- **`subprocess.run([...], shell=False)`** (Python).
+- **`ProcessBuilder(List<String>)`** (Java).
+- **`escapeshellarg($x)` + `escapeshellcmd($cmd)`** (PHP) 두 함수 모두 호출되고 결과를 그대로 사용.
+- **`shlex.quote(x)`** (Python) 사용.
+- **엄격 화이트리스트 검증**: 정규식 `/^[a-zA-Z0-9._-]+$/`처럼 메타문자/공백/`-` prefix 차단.
+- **고정 명령 + 고정 인자**: 사용자 입력이 인자가 아닌 환경변수나 stdin으로 전달되고, 호출 대상 프로그램이 stdin을 옵션으로 해석하지 않음.
 
-   **PHP:**
-   - `exec()`, `system()`, `passthru()`, `shell_exec()`
-   - `` `command` `` (backtick)
-   - `proc_open()`, `popen()`
-   - `pcntl_exec()`
+## 후보 판정 의사결정
 
-4. **경로 추적**: Source에서 Sink까지 데이터가 명령어 이스케이프 없이 도달하는 경로 확인. 다음을 점검:
-   - 명령어 구분자(`;`, `|`, `&&`, `||`, `` ` ``, `$()`, `\n`) 필터링 여부
-   - `exec()` 대신 `execFile()`/`spawn()`(shell: false) 사용 여부 — 인자 배열 방식은 안전
-   - `escapeshellarg()` / `escapeshellcmd()` (PHP) 사용 여부
-   - `shlex.quote()` (Python) 사용 여부
-   - 입력값 화이트리스트 검증 (예: IP 주소 정규식 검증)
-
-5. **후보 목록 작성**: 각 후보에 대해 "어떤 입력으로 어떻게 추가 명령어를 실행할 수 있는지"를 구체적으로 구상. 데이터 흐름 추적을 완료한 뒤에도 공격 경로가 없으면 버린다. 추적 없이 직관으로 버리지 않는다..
-
-#### 안전한 패턴 (취약하지 않은 코드)
-
-- `spawn('ping', ['-c', '1', userInput])` — shell: false(기본값), 인자 배열 → 안전
-- `execFile('/usr/bin/ping', [userInput])` — 셸 미사용 → 안전
-- `exec("ping " + ip)` where ip is validated with `/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/` → 안전
-- `subprocess.run(['ping', '-c', '1', user_input])` — shell=False(기본값), 리스트 → 안전
+| 조건 | 판정 |
+|---|---|
+| 사용자 입력 → 셸 경유 sink (위 표 좌측) + 메타문자 필터 없음 | 후보 |
+| 사용자 입력 → 셸 미경유 sink (`execFile` 등) + 인자 주입 차단 없음 (`-` prefix 가능) | 후보 (라벨: `ARG_INJECTION`) |
+| 사용자 입력이 화이트리스트 정규식(`^[a-z0-9_-]+$` 등) 통과 후 사용 | 제외 |
+| `escapeshellarg` 또는 `shlex.quote` 적용 확인 | 제외 |
+| 빌드 스크립트/CI/개발 도구 컨텍스트 (런타임 미적용) | 제외 |
+| 명령 wrapper가 셸 스크립트이고 내부 unquoted 사용 의심 | 후보 (라벨: `WRAPPER_UNQUOTED`) |
 
 ## 후보 판정 제한
 
-사용자 HTTP 입력이 명령어 인자에 도달하는 경우만 후보. 빌드 스크립트, 개발 도구는 제외.
+사용자 HTTP 입력이 명령어 인자에 도달하는 경우만 후보. 빌드 스크립트, 개발 도구, 마이그레이션 코드는 제외.

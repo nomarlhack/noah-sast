@@ -1,29 +1,92 @@
-> ## 핵심 원칙: "민감한 정보가 노출되지 않으면 취약점이 아니다"
+---
+grep_patterns:
+  - "devtool"
+  - "sourcemap"
+  - "source-map"
+  - "productionBrowserSourceMaps"
+  - "productionSourceMap"
+  - "GENERATE_SOURCEMAP"
+  - "sourceMappingURL"
+  - "build\\.sourcemap"
+  - "webpack"
+---
+
+> ## 핵심 원칙: "민감한 정보가 노출되어야 영향이 있다"
 >
-> Source Map 파일이 다운로드 가능하다는 것 자체가 취약점이지만, 실제 영향도는 포함된 내용에 따라 다르다. Source Map에서 API 키, 시크릿, 내부 API 경로, 주석에 포함된 자격 증명 등 민감한 정보가 발견되면 심각도가 높아진다.
->
+> Source Map 다운로드 가능 자체가 후보지만, 영향도는 포함된 내용에 따라 다르다. API 키/시크릿/내부 API 경로/주석 내 자격증명이 노출되면 심각도 격상.
 
-### Phase 1: Source Map 탐지
+## Sink 의미론
 
-1. **소스코드/빌드 설정 분석**: Source Map 생성 설정 확인
+Sourcemap sink는 "프로덕션 빌드 산출물에 `.map` 파일이 포함되거나 `//# sourceMappingURL` 주석이 남아 클라이언트가 원본 소스를 복원할 수 있는 지점"이다. 빌드 설정과 배포 산출물 양쪽을 점검해야 한다.
 
-   **Webpack:**
-   - `devtool` 설정: `source-map`, `hidden-source-map`, `nosources-source-map` 등
-   - `source-map`이면 .map 파일 생성 + JS 파일에 `//# sourceMappingURL` 주석 포함
-   - `hidden-source-map`이면 .map 파일 생성하지만 `sourceMappingURL` 주석 미포함
-   - 프로덕션 빌드에서 `devtool: false` 또는 미설정인지 확인
+| 빌드 도구 | 설정 |
+|---|---|
+| Webpack | `devtool` (`source-map`/`hidden-source-map`/`nosources-source-map`/`false`) |
+| Vite | `build.sourcemap` (`true`/`false`/`'hidden'`/`'inline'`) |
+| Next.js | `next.config.js` `productionBrowserSourceMaps` |
+| Create React App | `GENERATE_SOURCEMAP` 환경변수 |
+| Vue CLI | `vue.config.js` `productionSourceMap` |
+| Rollup | `output.sourcemap` |
+| esbuild | `--sourcemap`/`sourcemap` 옵션 |
+| Parcel | `--no-source-maps` 플래그 부재 |
+| Angular CLI | `angular.json` `sourceMap` |
+| Nuxt | `sourcemap` (`build.sourcemap`/`server.sourcemap`/`client.sourcemap`) |
+| TypeScript `tsc` | `tsconfig.json` `sourceMap` |
 
-   **Vite:**
-   - `build.sourcemap` 설정: `true`, `false`, `'hidden'`, `'inline'`
+## Source-first 추가 패턴
 
-   **Next.js:**
-   - `next.config.js`의 `productionBrowserSourceMaps` 설정
+- 환경별 빌드 설정 분리 (dev/prod)
+- CI/CD 빌드 명령 (`NODE_ENV=production`)
+- Dockerfile 빌드 단계
+- `.env.production`
+- artifacts.zip / dist 폴더 구조
+- CDN 캐시 정책 (`.map` 파일 캐시)
+- Sentry/Datadog 등 에러 모니터링 통합 (sourcemap upload + clean)
 
-   **Create React App:**
-   - `GENERATE_SOURCEMAP=false` 환경변수
+## 자주 놓치는 파일 (Frequently Missed)
 
-   **Vue CLI:**
-   - `vue.config.js`의 `productionSourceMap` 설정
+- **`hidden-source-map`이 안전하다는 오해**: hidden은 `.map` 파일을 만들지만 `sourceMappingURL` 주석을 안 남길 뿐. `.map` 파일이 동일 경로에 배포되면 그대로 다운로드 가능. **추측 가능한 이름**(`bundle.js.map`)이면 무용지물.
+- **`.map.gz` / `.map.br`**: gzip/brotli 압축본 잔존.
+- **인라인 sourcemap (`data:application/json;base64,...`)**: 번들 파일 안에 통째로 포함. 더 큰 노출.
+- **Sentry/Datadog upload + 미삭제**: 에러 모니터링용으로 업로드 후 배포물에서 삭제 안 함.
+- **`.css.map`**: JS만 점검하고 CSS 누락.
+- **third-party 라이브러리 sourcemap**: 본인 코드는 삭제했지만 vendor sourcemap 잔존.
+- **service worker (`sw.js.map`)**.
+- **API 키 하드코딩이 sourcemap으로 노출**: 코드는 minify되어 grep 어려운데, sourcemap의 원본 코드에서 평문 발견.
+- **내부 API 엔드포인트 노출**: `internal-api.example.com/admin/...` 같은 경로.
+- **주석에 자격증명**: 개발자가 임시 작성한 주석.
+- **TypeScript 타입 정의 누설**: DB 스키마/내부 데이터 모델.
+- **Webpack `__webpack_require__` 모듈 트리**: 모든 모듈 이름/경로 노출.
+- **Source map의 `sourcesContent` 필드**: 원본 소스 그대로 임베드.
+- **dev 설정이 prod로 빌드되는 잘못된 NODE_ENV**.
+- **Docker multi-stage build의 stage 누락**: dev 산출물이 prod 이미지로.
+- **`.next/static/chunks/*.map`** (Next.js): `productionBrowserSourceMaps: false`라도 서버 sourcemap은 별도.
+- **CI artifact가 public**: GitHub Actions artifact가 public repo.
+- **CDN 디렉토리 listing**: `.map` 파일 enumeration.
 
-2. **배포된 JS/CSS 파일에서 sourceMappingURL 확인**:
-   소스코드에서 빌드 설정을 확인한 뒤, 동적 테스트로 실제 배포 파일을 확인한다.
+## 안전 패턴 카탈로그 (FP Guard)
+
+- **`devtool: false`** (Webpack) 또는 미설정.
+- **`productionSourceMap: false`** (Vue CLI).
+- **`productionBrowserSourceMaps: false`** (Next.js, 기본값).
+- **`GENERATE_SOURCEMAP=false`** (CRA).
+- **빌드 후 `.map` 파일 명시 삭제** (CI 단계).
+- **Sourcemap을 별도 private 스토리지로 upload + 배포물에서 제거** (Sentry CLI `--no-rewrite` + post-build clean).
+- **CDN에서 `.map` 확장자 차단** (path filter).
+- **인증 보호된 sourcemap 서버** (Sentry symbolicator 등).
+
+## 후보 판정 의사결정
+
+| 조건 | 판정 |
+|---|---|
+| 빌드 설정이 prod에서도 sourcemap 활성 (`devtool: 'source-map'`/`productionSourceMap: true`) | 후보 (Phase 2: 실제 다운로드 확인) |
+| `hidden-source-map` + `.map` 파일 동일 경로 배포 | 후보 (라벨: `HIDDEN_BUT_EXPOSED`) |
+| 인라인 sourcemap (`devtool: 'inline-source-map'`) | 후보 (라벨: `INLINE`) |
+| Sentry upload + 배포 clean step 누락 | 후보 (라벨: `SENTRY_LEFTOVER`) |
+| `devtool: false` + CI에 `.map` 삭제 step 확인 | 제외 |
+| `productionBrowserSourceMaps: false` (Next.js) + 서버 sourcemap 별도 처리 | 제외 |
+| Phase 2에서 실제 다운로드 시도 + 200 응답 + sourcesContent 포함 | 확정 |
+
+## 후보 판정 제한
+
+프로덕션 빌드 산출물에 sourcemap 노출 가능성이 있는 설정/배포 구조만 후보. 결정적 판정은 Phase 2의 실제 HTTP fetch.

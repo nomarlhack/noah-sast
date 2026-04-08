@@ -1,89 +1,93 @@
+---
+grep_patterns:
+  - "wkhtmltopdf"
+  - "puppeteer"
+  - "WeasyPrint"
+  - "PDFKit"
+  - "prawn"
+  - "html-pdf"
+  - "pdf-creator-node"
+  - "pdfmake"
+  - "html.*pdf"
+  - "pdf.*generat"
+  - "playwright.*pdf"
+---
+
 > ## 핵심 원칙: "PDF에 의도하지 않은 내용이 포함되지 않으면 취약점이 아니다"
 >
-> PDF 생성 기능이 있다고 바로 취약점으로 보고하지 않는다. 사용자가 제어한 입력이 PDF 생성 과정의 HTML에 삽입되어 실제로 로컬 파일 내용이 PDF에 포함되거나, 내부 서비스로 요청이 발생하거나, JavaScript가 실행되는 것을 확인해야 취약점이다.
->
+> PDF 생성 자체는 취약점이 아니다. 사용자 입력이 PDF 생성 HTML에 삽입되어 (1) 로컬 파일 내용이 PDF에 포함되거나, (2) 내부 서비스로 요청이 발생하거나(SSRF), (3) JavaScript가 실행되어야 한다.
 
-### Phase 1: 정찰 (소스코드 분석)
+## Sink 의미론
 
-PDF 생성 로직을 분석하여 취약점 **후보**를 식별한다.
+PDF Generation sink는 "사용자 입력이 HTML→PDF 변환기의 입력에 포함되고, 변환기가 외부 리소스 fetch/JS 실행/파일 접근을 허용하는 지점"이다. PDF 직접 생성 라이브러리(pdfkit/reportlab/pdf-lib)는 HTML 파싱 안 함 → sink 아님.
 
-1. **프로젝트 스택 파악**: PDF 생성 라이브러리 확인
+| 언어 | HTML 렌더 (위험) | 직접 생성 (안전) |
+|---|---|---|
+| Node | `puppeteer`, `playwright`, `wkhtmltopdf`, `html-pdf` (deprecated) | `pdf-lib`, `pdfkit`, `pdfmake` |
+| Python | `weasyprint`, `pdfkit` (wkhtmltopdf wrapper), `xhtml2pdf`/`pisa` | `reportlab` |
+| Java | `Flying Saucer` (xhtmlrenderer), `iText` (HTML 파싱 시), Apache FOP, `pd4ml` | `iText` 직접 API |
+| PHP | `dompdf`, `mpdf`, `wkhtmltopdf` wrapper | `tcpdf` 직접 API |
+| .NET | `Puppeteer Sharp`, `IronPDF`, `wkhtmltopdf` wrapper | — |
 
-   **Node.js:**
-   - `puppeteer` / `playwright` — Chromium 기반, JavaScript 실행 가능, `file://` 접근 가능
-   - `wkhtmltopdf` / `node-wkhtmltopdf` — WebKit 기반, JavaScript 실행 가능
-   - `html-pdf` — PhantomJS 기반 (deprecated), 취약
-   - `pdf-lib` — PDF 직접 생성 (HTML 렌더링 없음, 안전)
-   - `pdfkit` — PDF 직접 생성 (안전)
-   - `pdfmake` — PDF 직접 생성 (안전)
+**위험 카테고리:**
+- **HTML/CSS 인젝션 → SSRF**: `<img src="http://internal/">` `<link rel="stylesheet" href="...">`
+- **HTML/CSS 인젝션 → LFI**: `<img src="file:///etc/passwd">` (PDF에 base64 삽입되거나 메타데이터로 노출)
+- **JS 실행 (puppeteer/headless Chrome)**: full DOM XSS surface
+- **`<iframe>`**: 외부 페이지 fetch
+- **CSS `@import url(file://...)`**
 
-   **Python:**
-   - `weasyprint` — CSS 기반 렌더링, JavaScript 미실행, `file://` 접근 가능
-   - `wkhtmltopdf` / `pdfkit` — wkhtmltopdf 래퍼
-   - `xhtml2pdf` / `pisa` — HTML 렌더링, 제한적 리소스 로딩
-   - `reportlab` — PDF 직접 생성 (안전)
+## Source-first 추가 패턴
 
-   **Java:**
-   - `Flying Saucer` (xhtmlrenderer) — HTML/CSS 렌더링, JavaScript 미실행
-   - `iText` / `OpenPDF` — PDF 직접 생성, HTML 파싱 시 리소스 로딩 가능
-   - `Apache FOP` — XSL-FO 기반
-   - `pd4ml` — HTML to PDF, `<pd4ml:attachment>` 태그 지원
+- 사용자 입력 텍스트가 PDF 본문에 포함 (이름/주소/메모/주문내역)
+- 사용자가 HTML/마크다운 직접 입력 (게시글, 리뷰)
+- URL 파라미터가 PDF에 반영
+- 사용자가 PDF 템플릿 선택/커스터마이징
+- 영수증/인보이스 생성에 사용자 데이터 (회사명/주소)
+- 보고서 생성 (관리자가 export)
+- 이메일 본문 → PDF 변환
 
-   **PHP:**
-   - `dompdf` — HTML 렌더링, `file://` 접근 가능 (설정에 따라)
-   - `mpdf` — HTML 렌더링
-   - `tcpdf` — PDF 직접 생성
-   - `wkhtmltopdf` 래퍼
+## 자주 놓치는 패턴 (Frequently Missed)
 
-   **.NET:**
-   - `Puppeteer Sharp` — Chromium 기반
-   - `wkhtmltopdf` 래퍼
-   - `IronPDF` — Chromium 기반
+- **`file:///` 스킴 LFI**: `<img src="file:///etc/passwd"/>` — wkhtmltopdf, weasyprint 기본 허용. base64로 PDF에 임베드되어 추출 가능.
+- **내부 IP SSRF**: `<img src="http://169.254.169.254/latest/meta-data/">` (AWS metadata).
+- **wkhtmltopdf `--enable-local-file-access`** 옵션 (또는 deprecated 플래그 미지정 시 기본 허용).
+- **puppeteer `page.setContent(html)` + JavaScript 실행**: HTML 안에 `<script>fetch('http://internal/...')</script>` → 결과를 DOM에 출력 → PDF에 캡처.
+- **puppeteer `--no-sandbox`** 운영 환경: Chrome sandbox 비활성 → 컨테이너 탈출 위험.
+- **iframe redirect chain**: `<iframe src="https://attacker/redirect_to_internal/"`.
+- **CSS `@import`/`background: url(...)`**: HTML sanitize했지만 CSS 미점검.
+- **SVG inline**: `<svg><image href="file:///..."/></svg>`.
+- **dompdf `@font-face src: url(php://filter/...)`** (dompdf RCE CVE-2022-28368).
+- **mpdf `<htmlpageheader>` `<watermarkimage src="file://...">`**.
+- **CSP가 PDF 렌더에는 적용 안 됨**: 브라우저 CSP는 사용자 브라우저용. 서버 puppeteer는 CSP 무시.
+- **Markdown → HTML → PDF 체인**: marked/markdown-it의 raw HTML 허용 옵션이 켜져 있으면 sanitize 우회.
+- **xhtml2pdf의 `<pdf:link>` 태그**.
+- **Flying Saucer `<img src="...">`** + `_userAgentCallback` 미설정.
+- **PDF 자체에 JavaScript 임베드** (`/JS` action): PDF 뷰어에서 실행 — Adobe Reader 등.
+- **결과 PDF가 다른 사용자에게 발송**: stored XSS → PDF stored exfiltration.
 
-2. **Source 식별**: 사용자 입력이 PDF 생성 HTML에 삽입되는 경로
-   - 사용자가 입력한 텍스트가 PDF 내용에 포함되는 경우 (이름, 주소, 메모 등)
-   - 사용자가 HTML/마크다운을 직접 입력하는 경우
-   - URL 파라미터가 PDF 생성에 사용되는 경우
-   - 사용자가 PDF 템플릿을 선택하거나 커스터마이징하는 경우
+## 안전 패턴 카탈로그 (FP Guard)
 
-3. **Sink 식별**: PDF 생성을 수행하는 코드
+- **HTML escape (DOMPurify/sanitize-html) 후 템플릿 보간**.
+- **wkhtmltopdf `--disable-local-file-access` + `--disable-javascript`**.
+- **weasyprint `url_fetcher`** 커스터마이징으로 `file://`/내부 IP 차단.
+- **puppeteer**: HTML 직접 컴파일이 아닌 화이트리스트된 데이터 컨텍스트만 사용 + `page.setRequestInterception(true)`로 outgoing 요청 차단.
+- **dompdf `DOMPDF_ENABLE_REMOTE = false` + `DOMPDF_ENABLE_PHP = false`**.
+- **PDF 직접 생성 라이브러리** (pdfkit/reportlab/pdf-lib) 사용 + 텍스트 API만 호출.
+- **변환을 격리된 컨테이너에서 실행** (network egress 없음).
+- **고정 템플릿 + 사용자 입력은 데이터 컨텍스트(Mustache 변수)로만**.
 
-   **위험한 패턴 (사용자 입력이 HTML에 직접 삽입):**
-   ```javascript
-   // Puppeteer — 사용자 입력으로 HTML 생성 후 PDF 변환
-   const html = `<h1>${userInput}</h1>`;
-   await page.setContent(html);
-   await page.pdf({ path: 'output.pdf' });
-   ```
+## 후보 판정 의사결정
 
-   ```python
-   # WeasyPrint — 사용자 입력이 HTML에 삽입
-   html = f"<h1>{user_input}</h1>"
-   HTML(string=html).write_pdf('output.pdf')
-   ```
-
-   **안전한 패턴:**
-   ```javascript
-   // 사용자 입력을 HTML 이스케이프 후 삽입
-   const escaped = escapeHtml(userInput);
-   const html = `<h1>${escaped}</h1>`;
-   ```
-
-   ```javascript
-   // PDF 직접 생성 (HTML 렌더링 없음)
-   const doc = new PDFDocument();
-   doc.text(userInput); // 텍스트로만 삽입, HTML 해석 없음
-   ```
-
-4. **PDF 라이브러리 설정 확인**:
-   - `puppeteer`: `page.setContent()` 시 `waitUntil` 옵션, `--no-sandbox` 플래그
-   - `wkhtmltopdf`: `--disable-local-file-access`, `--disable-javascript` 옵션
-   - `weasyprint`: `url_fetcher` 커스터마이징으로 `file://` 차단 여부
-   - `dompdf`: `DOMPDF_ENABLE_REMOTE`, `DOMPDF_ENABLE_PHP` 설정
-   - HTML sanitization 적용 여부 (DOMPurify 등)
-
-5. **후보 목록 작성**: 각 후보에 대해 "어떤 입력으로 어떻게 PDF에 의도하지 않은 내용을 포함시킬 수 있는지"를 구체적으로 구상. 데이터 흐름 추적을 완료한 뒤에도 공격 경로가 없으면 버린다. 추적 없이 직관으로 버리지 않는다..
+| 조건 | 판정 |
+|---|---|
+| HTML 렌더 라이브러리 + 사용자 입력 직접 보간 + sanitize 없음 | 후보 |
+| wkhtmltopdf + `--disable-local-file-access` 미적용 + 사용자 입력 | 후보 (라벨: `LFI`) |
+| puppeteer `setContent` + 사용자 HTML + 네트워크 차단 없음 | 후보 (라벨: `SSRF`/`LFI`) |
+| dompdf 1.x 미만 + 사용자 입력 | 후보 (라벨: `RCE`, dompdf font CVE) |
+| 직접 생성 라이브러리 (pdfkit/reportlab) + 텍스트 API만 사용 | 제외 |
+| 격리된 컨테이너 + 네트워크 egress 차단 확인 | 제외 |
+| 화이트리스트 데이터 컨텍스트만 + 고정 템플릿 | 제외 |
 
 ## 후보 판정 제한
 
-사용자 입력이 HTML→PDF 변환의 입력에 포함되는 경우만 후보.
+사용자 입력이 HTML→PDF 변환의 입력에 포함되는 경우만 후보. PDF 직접 생성 라이브러리의 텍스트 API 사용은 제외.

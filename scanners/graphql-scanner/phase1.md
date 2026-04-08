@@ -1,65 +1,118 @@
-> ## 핵심 원칙: "정보가 노출되거나 보안이 우회되지 않으면 취약점이 아니다"
+---
+grep_patterns:
+  - "graphql"
+  - "GraphQL"
+  - "apollo-server"
+  - "express-graphql"
+  - "graphql-yoga"
+  - "graphene"
+  - "strawberry"
+  - "ariadne"
+  - "graphql-java"
+  - "graphql-ruby"
+  - "__schema"
+  - "introspection"
+  - "/graphql"
+  - "IntrospectionQuery"
+  - "__type"
+  - "depthLimit"
+---
+
+> ## 핵심 원칙: "정보 노출/인가 우회/DoS가 실제로 발생해야 취약점이다"
 >
-> GraphQL을 사용한다고 바로 취약점으로 보고하지 않는다. Introspection이 활성화되어 있어도 프로덕션 환경에서 의도적으로 공개하는 경우가 있다. 실제로 의도하지 않은 스키마 노출, 인가 우회, DoS가 발생하는 것을 확인해야 취약점이다.
->
+> Introspection 활성화 자체가 즉시 취약점이 아니다 (의도적 공개도 있음). 의도하지 않은 스키마 노출, 인가 우회, DoS, IDOR이 실제로 발생해야 한다.
 
-### Phase 1: 정찰 (소스코드 분석)
+## Sink 의미론
 
-GraphQL API 구현을 분석하여 취약점 **후보**를 식별한다.
+GraphQL sink는 "GraphQL 서버 설정 또는 resolver 코드의 인가/검증/제한이 누락되거나 우회 가능한 지점"이다.
 
-1. **프로젝트 스택 파악**: GraphQL 프레임워크/라이브러리 확인
+| 언어 | 라이브러리 |
+|---|---|
+| Node | `apollo-server`/`@apollo/server`, `express-graphql` (deprecated), `graphql-yoga`, `mercurius` (Fastify), `graphql-js` |
+| Python | `graphene`/`graphene-django`, `strawberry-graphql`, `ariadne` |
+| Java | `graphql-java`, Spring for GraphQL, Netflix DGS |
+| Ruby | `graphql-ruby` |
+| PHP | `webonyx/graphql-php`, `lighthouse` (Laravel) |
+| .NET | `HotChocolate`, `GraphQL.NET` |
 
-   **Node.js:**
-   - `apollo-server` / `@apollo/server` — Apollo Server
-   - `express-graphql` — Express GraphQL (deprecated)
-   - `graphql-yoga` — Yoga
-   - `mercurius` — Fastify GraphQL
-   - `graphql-js` — 참조 구현
+**점검 차원:**
+1. Introspection (prod 노출 여부)
+2. Field/resolver 인가
+3. Query depth/complexity 제한
+4. Batch query / alias 제한
+5. 에러 메시지 노출
+6. Subscription 인증
 
-   **Python:**
-   - `graphene` / `graphene-django`
-   - `strawberry-graphql`
-   - `ariadne`
+## Source-first 추가 패턴
 
-   **Java:**
-   - `graphql-java`
-   - `Spring for GraphQL` (`spring-boot-starter-graphql`)
-   - `Netflix DGS`
+- GraphQL 엔드포인트 라우트 (`/graphql`, `/api/graphql`, `/v1/graphql`)
+- Apollo Server 설정 (`introspection`, `csrfPrevention`, `allowBatchedHttpRequests`)
+- Yoga 설정 (`maskedErrors`, `landingPage`)
+- Schema 정의 (`.graphql` 파일, SDL, code-first)
+- Resolver 코드
+- Directive 정의 (`@auth`, `@hasRole`)
+- DataLoader 사용 코드
+- Subscription resolver
 
-   **Ruby:**
-   - `graphql-ruby`
+## 자주 놓치는 패턴 (Frequently Missed)
 
-2. **Introspection 설정 확인**:
-   - Apollo Server: `introspection: false` 옵션 설정 여부 (프로덕션 기본 비활성화)
-   - Yoga: `maskedErrors`, introspection 설정
-   - Django Graphene: `GRAPHENE.MIDDLEWARE`에서 introspection 차단 여부
-   - 환경별(dev/prod) introspection 분기 여부
+- **Introspection 활성 + 민감 필드 노출**: `__schema` 쿼리로 모든 타입/필드/인자 노출. 내부 mutation 명, deprecated 필드 등.
+- **Field suggestion 활성**: 잘못된 필드명 입력 시 "Did you mean ...?" 응답으로 schema 추론.
+- **Resolver별 인가 누락**: query는 인가, mutation은 인증만 + admin mutation 누락.
+- **중첩 resolver 인가 누락**: `user(id)` 인가 통과 후 `.posts` 필드 resolver는 권한 체크 안 함 → IDOR.
+- **`node(id:)` global resolver**: Relay spec의 generic node fetcher가 모든 타입 권한 우회.
+- **Query depth 무제한**: `{ user { friends { friends { friends { ... } } } } }` 무한 중첩 → DoS.
+- **Query complexity 무제한**: 단일 쿼리에 100개 필드 + alias.
+- **Batch query 무제한**: `[{...}, {...}, ...]` 1000개 쿼리.
+- **Alias batching**: `{ a1: getUser(id:1) { ... } a2: getUser(id:2) { ... } ... a1000: ... }` — single HTTP request로 1000회 호출. rate limit 우회.
+- **DataLoader 미사용 → N+1 DoS**.
+- **Mutation rate limit 없음**: 비밀번호 brute force.
+- **Subscription 인증 없음**: 타인 채널 구독.
+- **Error 메시지 stack trace 노출**: 프로덕션에서 SQL/내부 경로 누설.
+- **Variable injection**: 쿼리 변수가 SQL/NoSQL로 흘러감 (sqli/nosqli scanner와 결합).
+- **Field-level rate limit 부재**: 특정 비싼 필드 (검색/통계) 무제한 호출.
+- **GET 메서드로 mutation 허용**: CSRF (csrf-scanner와 결합).
+- **Apollo Server csrfPrevention 비활성**: simple request로 CSRF.
+- **`__type(name:)` 쿼리**: introspection 부분 차단해도 `__type`로 우회.
+- **Persisted query 없음 + arbitrary query 허용**.
+- **Shadow API**: 미문서화 mutation/query.
+- **File upload (multipart spec)**: 검증 미흡.
+- **Federation gateway에서 sub-graph 직접 접근 가능**: gateway 인증 우회.
+- **Schema stitching의 cross-service 인가 누설**.
+- **`@deprecated` 필드도 여전히 호출 가능**.
 
-3. **인가 로직 분석**:
-   - resolver별 인가 검사 존재 여부
-   - `@auth`, `@permission` 등 디렉티브 기반 인가
-   - 미들웨어/가드 레벨의 인가 (모든 resolver에 적용되는지)
-   - 뮤테이션에 대한 인가와 쿼리에 대한 인가가 동일한 수준인지
-   - 중첩 resolver에서의 인가 누락 (부모 resolver에만 인가가 있고 자식에는 없는 경우)
+## 안전 패턴 카탈로그 (FP Guard)
 
-4. **쿼리 복잡도 제한 확인**:
-   - `depthLimit` / `queryDepth` 제한 설정 여부
-   - `graphql-query-complexity`, `graphql-validation-complexity` 등 복잡도 분석 라이브러리 사용 여부
-   - `maxFieldCount`, `maxAliases` 제한
-   - 타임아웃 설정
+- **Apollo Server `introspection: false`** + `landingPage: false` (production).
+- **`NoSchemaIntrospectionCustomRule`** validation rule.
+- **`graphql-depth-limit`** (예: depth ≤ 10).
+- **`graphql-query-complexity`** (cost-based limit).
+- **`graphql-validation-complexity`**.
+- **Resolver decorator/directive로 일괄 인가** (`@auth`/`@hasRole`).
+- **모든 resolver에 `context.user` 검증**.
+- **DataLoader** 사용으로 N+1 차단.
+- **Persisted queries / APQ (Automatic Persisted Queries)** + 화이트리스트.
+- **`csrfPrevention: true`** (Apollo Server 4+).
+- **Rate limit (per query/per user)**.
+- **Production error masking** (`maskedErrors: true` Yoga, `formatError`로 stack 제거).
+- **`allowBatchedHttpRequests: false`** 또는 batch 크기 제한.
+- **Subscription 인증** (connection params).
 
-5. **Batch 쿼리 설정 확인**:
-   - 배열 쿼리 허용 여부 (`allowBatchedHttpRequests`)
-   - Batch 크기 제한
-   - Alias 기반 batch (`{ a1: user(id:1) { ... } a2: user(id:2) { ... } }`) 제한
+## 후보 판정 의사결정
 
-6. **에러 처리 확인**:
-   - 프로덕션 환경에서 상세 에러 메시지 노출 여부
-   - Field suggestion 비활성화 여부 (`NoSchemaIntrospectionCustomRule` 등)
-   - 스택 트레이스 노출 여부
-
-7. **후보 목록 작성**: 각 후보에 대해 "어떻게 GraphQL 쿼리를 조작하면 보안을 우회할 수 있는지"를 구체적으로 구상.
+| 조건 | 판정 |
+|---|---|
+| Production에서 introspection 활성 + 의도적 공개 아님 | 후보 (라벨: `INTROSPECTION`) |
+| Resolver별 인가 일관성 없음 | 후보 (라벨: `RESOLVER_AUTHZ`) |
+| 중첩 resolver 인가 누락 | 후보 (라벨: `NESTED_AUTHZ`) |
+| `node(id:)` global resolver + 타입별 권한 미체크 | 후보 (라벨: `GLOBAL_NODE`) |
+| Depth/complexity 제한 없음 | 후보 (라벨: `DOS`) |
+| Alias/batch 제한 없음 | 후보 (라벨: `BATCH_DOS`) |
+| Production stack trace 노출 | 후보 (라벨: `INFO_LEAK`) |
+| GET method로 mutation 허용 | 후보 (라벨: `CSRF`) |
+| 모든 점검 항목 통과 | 제외 |
+| Federation gateway 우회 가능 | 후보 (라벨: `GATEWAY_BYPASS`) |
 
 ## 후보 판정 제한
 
-GraphQL 엔드포인트를 직접 구현하는 코드가 있는 경우만 분석 대상. 전이 의존성은 제외.
+GraphQL 엔드포인트를 직접 구현하는 코드가 있는 경우만 분석. 전이 의존성은 제외.

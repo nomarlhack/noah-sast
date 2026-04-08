@@ -1,61 +1,96 @@
-> ## 핵심 원칙: "악용할 수 없으면 취약점이 아니다"
+---
+grep_patterns:
+  - "new WebSocket\\s*\\("
+  - "socket\\.io"
+  - "WebSocket"
+  - "ActionCable"
+  - "io\\.on('connection'"
+  - "io\\.of\\s*\\("
+  - "verifyClient"
+  - "allowedOrigins"
+  - "wss://"
+  - "ws://"
+  - "express-ws"
+  - "gorilla/websocket"
+---
+
+> ## 핵심 원칙: "악용 가능해야 취약점이다"
 >
-> WebSocket에 Origin 검증이 없다고 바로 취약점으로 보고하지 않는다. 실제로 공격자가 Origin 검증 부재를 이용하여 피해자의 WebSocket 연결을 하이재킹하거나, 인증 없이 민감한 데이터를 조회/조작할 수 있는 것을 확인해야 취약점이다.
->
+> WebSocket Origin 검증 부재 자체가 즉시 취약점이 아니다. CSWSH로 피해자 연결 하이재킹, 또는 인증 없이 민감 데이터 조회/조작이 실제로 가능해야 한다.
 
-### Phase 1: 정찰 (소스코드 분석)
+## Sink 의미론
 
-WebSocket 엔드포인트, 핸드셰이크, 메시지 처리 로직을 추적하여 취약점 **후보**를 식별한다.
+WebSocket sink는 두 카테고리:
 
-1. **프로젝트 스택 파악**: WebSocket 라이브러리/프레임워크 확인
-   - **Node.js**: `ws`, `socket.io`, `express-ws`, `uWebSockets.js`, `@nestjs/websockets`
-   - **Python**: `websockets`, `channels` (Django), `Flask-SocketIO`, `FastAPI WebSocket`
-   - **Java**: `javax.websocket`, `Spring WebSocket`, `Netty`
-   - **Go**: `gorilla/websocket`, `nhooyr.io/websocket`
-   - **Ruby**: `ActionCable` (Rails), `faye-websocket`
-   - **프론트엔드**: `new WebSocket()`, `socket.io-client`, `SockJS`
+1. **핸드셰이크 sink**: Origin/인증/CORS 검증이 누락되거나 우회 가능한 upgrade 핸들러
+2. **메시지 sink**: 수신 메시지가 검증/인가 없이 다른 sink(SQL/HTML/명령어/브로드캐스트)로 흘러가는 지점
 
-2. **WebSocket 엔드포인트 식별**:
-   - 서버에서 WebSocket 엔드포인트를 등록하는 코드 (`ws://`, `wss://` 경로)
-   - `upgrade` 핸들러, WebSocket 라우트 설정
-   - Socket.IO의 `io.on('connection')`, `io.of('/namespace')`
-   - 클라이언트 코드에서 `new WebSocket(url)`, `io.connect(url)` 호출
+| 언어 | 라이브러리 |
+|---|---|
+| Node | `ws`, `socket.io`, `express-ws`, `uWebSockets.js`, `@nestjs/websockets` |
+| Python | `websockets`, Django `channels`, `Flask-SocketIO`, FastAPI WebSocket |
+| Java | `javax.websocket`, Spring WebSocket, Netty |
+| Go | `gorilla/websocket`, `nhooyr.io/websocket` |
+| Ruby | Rails `ActionCable`, `faye-websocket` |
+| .NET | SignalR |
 
-3. **핸드셰이크 검증 분석**:
+## Source-first 추가 패턴
 
-   **Origin 검증:**
-   - 핸드셰이크 시 `Origin` 헤더를 확인하는 코드가 있는지
-   - Socket.IO의 `cors` 설정, `allowedOrigins` 설정
-   - `ws` 라이브러리의 `verifyClient` 콜백
-   - Origin 검증이 없으면 CSWSH 후보
+- 서버 WebSocket 라우트 등록 (`io.on('connection')`, `app.ws('/path')`, `@MessageMapping`)
+- 클라이언트 `new WebSocket(url)`/`io.connect(url)`/`SockJS` 호출 (대응 서버 라우트)
+- `upgrade` 핸들러
+- Socket.IO `io.use()` 미들웨어
+- WebSocket 메시지 라우팅 (`socket.on('event', handler)`)
+- 채널 구독 코드 (`subscribe('/topic/...')`)
+- 브로드캐스트 코드 (`io.emit`, `socket.broadcast.emit`, `wss.clients.forEach`)
 
-   **인증 검증:**
-   - 핸드셰이크 시 쿠키, 토큰, API 키 등 인증 정보를 확인하는 코드
-   - `upgrade` 이벤트에서 세션/토큰 검증
-   - Socket.IO의 `io.use()` 미들웨어에서 인증 처리
-   - 연결 후 첫 메시지에서 인증하는 패턴 (핸드셰이크 시 인증 없이 연결 가능)
+## 자주 놓치는 패턴 (Frequently Missed)
 
-4. **메시지 처리 분석**:
+- **CSWSH (Cross-Site WebSocket Hijacking)**: Origin 검증 없음 + 쿠키 인증. 공격자 사이트에서 `new WebSocket('wss://victim/...')` → 브라우저가 자동으로 victim 쿠키 첨부 → 공격자 코드가 victim 세션으로 메시지 송수신.
+- **`ws` 라이브러리는 기본적으로 Origin 검증 안 함**: `verifyClient` 콜백 미설정 시 모든 origin 허용.
+- **Socket.IO 4.x `cors` 옵션**: 명시 필요. 기본은 cross-origin 허용.
+- **인증을 핸드셰이크가 아닌 첫 메시지에 위임**: 첫 메시지 전에는 인증 없이 연결 가능 → 정보 노출/DoS.
+- **JWT를 query string으로 전달**: 로그/Referer/proxy 노출. 또는 만료 토큰 첫 연결 후 영구 유지.
+- **인증 토큰 만료 후 연결 유지**: 토큰 검증은 핸드셰이크 1회만, 만료 후에도 채널 유지.
+- **메시지 핸들러에서 권한 미체크**: 핸드셰이크는 인증, 메시지는 무인가. `socket.on('admin:delete', ...)` 처리에 admin 체크 없음.
+- **다른 사용자 채널 구독 가능**: `subscribe('/user/<other_id>/notifications')` — id 검증 없음.
+- **메시지 broadcast 전 sanitize 없음**: 한 사용자의 XSS 페이로드가 모두에게 전달 → stored XSS.
+- **수신 메시지가 SQL/NoSQL/명령어 sink로**: 별도 scanner와 결합.
+- **Subprotocol 검증 누락** (`Sec-WebSocket-Protocol`): 클라이언트가 임의 subprotocol 지정.
+- **메시지 크기/빈도 제한 없음**: DoS.
+- **JSON.parse 후 prototype pollution**: prototype-pollution-scanner와 결합.
+- **`socket.handshake.query.token`**: query 인증 + Origin 미검사.
+- **`socket.io` namespace 인증 차이**: `/admin` namespace에는 인증, default namespace에는 누락.
+- **STOMP over WebSocket**: SUBSCRIBE 권한 검사 누락.
+- **Unauthenticated 진입 후 escalation 메시지**: 첫 메시지에서 user_id 자가 선언.
+- **WebSocket secure (wss) 미사용**: 평문 ws://로 인증 토큰 노출.
 
-   **입력 검증:**
-   - 수신 메시지의 형식/내용을 검증하는 코드
-   - JSON 파싱 후 필드 검증, 타입 검사
-   - 메시지 내용이 HTML에 삽입되는 경우 (XSS 경로)
-   - 메시지 내용이 SQL/NoSQL 쿼리에 삽입되는 경우 (Injection 경로)
-   - 메시지 내용이 시스템 명령에 삽입되는 경우
+## 안전 패턴 카탈로그 (FP Guard)
 
-   **인가 검증:**
-   - 메시지 유형별/채널별 권한 검사
-   - 다른 사용자의 데이터에 접근하는 메시지를 처리할 때 소유권 확인
-   - 관리자 전용 메시지 유형에 대한 권한 검사
+- **`verifyClient`** (ws) 또는 **`cors.origin`** (socket.io) 화이트리스트 + 정확 매칭.
+- **핸드셰이크 시 인증 검증** (쿠키 또는 Authorization 헤더 또는 ticket 토큰).
+- **Ticket 토큰 패턴**: HTTP endpoint로 단기 토큰 발급 → WebSocket 연결 시 첫 메시지로 제출 → 검증 후 통신 시작.
+- **메시지 핸들러에 권한 체크** + 채널 구독 시 owner 검증.
+- **메시지 sanitize 후 broadcast**.
+- **메시지 크기/빈도 제한** (rate limit).
+- **`wss://` 강제** + HSTS.
+- **JWT 만료 시 자동 disconnect** + 클라이언트가 재인증 후 재연결.
+- **subprotocol 화이트리스트**.
 
-   **브로드캐스트:**
-   - 수신 메시지를 다른 연결된 클라이언트에게 전달하는 코드
-   - 전달 전 sanitization 여부
-   - `io.emit()`, `socket.broadcast.emit()`, `ws.clients.forEach()`
+## 후보 판정 의사결정
 
-5. **후보 목록 작성**: 각 후보에 대해 "어떻게 악용할 수 있는지"를 구체적으로 구상. 데이터 흐름 추적을 완료한 뒤에도 공격 경로가 없으면 버린다. 추적 없이 직관으로 버리지 않는다..
+| 조건 | 판정 |
+|---|---|
+| 쿠키 인증 + Origin 검증 없음 | 후보 (라벨: `CSWSH`) |
+| Origin 검증 substring/wildcard | 후보 |
+| 핸드셰이크 인증 없음 + 첫 메시지로 인증 | 후보 (라벨: `LATE_AUTH`) |
+| 메시지 핸들러에 권한 체크 없음 (특히 admin/delete 액션) | 후보 (라벨: `MESSAGE_AUTHZ`) |
+| 채널 구독 시 owner 검증 없음 | 후보 (라벨: `CHANNEL_IDOR`) |
+| broadcast 전 sanitize 없음 | 후보 (라벨: `BROADCAST_XSS`) |
+| `ws://` 평문 + 인증 정보 전송 | 후보 |
+| `verifyClient` + 화이트리스트 + 핸드셰이크 인증 + 메시지 권한 체크 | 제외 |
+| Bearer 토큰 ticket + 짧은 TTL + 만료 시 disconnect | 제외 |
 
 ## 후보 판정 제한
 
-WebSocket 연결을 직접 생성/관리하는 코드가 있는 경우만 분석.
+WebSocket 연결을 직접 생성/관리하는 코드가 있는 경우만 분석. 외부 WebSocket 클라이언트만 사용하는 경우 제외.

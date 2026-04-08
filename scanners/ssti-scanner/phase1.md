@@ -1,93 +1,112 @@
+---
+grep_patterns:
+  - "ejs\\.render\\s*\\("
+  - "pug\\.render\\s*\\("
+  - "nunjucks\\.renderString\\s*\\("
+  - "render_template_string\\s*\\("
+  - "ERB\\.new\\s*\\("
+  - "Liquid::Template\\.parse"
+  - "Template\\s*\\("
+  - "renderString\\s*\\("
+  - "render_string\\s*\\("
+  - "template_string"
+  - "parseExpression\\s*\\("
+  - "SpelExpressionParser"
+  - "Freemarker"
+  - "Mustache\\.render"
+  - "Handlebars\\.compile\\s*\\("
+  - "__import__"
+  - "Velocity\\.evaluate"
+  - "FreeMarker"
+  - "@RequestParam"
+  - "@RequestBody"
+  - "req\\.query"
+  - "req\\.body"
+---
+
 > ## 핵심 원칙: "템플릿 표현식이 실행되지 않으면 취약점이 아니다"
 >
-> 소스코드에서 템플릿 엔진을 사용한다고 바로 SSTI로 보고하지 않는다. SSTI는 사용자 입력이 **템플릿 문자열 자체**에 삽입되어 템플릿 엔진이 이를 코드로 해석·실행하는 경우에만 발생한다. 템플릿의 **변수**로 전달되는 것은 SSTI가 아니다.
+> 템플릿 엔진을 사용한다고 SSTI가 아니다. SSTI는 사용자 입력이 **템플릿 문자열 자체**에 삽입되어 엔진이 코드로 해석할 때만 발생한다. 템플릿의 **변수**로 전달되는 것은 SSTI가 아니다.
 >
 > ```
-> # 안전 — 사용자 입력이 변수로 전달됨
-> render('hello.ejs', { name: userInput })
->
-> # 위험 — 사용자 입력이 템플릿 문자열에 삽입됨
-> ejs.render('Hello ' + userInput)
+> 안전 — render('hello.ejs', { name: userInput })
+> 위험 — ejs.render('Hello ' + userInput)
 > ```
->
 
-### Phase 1: 정찰 (소스코드 분석)
+## Sink 의미론
 
-사용자 입력 → 템플릿 문자열 삽입 경로를 추적하여 취약점 **후보**를 식별한다.
+SSTI sink는 "사용자 입력이 템플릿 컴파일러의 입력 문자열 위치에 도달하는 지점"이다. 핵심 구분: 사용자 입력이 **컴파일 대상**인가, **데이터 컨텍스트**인가.
 
-1. **프로젝트 스택 파악**: 프레임워크/언어/템플릿 엔진 확인
+| 엔진 | 언어 | 표현식 | 테스트 |
+|---|---|---|---|
+| Jinja2 | Python | `{{ }}` `{% %}` | `{{7*7}}` → 49 |
+| Mako | Python | `${}` | `${7*7}` → 49 |
+| Django Template | Python | `{{ }}` | 기본 안전 (sandbox) |
+| EJS | Node | `<%= %>` `<%- %>` | `<%= 7*7 %>` |
+| Pug | Node | `#{}` | `#{7*7}` |
+| Nunjucks | Node | `{{ }}` | `{{7*7}}` |
+| Handlebars | Node | `{{ }}` | 기본 안전 (helper만 호출) |
+| ERB | Ruby | `<%= %>` | `<%= 7*7 %>` |
+| Thymeleaf | Java | `${}` | `${7*7}` (StandardDialect는 OGNL 미사용, SpringEL 사용) |
+| Freemarker | Java | `${}` | `${7*7}`, `<#assign x=...>` |
+| Velocity | Java | `$x` | `$class.forName('java.lang.Runtime')` |
+| Twig | PHP | `{{ }}` | `{{7*7}}` |
+| Smarty | PHP | `{}` | `{7*7}` |
 
-2. **템플릿 엔진 식별**: 사용 중인 템플릿 엔진과 구문 확인
+**위험 sink 함수:**
 
-   | 엔진 | 언어 | 표현식 구문 | 테스트 페이로드 |
-   |------|------|------------|----------------|
-   | Jinja2 | Python | `{{ }}`, `{% %}` | `{{7*7}}` → `49` |
-   | Mako | Python | `${expression}` | `${7*7}` → `49` |
-   | Django Template | Python | `{{ }}`, `{% %}` | `{{7*7}}` (제한적, 기본 안전) |
-   | EJS | Node.js | `<%= %>`, `<%- %>` | `<%= 7*7 %>` → `49` |
-   | Pug/Jade | Node.js | `#{expression}` | `#{7*7}` → `49` |
-   | Nunjucks | Node.js | `{{ }}`, `{% %}` | `{{7*7}}` → `49` |
-   | Handlebars | Node.js | `{{ }}` | 기본적으로 안전 (헬퍼만 호출 가능) |
-   | ERB | Ruby | `<%= %>` | `<%= 7*7 %>` → `49` |
-   | Thymeleaf | Java | `${expression}` | `${7*7}` → `49` |
-   | Freemarker | Java | `${expression}` | `${7*7}` → `49` |
-   | Velocity | Java | `$expression` | `$class.forName('java.lang.Runtime')` |
-   | Twig | PHP | `{{ }}`, `{% %}` | `{{7*7}}` → `49` |
-   | Smarty | PHP | `{expression}` | `{7*7}` → `49` |
+| 엔진 | 위험 (컴파일 대상에 입력) | 안전 (데이터 컨텍스트) |
+|---|---|---|
+| EJS | `ejs.render(x)`, `ejs.render('...'+x)`, `ejs.compile(x)` | `ejs.render(file, {k:x})`, `res.render('view', {k:x})` |
+| Pug | `pug.render(x)`, `pug.compile(x)` | `pug.renderFile(file, {k:x})` |
+| Nunjucks | `nunjucks.renderString(x)` | `nunjucks.render('view', {k:x})` |
+| Jinja2 | `Template(x).render()`, `Environment.from_string(x)`, Flask `render_template_string(x)` | `render_template('view', k=x)` |
+| Mako | `Template(x).render()` | `template.render(k=x)` |
+| Thymeleaf | `templateEngine.process(x, ctx)`, SpringEL이 controller 반환값에 평가되는 경우 (`return "redirect:" + userInput`) | `process('view', ctx)` + ctx에 입력 |
+| Freemarker | `new Template("n", new StringReader(x), cfg)`, `Template.process` with dynamic body | dataModel에 입력 |
+| ERB | `ERB.new(x).result` | `ERB.new(file).result_with_hash(k:x)` |
+| Twig | `$twig->createTemplate(x)->render()` | `$twig->render('view', ['k'=>x])` |
+| Velocity | `Velocity.evaluate(ctx, sw, "log", x)` | template 파일 + ctx |
 
-3. **Source 식별**: 사용자가 제어 가능한 입력
-   - HTTP 파라미터가 템플릿 렌더링에 사용되는 경우
-   - URL 경로가 템플릿에 삽입되는 경우
-   - 이메일 템플릿에 사용자 입력이 삽입되는 경우
-   - 에러 페이지에 사용자 입력이 반영되는 경우
-   - CMS에서 사용자가 작성한 콘텐츠가 템플릿으로 처리되는 경우
+## Source-first 추가 패턴
 
-4. **Sink 식별**: 사용자 입력이 템플릿 문자열에 직접 삽입되는 코드
+- 이메일 템플릿 본문 편집기 (관리자/마케팅이 작성하는 템플릿이지만 결국 서버에서 컴파일됨 → 권한 우회 가능 시 후보)
+- 에러 페이지/리다이렉트 메시지에 사용자 입력 반영 (`return "redirect:" + url` Spring SpringEL 평가 케이스)
+- CMS의 위젯/숏코드 시스템
+- i18n 메시지 키가 사용자 제어
+- "동적 보고서 템플릿" 기능
+- 챗봇 응답 템플릿
 
-   **Node.js (EJS):**
-   - `ejs.render(userInput)` — 위험: 사용자 입력을 템플릿으로 실행
-   - `ejs.render('Hello ' + userInput)` — 위험: 문자열 연결
-   - `ejs.render(template, { name: userInput })` — 안전: 변수로 전달
-   - `res.render('template', { name: userInput })` — 안전: 파일 템플릿 + 변수
+## 자주 놓치는 패턴 (Frequently Missed)
 
-   **Node.js (Pug/Nunjucks):**
-   - `pug.render(userInput)` — 위험
-   - `nunjucks.renderString(userInput)` — 위험
-   - `nunjucks.renderString(template, { name: userInput })` — 주의: template이 고정이면 안전
+- **Spring `return "redirect:" + userInput`**: Thymeleaf/SpringEL이 view name을 평가하면서 `${}` 표현식을 실행. CVE-2022-22965 계열.
+- **Flask `render_template_string`**: f-string과 결합되면 항상 위험.
+- **이메일 템플릿 미리보기**: 관리자가 입력한 템플릿을 즉시 컴파일하는 미리보기 기능.
+- **`.format()` / f-string vs 템플릿 엔진 혼동**: Python `format` 자체도 `{0.__class__.__init__.__globals__}` 같은 attribute walk 가능 (제한적 SSTI/정보 노출).
+- **Velocity의 reflection**: `$class.forName('java.lang.Runtime').getMethod(...)` — sandbox 비활성 시 RCE.
+- **Handlebars 커스텀 helper**: 기본은 안전하지만 helper가 `eval`/`Function`을 호출하면 위험.
+- **Mustache → Handlebars 마이그레이션 잔재**: triple-stash `{{{x}}}`는 escape 안 함 (XSS이지 SSTI는 아니지만 함께 점검).
+- **i18n 라이브러리 (i18next, ICU MessageFormat)** 의 동적 키 평가에 사용자 입력.
+- **에러 메시지에 입력 반영 후 템플릿 처리**: `flash[:notice] = "Welcome #{params[:name]}"` + ERB로 렌더.
 
-   **Python (Jinja2):**
-   - `Template(userInput).render()` — 위험: 사용자 입력을 템플릿으로 실행
-   - `render_template_string(userInput)` — 위험 (Flask)
-   - `render_template_string('Hello ' + userInput)` — 위험: 문자열 연결
-   - `render_template('template.html', name=userInput)` — 안전: 파일 템플릿 + 변수
+## 안전 패턴 카탈로그 (FP Guard)
 
-   **Python (Mako):**
-   - `Template(userInput).render()` — 위험
-   - `template.render(name=userInput)` — 안전: 변수로 전달
+- **파일 기반 템플릿 + 데이터 컨텍스트**: `render('view.ejs', {data})` — 사용자가 파일 경로를 제어하지 않는 한 안전.
+- **Handlebars 기본 사용** (커스텀 unsafe helper 없음).
+- **Django Template 기본 사용** (sandbox 적용).
+- **Jinja2 SandboxedEnvironment** 사용.
+- **템플릿 컴파일 캐시**: 미리 컴파일된 템플릿 객체에 데이터만 주입.
 
-   **Java (Thymeleaf):**
-   - `templateEngine.process(userInput, context)` — 위험: 사용자 입력을 템플릿으로 처리
-   - Spring에서 컨트롤러 반환값에 사용자 입력이 삽입되는 경우 — 위험
+## 후보 판정 의사결정
 
-   **Java (Freemarker):**
-   - `new Template("name", new StringReader(userInput), cfg)` — 위험
-   - `template.process(dataModel, out)` where dataModel contains userInput — 안전: 변수로 전달
-
-   **Ruby (ERB):**
-   - `ERB.new(userInput).result` — 위험
-   - `ERB.new(template).result_with_hash(name: userInput)` — 안전: 변수로 전달
-
-   **PHP (Twig):**
-   - `$twig->createTemplate(userInput)->render()` — 위험
-   - `$twig->render('template.html', ['name' => userInput])` — 안전: 파일 템플릿 + 변수
-
-5. **경로 추적**: Source에서 Sink까지 사용자 입력이 **템플릿 문자열 자체**에 삽입되는지 확인. 핵심 구분:
-   - 사용자 입력이 `render(template, {variable: input})`의 **variable**로 전달되면 안전
-   - 사용자 입력이 `render(input)` 또는 `render('...' + input)`의 **template**에 삽입되면 위험
-   - 파일 기반 템플릿(`render('template.html', data)`)은 사용자가 파일 경로를 제어하지 않는 한 안전
-
-6. **후보 목록 작성**: 각 후보에 대해 "어떤 입력으로 어떻게 템플릿 표현식을 실행할 수 있는지"를 구체적으로 구상. 데이터 흐름 추적을 완료한 뒤에도 공격 경로가 없으면 버린다. 추적 없이 직관으로 버리지 않는다..
+| 조건 | 판정 |
+|---|---|
+| 사용자 입력이 컴파일 대상(첫 번째 인자)에 직접/연결로 삽입 | 후보 |
+| 사용자 입력이 데이터 컨텍스트(`{k: v}`)에만 전달 | 제외 (단 XSS 별도 점검) |
+| 컴파일 대상이지만 SandboxedEnvironment 적용 확인 | 제외 (sandbox escape 알려진 CVE 없는 한) |
+| Spring `return userInput`/`return "redirect:" + x` | 후보 (라벨: `SPRINGEL_VIEW_NAME`) |
+| 관리자만 접근 가능한 템플릿 편집 기능 | 후보 유지, 위협 모델은 권한 우회/내부 위협 |
 
 ## 후보 판정 제한
 
-서버사이드 템플릿 엔진의 렌더링 함수에 사용자 입력이 템플릿 문자열로 삽입되는 경우만 후보. 템플릿 엔진과 무관한 클래스는 제외.
+서버사이드 템플릿 엔진의 컴파일 함수에 사용자 입력이 템플릿 문자열로 삽입되는 경우만 후보. 데이터 컨텍스트 전달은 제외.

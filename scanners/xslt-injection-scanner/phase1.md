@@ -1,80 +1,84 @@
+---
+grep_patterns:
+  - "TransformerFactory"
+  - "XSLTProcessor"
+  - "lxml\\.etree\\.XSLT"
+  - "Nokogiri::XSLT"
+  - "xslt-processor"
+  - "XslCompiledTransform"
+  - "registerPHPFunctions"
+  - "XsltSettings"
+  - "saxon"
+  - "Xalan"
+  - "XSLT"
+  - "xslt"
+---
+
 > ## 핵심 원칙: "XSLT 변환이 조작되지 않으면 취약점이 아니다"
 >
-> 소스코드에서 XSLT 변환을 사용한다고 바로 취약점으로 보고하지 않는다. 실제로 사용자가 제어한 입력이 XSLT 스타일시트 또는 XML 데이터에 삽입되어 의도하지 않은 파일 읽기, 코드 실행, 정보 노출이 발생하는 것을 확인해야 취약점이다.
->
+> XSLT 변환 사용 자체는 취약점이 아니다. 사용자 입력이 XSLT 스타일시트(구조)에 삽입되거나 확장 함수가 활성화되어 파일 읽기/RCE/SSRF가 발생해야 한다.
 
-### Phase 1: 정찰 (소스코드 분석)
+## Sink 의미론
 
-사용자 입력 → XSLT 변환 경로를 추적하여 취약점 **후보**를 식별한다.
+XSLT Injection sink는 두 종류:
 
-1. **프로젝트 스택 파악**: XSLT 프로세서/라이브러리 확인
+1. **스타일시트 구조 sink**: 사용자 입력이 XSLT 스타일시트 문자열의 일부가 되거나, 사용자가 스타일시트 파일을 선택/업로드
+2. **확장 기능 sink**: 신뢰할 수 없는 스타일시트가 입력되고 프로세서가 확장 함수(PHP/Java/JS) 또는 `document()`/`unparsed-text()`를 허용
 
-   **Node.js:**
-   - `xslt-processor` — 순수 JS 구현, 확장 기능 제한적
-   - `libxslt` / `node-libxslt` — libxslt 바인딩, 확장 기능 가능
-   - `saxon-js` — Saxon XSLT 3.0 프로세서
-   - `xslt3` — XSLT 3.0 지원
+| 언어 | 프로세서 | 위험 옵션 |
+|---|---|---|
+| Node.js | `xslt-processor` | 확장 제한적 |
+| Node.js | `node-libxslt` | 확장 함수 가능 |
+| Node.js | `saxon-js` / `xslt3` | XSLT 3.0 함수 |
+| Python | `lxml.etree.XSLT` | `extensions` 인자, `document()` 함수 |
+| Java | `TransformerFactory` (JAXP/Xalan) | `FEATURE_SECURE_PROCESSING=false`, 확장 함수 |
+| Java | Saxon | `ALLOW_EXTERNAL_FUNCTIONS=true` |
+| PHP | `XSLTProcessor` | `registerPHPFunctions()` 호출 시 PHP 함수 실행 |
+| .NET | `XslCompiledTransform` | `XsltSettings.EnableScript=true`, `EnableDocumentFunction=true` |
+| .NET | `XslTransform` (deprecated) | 전체 위험 |
 
-   **Python:**
-   - `lxml.etree.XSLT` — libxslt 기반
-   - `xml.etree.ElementTree` — XSLT 미지원 (안전)
-   - `saxonpy` — Saxon XSLT 프로세서
+## Source-first 추가 패턴
 
-   **Java:**
-   - `javax.xml.transform.TransformerFactory` — JAXP
-   - `net.sf.saxon.TransformerFactoryImpl` — Saxon
-   - `org.apache.xalan.processor.TransformerFactoryImpl` — Xalan
+- XML 파일 업로드가 변환 파이프라인으로 흘러가는 경로
+- XSLT 파라미터로 사용자 입력 전달 (상대적으로 안전하지만 경로 검증)
+- "리포트 템플릿 업로드" 기능
+- XSL-FO → PDF 변환 파이프라인
+- SOAP 응답 변환
 
-   **PHP:**
-   - `XSLTProcessor` — libxslt 기반, `registerPHPFunctions()` 시 PHP 함수 호출 가능
+## 자주 놓치는 패턴 (Frequently Missed)
 
-   **.NET:**
-   - `System.Xml.Xsl.XslCompiledTransform`
-   - `System.Xml.Xsl.XslTransform` (deprecated)
-   - `XsltSettings.EnableScript` — 스크립트 실행 허용 여부
+- **PHP `registerPHPFunctions()`**: 호출만 되어 있어도 신뢰할 수 없는 XSLT가 임의 PHP 함수 실행 가능 → RCE.
+- **`document('http://attacker/')`**: 외부 XML/리소스 fetch → SSRF + 정보 노출.
+- **`document('file:///etc/passwd')`**: 로컬 파일 읽기.
+- **Saxon `unparsed-text('/etc/passwd')`** / `unparsed-text-lines()` (XSLT 2.0+).
+- **`<xsl:include href="..."/>` / `<xsl:import>`**: 외부 스타일시트 fetch.
+- **JAXP secure processing 미적용**: Java 기본 `TransformerFactory`는 secure processing이 꺼져 있을 수 있음. 명시적 `factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true)` 필요.
+- **.NET `EnableScript=true`**: `<msxsl:script>`로 C# 코드 실행.
+- **lxml `extensions={(ns, name): func}`**: 사용자 신뢰 코드면 안전하나, 동적으로 등록되면 위험.
+- **XSL-FO PDF 생성**: 외부 이미지 fetch로 SSRF.
+- **사용자 업로드 스타일시트 + 동적 입력 XML 조합**: 두 입력 모두 사용자 제어.
 
-2. **Source 식별**: 사용자가 제어 가능한 입력 중 XSLT에 반영될 수 있는 것
-   - XML 데이터 입력 (XML 파일 업로드, XML API 요청)
-   - XSLT 파라미터로 전달되는 사용자 입력
-   - XSLT 스타일시트 자체를 업로드하거나 선택하는 기능
-   - XSL-FO 변환 (PDF 생성 등)에 사용되는 입력
+## 안전 패턴 카탈로그 (FP Guard)
 
-3. **Sink 식별**: XSLT 변환을 수행하는 코드
+- **고정 스타일시트 파일 + XML 데이터만 사용자 입력**: 스타일시트 경로가 환경변수/상수.
+- **XSLT 파라미터 전달**: `transformer.setParameter(name, value)` (스타일시트 구조 변경 불가).
+- **JAXP secure processing 활성화**: `factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true)`.
+- **Saxon `ConfigurationProperty.ALLOW_EXTERNAL_FUNCTIONS=false`**.
+- **PHP `registerPHPFunctions` 미호출** + 스타일시트가 신뢰 출처.
+- **.NET `XsltSettings.Default`** (script + document 모두 false).
 
-   **사용자 입력이 XSLT 스타일시트에 삽입 (위험):**
-   ```java
-   // Java — 사용자 입력으로 XSLT 문자열 생성
-   String xslt = "<xsl:stylesheet>" + userInput + "</xsl:stylesheet>";
-   Transformer transformer = factory.newTransformer(new StreamSource(new StringReader(xslt)));
-   ```
+## 후보 판정 의사결정
 
-   **사용자가 XSLT 파일을 선택/업로드 (위험):**
-   ```python
-   # Python — 사용자가 지정한 XSLT 파일 사용
-   xslt = etree.parse(user_specified_xslt_path)
-   transform = etree.XSLT(xslt)
-   ```
-
-   **사용자 입력이 XSLT 파라미터로 전달 (상대적으로 안전):**
-   ```java
-   // Java — 파라미터로 전달 (스타일시트는 고정)
-   transformer.setParameter("name", userInput);
-   ```
-
-   **안전한 패턴:**
-   - 고정된 XSLT 스타일시트 파일 사용 + 사용자 입력은 XML 데이터로만 전달
-   - XSLT 파라미터를 통한 값 전달 (스타일시트 구조 변경 불가)
-   - XSLT 확장 기능 비활성화
-
-4. **프로세서 보안 설정 확인**:
-   - Java: `TransformerFactory.setFeature()` — 확장 기능 비활성화 여부
-   - .NET: `XsltSettings.EnableScript = false` (기본값) 확인
-   - PHP: `XSLTProcessor::registerPHPFunctions()` 호출 여부 — 호출하지 않으면 PHP 함수 실행 불가
-   - `document()` 함수 허용 여부
-   - `xsl:include` / `xsl:import` 허용 여부
-
-5. **후보 목록 작성**: 각 후보에 대해 "어떤 입력으로 어떻게 XSLT 변환을 조작할 수 있는지"를 구체적으로 구상. 데이터 흐름 추적을 완료한 뒤에도 공격 경로가 없으면 버린다. 추적 없이 직관으로 버리지 않는다..
+| 조건 | 판정 |
+|---|---|
+| 사용자 입력 → 스타일시트 문자열에 삽입/연결 | 후보 |
+| 사용자가 스타일시트 파일을 업로드/선택 | 후보 |
+| PHP `registerPHPFunctions()` 호출 + 신뢰할 수 없는 스타일시트 | 후보 (라벨: `PHP_RCE`) |
+| .NET `EnableScript=true` | 후보 (라벨: `NET_RCE`) |
+| Java factory에 `FEATURE_SECURE_PROCESSING` 미설정 + 신뢰할 수 없는 입력 | 후보 |
+| 고정 스타일시트 + 사용자 입력은 XML 데이터/파라미터만 | 제외 |
+| lxml `extensions` 정적 등록만, 동적 함수 없음 | 제외 |
 
 ## 후보 판정 제한
 
-XSLT 변환 코드에 사용자 입력이 삽입되는 경우만 후보.
+XSLT 변환 코드에 사용자 입력이 삽입되거나 확장 기능이 활성화된 경우만 후보.

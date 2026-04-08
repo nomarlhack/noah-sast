@@ -4,13 +4,54 @@
 
 ## 임무
 
-35개 취약점 스캐너의 grep 패턴을 통합 패턴 파일에서 읽어,
+35개 취약점 스캐너의 grep 패턴을 각 스캐너 phase1.md frontmatter에서 읽어,
 프로젝트 전체를 grep한 뒤 결과를 파일로 저장한다.
 
-## 단계 1: 통합 패턴 파일 읽기
+## 단계 1: 스캐너별 패턴 수집 (phase1.md frontmatter)
 
-`<NOAH_SAST_DIR>/grep-patterns.yml`을 Read 도구로 읽는다.
-이 파일에 35개 스캐너의 모든 grep 패턴이 스캐너별로 정의되어 있다.
+아래 35개 스캐너의 phase1.md를 각각 Read 도구로 읽는다:
+
+```
+<NOAH_SAST_DIR>/scanners/xss-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/dom-xss-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/sqli-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/nosqli-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/command-injection-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/ssti-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/ssrf-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/path-traversal-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/ldap-injection-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/xpath-injection-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/xxe-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/xslt-injection-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/crlf-injection-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/deserialization-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/open-redirect-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/host-header-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/css-injection-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/csv-injection-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/prototype-pollution-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/file-upload-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/zipslip-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/pdf-generation-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/redos-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/http-method-tampering-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/http-smuggling-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/jwt-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/oauth-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/saml-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/csrf-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/idor-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/soapaction-spoofing-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/subdomain-takeover-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/sourcemap-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/websocket-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/graphql-scanner/phase1.md
+```
+
+각 파일의 최상단 YAML frontmatter 블록(`---` 으로 시작하고 `---` 으로 끝남)에서
+`grep_patterns:` 리스트를 추출하여 스캐너별 패턴 딕셔너리를 구성한다.
+frontmatter 본문(Sink 의미 서술)은 이 단계에서 사용하지 않는다 — Phase 1 에이전트가 별도로 사용한다.
 
 ## 단계 2: 패턴 일괄 grep 실행
 

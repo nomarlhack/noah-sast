@@ -1,53 +1,86 @@
-> ## 핵심 원칙: "우회되지 않으면 취약점이 아니다"
+---
+grep_patterns:
+  - "method-override"
+  - "X-HTTP-Method-Override"
+  - "X-Method-Override"
+  - "_method"
+  - "app\\.all\\s*\\("
+  - "Rack::MethodOverride"
+  - "limit_except"
+  - "<Limit"
+  - "<LimitExcept"
+  - "http_method_names"
+---
+
+> ## 핵심 원칙: "메서드 변경으로 보안이 우회되어야 취약점이다"
 >
-> HTTP 메서드를 변경했을 때 인증이나 인가가 실제로 우회되어 보호된 리소스에 접근하거나 상태를 변경할 수 있는 것을 확인해야 취약점이다. 단순히 405(Method Not Allowed)가 아닌 200을 받았다는 것만으로는 취약점이 아니다. 보호된 기능이 실제로 동작해야 한다.
->
+> 405가 아닌 200을 받는 것만으로는 부족하다. HTTP 메서드를 변경했을 때 인증/인가가 실제로 우회되어 보호된 리소스에 접근하거나 상태를 변경할 수 있어야 한다.
 
-### Phase 1: 정찰 (소스코드 분석)
+## Sink 의미론
 
-라우팅 설정과 인증/인가 미들웨어를 분석하여 메서드별 보안 적용 차이를 식별한다.
+HTTP Method Tampering sink는 "라우트의 일부 메서드에는 인증/인가 미들웨어가 적용되고, 다른 메서드에는 적용되지 않거나 다르게 적용되는 지점"이다. 또는 method override 헤더(`X-HTTP-Method-Override`, `_method`)가 미들웨어 검증을 우회하는 지점.
 
-1. **프로젝트 스택 파악**: 프레임워크/언어/웹 서버/리버스 프록시 확인
+| 프레임워크 | 라우트 정의 패턴 |
+|---|---|
+| Express | `app.get/post/put/delete`, `app.all`, `app.use`, `router.route('/p').get(...).post(...)` |
+| Next.js API | `pages/api/` 핸들러의 `req.method` 분기 |
+| Django | `@require_http_methods`, CBV `http_method_names`, `if request.method == 'POST'` 수동 |
+| Spring | `@GetMapping`/`@PostMapping`/`@RequestMapping(method=...)`, `@RequestMapping` (메서드 미지정 → 모든 메서드 허용) |
+| Rails | `routes.rb` `get`/`post`/`resources`, `match ... via:` |
+| FastAPI | `@app.get/post/...`, `@app.api_route(methods=[...])` |
 
-2. **라우트 정의 분석**: HTTP 메서드별 라우트 등록 방식 확인
+## Source-first 추가 패턴
 
-   **Express/Node.js:**
-   - `app.get()`, `app.post()`, `app.put()`, `app.delete()` — 메서드별 개별 등록
-   - `app.all()` — 모든 메서드 허용 (의도적인지 확인 필요)
-   - `app.use()` — 모든 메서드에 미들웨어 적용 (인증이 여기에 있으면 안전)
-   - `router.route('/path').get(...).post(...)` — 체이닝 방식
+- 인증 미들웨어 라우트별 적용 코드 (`app.post('/admin', auth, handler)`)
+- `app.all(...)` vs `app.get(...)` 혼용
+- `req.method === 'POST'` 분기에서만 권한 체크
+- Next.js `pages/api/` 핸들러에서 method 분기 누락
+- Spring `@RequestMapping`에 method 미지정
+- nginx `limit_except` / Apache `<LimitExcept>` 설정
+- Rack/Express `method-override` 미들웨어
+- 커스텀 `X-HTTP-Method-Override`/`X-Method-Override`/`_method` 처리
 
-   **Next.js API Routes:**
-   - `pages/api/` 핸들러에서 `req.method` 체크 여부
-   - 메서드별 분기가 없으면 모든 메서드에서 동일 로직 실행
+## 자주 놓치는 패턴 (Frequently Missed)
 
-   **Django:**
-   - `@require_http_methods(['GET', 'POST'])` — 허용 메서드 제한
-   - `class-based view`의 `http_method_names` — 허용 메서드 목록
-   - `if request.method == 'POST':` — 수동 체크
+- **`app.post('/admin', auth, ...)` + `app.get('/admin', ...)` 인증 누락**: GET으로 같은 라우트 호출 시 인증 미적용.
+- **Spring `@RequestMapping("/admin")` 메서드 미지정**: 모든 HTTP 메서드(`HEAD`/`OPTIONS`/`TRACE` 포함) 허용. Spring Security가 `HttpMethod.GET`만 보호하면 우회.
+- **Next.js API route에서 `req.method` 분기 누락**: GET/POST/PUT/DELETE 모두 동일 핸들러 → DELETE로 호출 시 의도치 않은 동작.
+- **`HEAD` 메서드 우회**: 일부 미들웨어가 GET만 검사. `HEAD`는 GET과 동일 핸들러 호출이지만 미들웨어에서 미체크.
+- **`OPTIONS` preflight 핸들러가 인증 우회**: CORS 처리 시 OPTIONS는 인증 통과시키는 패턴이 다른 메서드로 누설.
+- **`TRACE` 메서드** (Cross-Site Tracing): 헤더 echo로 HttpOnly 쿠키 노출. 대부분 비활성화되어 있으나 잔존.
+- **`method-override` 미들웨어 + 인증 미들웨어 순서**: override가 인증 후에 적용되면, 인증은 GET으로 통과 → 핸들러는 DELETE로 동작.
+- **`_method` 폼 필드**: Rails `Rack::MethodOverride` 기본 활성. CSRF 토큰 검증이 GET에 적용 안 되면 form으로 우회.
+- **`X-HTTP-Method-Override: PUT` + GET**: WAF가 GET만 검사.
+- **case sensitivity**: `Get`/`get`/`GET` 처리. 일부 파서가 다르게 인식.
+- **숨겨진 메서드** (`PROPFIND`, `MKCOL` 등 WebDAV): 활성화된 백엔드에서 의도치 않게 동작.
+- **gateway/CDN과 백엔드의 메서드 처리 차이**: gateway는 GET 허용, 백엔드는 모두 허용 → gateway 우회.
+- **Reverse proxy `proxy_method` 변경 미들웨어**: gateway가 메서드 변환.
+- **GraphQL endpoint**: GET vs POST에 따라 mutation 허용 차이.
 
-   **Spring:**
-   - `@GetMapping`, `@PostMapping`, `@RequestMapping(method=...)` — 메서드 지정
-   - `@RequestMapping` (method 미지정) — 모든 메서드 허용
+## 안전 패턴 카탈로그 (FP Guard)
 
-   **Rails:**
-   - `routes.rb`의 `get`, `post`, `resources` — RESTful 라우팅
-   - `match ... via: [:get, :post]` — 메서드 제한
+- **`app.use('/admin', authMiddleware)` + `app.use('/admin', adminRouter)`**: 라우터 단위 미들웨어 → 모든 메서드에 적용.
+- **`router.all('/admin/*', authMiddleware)`** (Express).
+- **Spring Security `antMatchers("/admin/**").authenticated()`**: 메서드 무관 매칭.
+- **Django `LoginRequiredMixin` 또는 `dispatch` 오버라이드**: CBV 모든 메서드에 적용.
+- **명시적 메서드 화이트리스트**: `if (req.method !== 'POST') return res.status(405).end()`.
+- **method-override 미들웨어 미사용** 또는 인증 후 적용.
+- **CSRF 미들웨어가 모든 unsafe method (POST/PUT/DELETE/PATCH)에 적용**.
+- **gateway/WAF에서 메서드 화이트리스트** (`limit_except GET POST { deny all; }`).
 
-3. **인증/인가 미들웨어 분석**: 메서드별 보안 적용 범위 확인
-   - 인증 미들웨어가 **전역**으로 적용되는지, **라우트별**로 적용되는지
-   - 특정 메서드에만 인증을 건너뛰는(skip) 로직이 있는지
-   - `app.all('/admin/*', authMiddleware)` vs `app.post('/admin/*', authMiddleware)` — 전자는 안전, 후자는 GET 우회 가능
+## 후보 판정 의사결정
 
-4. **Method Override 설정 확인**:
-   - Express: `method-override` 미들웨어 사용 여부
-   - Django: `django.middleware.http.ConditionalGetMiddleware`
-   - Rails: `Rack::MethodOverride` (기본 활성화)
-   - 커스텀: `X-HTTP-Method-Override`, `X-Method-Override`, `_method` 파라미터 처리 코드
+| 조건 | 판정 |
+|---|---|
+| 라우트의 일부 메서드에만 인증 미들웨어 적용 | 후보 |
+| `app.all`/`app.use` 사용하지만 일부 핸들러가 별도 등록 | 후보 |
+| Spring `@RequestMapping` 메서드 미지정 + 보안 설정도 메서드 미지정 | 후보 |
+| Next.js API route에서 `req.method` 분기 없음 + 권한 체크도 없음 | 후보 |
+| method-override 미들웨어가 인증 미들웨어 이후에 적용 | 후보 (라벨: `OVERRIDE_BYPASS`) |
+| HEAD/OPTIONS가 GET 핸들러 호출 + 인증 미체크 | 후보 (라벨: `HEAD_BYPASS`) |
+| 모든 메서드에 동일 미들웨어 chain 확인 | 제외 |
+| CSRF 토큰이 모든 unsafe method에 적용 | 제외 (CSRF 한정) |
 
-5. **웹 서버/프록시 설정 확인** (접근 가능한 경우):
-   - nginx: `limit_except` 디렉티브
-   - Apache: `<Limit>`, `<LimitExcept>` 디렉티브
-   - `.htaccess` 파일
+## 후보 판정 제한
 
-6. **후보 목록 작성**: 각 후보에 대해 "어떤 메서드로 요청하면 어떤 보안 검사가 우회되는지"를 구체적으로 구상. 데이터 흐름 추적을 완료한 뒤에도 공격 경로가 없으면 버린다. 추적 없이 직관으로 버리지 않는다..
+라우트별 메서드 적용에 차이가 있고, 그 차이가 인증/인가/CSRF 보호에 영향을 미치는 경우만 후보.

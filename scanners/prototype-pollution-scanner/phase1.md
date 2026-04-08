@@ -1,83 +1,94 @@
+---
+grep_patterns:
+  - "__proto__"
+  - "constructor\\.prototype"
+  - "merge\\s*\\("
+  - "extend\\s*\\("
+  - "deepMerge\\s*\\("
+  - "deepCopy\\s*\\("
+  - "defaultsDeep\\s*\\("
+  - "lodash\\.merge"
+  - "lodash\\.set"
+  - "jQuery\\.extend"
+  - "Object\\.assign\\s*\\("
+  - "dot-prop"
+  - "set-value"
+  - "object-path"
+  - "Object\\.setPrototypeOf"
+  - "hoek\\.merge"
+  - "hoek\\.applyToDefaults"
+---
+
 > ## 핵심 원칙: "프로토타입이 오염되지 않으면 취약점이 아니다"
 >
-> 소스코드에서 `merge`, `extend`, `defaultsDeep` 같은 함수가 있다고 바로 취약점으로 보고하지 않는다. 사용자가 제어한 입력으로 실제로 `Object.prototype`이나 다른 객체의 프로토타입에 속성이 추가/변경되는 것을 확인해야 취약점이다.
->
-> 가정 기반의 취약점 보고는 도움이 되지 않는다. "라이브러리에 알려진 취약점이 있으므로 위험" 같은 보고는 실제 코드에서 해당 취약 경로가 도달 가능한지를 확인한 뒤에야 의미가 있다.
->
+> `merge`/`extend`/`defaultsDeep` 사용 자체는 취약점이 아니다. 사용자 입력으로 `Object.prototype` 또는 다른 프로토타입에 속성이 실제로 추가/변경되어야 한다. 단순히 "라이브러리에 알려진 취약점"만으로는 부족 — 실제 취약 경로가 도달 가능해야 한다.
 
-### Phase 1: 정찰 (소스코드 분석)
+## Sink 의미론
 
-사용자 입력 → 객체 병합/복사 함수 → 프로토타입 오염 경로를 추적하여 취약점 **후보**를 식별한다.
+Prototype Pollution sink는 "사용자 제어 키가 객체 속성 키 위치(`obj[key]`/path 분리 후 walk)에 도달하고, `__proto__`/`constructor`/`prototype` 키가 차단되지 않는 지점"이다.
 
-1. **프로젝트 스택 파악**: package.json에서 사용 중인 라이브러리 확인. 특히 알려진 취약 버전이 있는 라이브러리에 주의.
+| 카테고리 | 위험 sink |
+|---|---|
+| 재귀 병합 | 커스텀 `merge`/`extend`/`deepMerge`/`defaultsDeep`, `lodash.merge`/`defaultsDeep`/`set`/`setWith` (취약 버전), `jQuery.extend(true, ...)`, `hoek.merge`/`applyToDefaults` (취약), `deap`/`deep-extend`/`merge-deep`/`mixin-deep`/`defaults-deep` |
+| 동적 속성 path | `lodash.set(obj, path, val)`, `_.set`, `dot-prop.set`, `set-value`, `object-path.set`, `unset-value` |
+| 직접 키 할당 | `obj[req.body.key] = val`, `obj[a][b] = c` (a 또는 b가 사용자 입력) |
+| JSON 파서 | 일부 보안 JSON 파서는 `__proto__` 키 제거, 일반 `JSON.parse`는 그대로 둠 |
+| 쿼리 파서 | `qs` 라이브러리 (express 기본 `extended:true`)의 중첩 객체 + `__proto__` 키 |
 
-2. **Source 식별**: 사용자가 제어 가능한 입력 중 객체/JSON으로 사용되는 것
-   - HTTP 요청 본문 (JSON): `req.body`
-   - HTTP 쿼리 파라미터 (qs 파서가 중첩 객체 지원): `req.query`
-   - URL 파라미터
-   - WebSocket 메시지
-   - 설정 파일, 사용자 정의 옵션 등
+`Object.assign`은 1-depth만 복사 → 직접 sink 아님. 단 중첩 객체에서 래핑되면 위험.
 
-3. **Sink 식별**: 객체 속성을 재귀적으로 복사/병합/설정하는 코드
+## Source-first 추가 패턴
 
-   **위험한 패턴 (재귀적 병합/복사):**
-   - 커스텀 `merge`, `extend`, `deepMerge`, `deepCopy`, `defaultsDeep` 함수
-   - `lodash.merge`, `lodash.defaultsDeep`, `lodash.set`, `lodash.setWith` (취약 버전)
-   - `jQuery.extend(true, ...)` (deep copy 모드)
-   - `hoek.merge`, `hoek.applyToDefaults` (취약 버전)
-   - `deap`, `deep-extend`, `merge-deep`, `mixin-deep`, `defaults-deep` 등 npm 패키지
-   - `Object.assign`은 1-depth만 복사하므로 직접적으로는 안전하지만, 중첩 구조에서 래핑되면 위험
+- `req.body` (JSON 파싱 후) — 가장 흔함
+- `req.query` (`qs` 파서가 중첩 객체 지원)
+- URL path 파라미터
+- WebSocket 메시지 payload
+- 설정 파일 / 사용자 옵션
+- YAML/TOML 파싱 결과 (구조적으로 동일)
 
-   **동적 속성 설정:**
-   - `obj[key] = value` 패턴에서 `key`가 사용자 입력인 경우
-   - `obj[a][b] = c` 패턴에서 `a`, `b`가 사용자 입력인 경우
-   - `lodash.set(obj, path, value)` 에서 `path`가 사용자 입력인 경우
-   - `_.set`, `dot-prop.set`, `set-value`, `object-path.set` 등
+## 자주 놓치는 패턴 (Frequently Missed)
 
-   **키 검증 여부 확인:**
-   ```javascript
-   // 안전하지 않음 — __proto__ 키를 차단하지 않음
-   function merge(target, source) {
-     for (let key in source) {
-       if (typeof source[key] === 'object') {
-         target[key] = merge(target[key] || {}, source[key]);
-       } else {
-         target[key] = source[key];
-       }
-     }
-   }
+- **`qs` 파서의 `__proto__` 우회**: `qs.parse('__proto__[isAdmin]=true')` → 객체에 `__proto__.isAdmin = true`. Express 4.x 기본 `qs` 사용.
+- **MongoDB `$` 연산자와 동시 차단 미흡**: NoSQLi 방어로 `$` prefix는 막아도 `__proto__`는 안 막는 케이스.
+- **서버 가젯 (가장 영향도 큼)**:
+  - `child_process.spawn` 옵션의 `shell`/`env`/`cwd`가 오염된 속성 참조 → RCE
+  - 템플릿 엔진(`ejs`/`pug`/`handlebars`) 컴파일 옵션의 `outputFunctionName` 등이 오염되면 RCE
+  - Express `res.render` 옵션
+  - `require` 경로 조작
+- **클라이언트 가젯**:
+  - jQuery, Bootstrap, AngularJS 등에서 옵션 객체의 missing 속성을 prototype에서 lookup → DOM XSS
+  - sanitizer bypass (DOMPurify의 hook 옵션 오염)
+- **Lodash CVE 체인**: `lodash._.merge`, `_.defaultsDeep`, `_.set`, `_.setWith`, `_.zipObjectDeep` — 4.17.x 미만 다수 CVE.
+- **`hoek.merge`/`applyToDefaults`** (CVE-2018-3728).
+- **`yargs-parser`/`minimist` `--__proto__.x=y`** (CLI argv 파서 오염).
+- **JSON5/JSON.parse + reviver**: reviver 함수가 `__proto__` 키를 처리하지 않음.
+- **GraphQL resolver 인자 spread**: `{...args}` 후 키 walk.
+- **TypeScript "타입 안전"이 런타임 안전과 무관**: 타입 정의에 `[key: string]` 있어도 prototype 오염 가능.
+- **Map/Set이 아닌 plain object를 cache로 사용**: cache key가 사용자 입력이면 오염.
 
-   // 안전함 — __proto__, constructor, prototype 키를 차단
-   function safeMerge(target, source) {
-     for (let key in source) {
-       if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
-       // ...
-     }
-   }
-   ```
+## 안전 패턴 카탈로그 (FP Guard)
 
-4. **경로 추적**: Source에서 Sink까지 데이터가 키 검증 없이 도달하는 경로 확인. 다음을 점검:
-   - `__proto__`, `constructor`, `prototype` 키에 대한 필터링 존재 여부
-   - `Object.create(null)`로 생성된 프로토타입 없는 객체를 사용하는지
-   - `Map`/`Set` 등 프로토타입 체인을 사용하지 않는 자료구조를 쓰는지
-   - JSON 파서가 `__proto__` 키를 제거하는지 (일부 보안 JSON 파서)
-   - Express의 query parser가 중첩 객체를 허용하는지 (`qs` 기본 설정)
+- **`Object.create(null)` 사용**: 프로토타입 체인 자체가 없어 오염 불가.
+- **`Map`/`Set` 사용**: prototype lookup 없음.
+- **키 화이트리스트 검증**: `if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue`.
+- **`Object.freeze(Object.prototype)`**: 전역 freezing. 일부 라이브러리 호환 문제 있을 수 있음.
+- **JSON Schema validator (Ajv 등) 적용** + `additionalProperties: false`.
+- **lodash 4.17.21+** + 위험 함수 미사용.
+- **`hasOwnProperty` 체크**: walk 시 own property만 처리.
+- **`secure-json-parse` 사용**: `__proto__` 키 자동 제거.
 
-5. **가젯 탐색**: 프로토타입 오염이 가능한 경우, 오염된 속성을 참조하여 위험한 동작을 수행하는 코드(가젯)를 찾는다.
+## 후보 판정 의사결정
 
-   **서버사이드 가젯 예시:**
-   - `child_process.spawn`/`exec` 옵션에서 `shell`, `env`, `cwd` 등이 오염된 속성을 참조
-   - `ejs`, `pug`, `handlebars` 등 템플릿 엔진의 컴파일 옵션
-   - Express의 `res.render()` 옵션
-   - `require` 경로 조작
-
-   **클라이언트사이드 가젯 예시:**
-   - `innerHTML`, `outerHTML`에 오염된 속성 값이 삽입
-   - `document.createElement` 후 오염된 속성이 attribute로 설정
-   - `eval`, `Function`, `setTimeout(string)` 에 오염된 값 전달
-   - 라이브러리 초기화 옵션에서 오염된 속성 참조 (sanitizer bypass 등)
-
-6. **후보 목록 작성**: 각 후보에 대해 "어떤 입력으로 어떻게 프로토타입을 오염시킬 수 있는지", 그리고 가능하면 "어떤 가젯을 통해 실제 영향이 발생하는지"를 구체적으로 구상. 데이터 흐름 추적을 완료한 뒤에도 공격 경로가 없으면 버린다. 추적 없이 직관으로 버리지 않는다..
+| 조건 | 판정 |
+|---|---|
+| 사용자 입력 → 재귀 merge sink + `__proto__` 차단 없음 | 후보 |
+| `lodash.set(obj, userPath, val)` + path 화이트리스트 없음 | 후보 |
+| `obj[req.body.key] = val` + key 검증 없음 | 후보 |
+| `Object.create(null)` 또는 `Map` 사용 확인 | 제외 |
+| 키 차단 (`__proto__`/`constructor`/`prototype`) 코드 확인 | 제외 |
+| 오염은 가능하나 가젯 부재 (영향 없음) | 후보 유지 (라벨: `NO_GADGET`) — 후속 코드 변경으로 가젯 발생 가능 |
+| 오염 + 가젯 식별 (RCE/auth bypass/sanitizer 우회) | 후보 (라벨: `WITH_GADGET`) |
+| 라이브러리 알려진 CVE이지만 호출 경로 도달 불가 | 제외 |
 
 ## 후보 판정 제한
 

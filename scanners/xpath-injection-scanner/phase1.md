@@ -1,96 +1,75 @@
+---
+grep_patterns:
+  - "\\.xpath\\s*\\("
+  - "XPath\\.evaluate\\s*\\("
+  - "XPath\\.compile\\s*\\("
+  - "DOMXPath::query\\s*\\("
+  - "DOMXPath::evaluate\\s*\\("
+  - "SimpleXMLElement::xpath\\s*\\("
+  - "Nokogiri.*xpath"
+  - "REXML::XPath"
+  - "lxml\\.etree\\.xpath"
+  - "XPathFactory"
+---
+
 > ## 핵심 원칙: "쿼리 로직이 변경되지 않으면 취약점이 아니다"
 >
-> 소스코드에서 XPath 쿼리를 사용한다고 바로 취약점으로 보고하지 않는다. 실제로 사용자가 제어한 입력에 `'`, `or`, `and` 등 XPath 구문을 삽입하여 쿼리 조건을 변경할 수 있는 것을 확인해야 취약점이다.
->
+> XPath 사용 자체는 취약점이 아니다. 사용자 입력에 `'`/`or`/`and`/`[`/`]` 등 XPath 구문을 삽입하여 쿼리 조건을 실제로 변경할 수 있어야 한다.
 
-### Phase 1: 정찰 (소스코드 분석)
+## Sink 의미론
 
-사용자 입력 → XPath 쿼리 경로를 추적하여 취약점 **후보**를 식별한다.
+XPath Injection sink는 "사용자 입력이 XPath 쿼리 문자열의 토큰 위치(따옴표 외부)에 도달하는 지점"이다. 변수 바인딩(`$var` + `setXPathVariableResolver`)은 입력을 값으로 강제하므로 sink가 아니다.
 
-1. **프로젝트 스택 파악**: XML 처리 라이브러리/XPath 엔진 확인
+| 언어 | 위험 sink |
+|---|---|
+| Node.js | `xpath.select(\`...${x}\`, doc)`, `libxmljs` `doc.find/get`, `xmldom`+`xpath` |
+| Python | `lxml.etree.xpath(f"...{x}")`, `ElementTree.findall` (제한적), |
+| Java | `XPath.evaluate("..."+x, doc)`, `XPath.compile("..."+x)` |
+| PHP | `DOMXPath::query("..."+$x)`, `DOMXPath::evaluate`, `SimpleXMLElement::xpath` |
+| Ruby | `Nokogiri::XML::Node#xpath("..."+x)`, `REXML::XPath.match` |
+| .NET | `XmlNode.SelectNodes("..."+x)`, `XPathNavigator.Evaluate` |
 
-   **Node.js:**
-   - `xpath` — XPath 쿼리 라이브러리
-   - `xmldom` + `xpath` — DOM 파싱 + XPath
-   - `libxmljs` — `doc.find()`, `doc.get()` (XPath)
-   - `cheerio` — CSS 선택자 (XPath 아님, 안전)
+**안전 (변수 바인딩):**
+- Java `xPath.setXPathVariableResolver(...)` + `evaluate("//user[name=$name]", doc)`
+- Python lxml `doc.xpath("//user[name=$name]", name=x)`
+- .NET `XPathExpression` + custom context
 
-   **Python:**
-   - `lxml.etree.xpath()` — XPath 쿼리
-   - `xml.etree.ElementTree.findall()` — 제한된 XPath 지원 (기본적으로 안전)
-   - `defusedxml` — 안전한 래퍼
+## Source-first 추가 패턴
 
-   **Java:**
-   - `javax.xml.xpath.XPath.evaluate()` — JAXP XPath
-   - `javax.xml.xpath.XPath.compile()` — 컴파일된 XPath
-   - `org.w3c.dom.Document` + XPath — DOM + XPath
-   - `XPathFactory.newInstance()` — XPath 엔진 생성
+- XML 기반 인증의 username/password
+- XML 데이터 검색 기능 (legacy 시스템에서 자주 등장)
+- SOAP 응답을 XPath로 파싱 후 사용자 입력으로 필터링
+- 설정 XML 파일에서 사용자 키로 lookup
+- SAML assertion 처리 중 XPath 사용
 
-   **PHP:**
-   - `DOMXPath::query()` — DOM XPath
-   - `DOMXPath::evaluate()` — XPath 평가
-   - `SimpleXMLElement::xpath()` — SimpleXML XPath
+## 자주 놓치는 패턴 (Frequently Missed)
 
-   **Ruby:**
-   - `Nokogiri::XML::Node#xpath()` — Nokogiri XPath
-   - `REXML::XPath.match()` — REXML XPath
+- **인증 우회**: `//user[name='${u}' and pw='${p}']`에 `u=' or '1'='1`/`p=' or '1'='1` 삽입.
+- **Blind XPath injection**: 응답 차이로 노드 값 추출 (`substring(name(/*[1]),1,1)='a'`).
+- **XPath 2.0/3.0 함수 호출**: `doc('http://attacker/')`로 SSRF, `unparsed-text('/etc/passwd')`로 LFI. lxml/Saxon에서 가능.
+- **`//`로 시작하는 입력으로 전체 트리 walk**: 의도한 노드 외 전체 검색.
+- **`*` 와일드카드 주입으로 모든 자식 매칭**.
+- **숫자 컨텍스트 우회**: `position()=${idx}`에 `idx=1 or 1=1`.
+- **`name()`/`local-name()` 함수 악용**으로 노드 이름 추출.
+- **Double-quote vs single-quote 컨텍스트 혼동**: `"...'${x}'..."`에서 `x`가 `'`을 포함하면 컨텍스트 탈출.
 
-2. **Source 식별**: 사용자가 제어 가능한 입력 중 XPath 쿼리에 사용될 수 있는 것
-   - 로그인 폼의 username/password (XML 기반 인증 시)
-   - 검색 기능의 검색어
-   - XML 데이터 조회 파라미터
-   - API 요청의 필터/조건 파라미터
+## 안전 패턴 카탈로그 (FP Guard)
 
-3. **Sink 식별**: XPath 쿼리를 실행하는 코드
+- **변수 바인딩**: Java `setXPathVariableResolver`, lxml `doc.xpath(..., name=x)`.
+- **고정 XPath + 결과를 코드에서 필터링**: XPath는 고정 쿼리, 사용자 입력 비교는 Python/Java에서.
+- **`ElementTree.findall`** (Python stdlib): 제한적 XPath만 지원, 함수/연산자 미지원.
+- **DOM API 직접 사용** (XPath 미경유).
+- **엄격 입력 화이트리스트** (`/^[a-zA-Z0-9_-]+$/`).
 
-   **문자열 연결로 XPath 구성 (위험):**
-   ```java
-   // Java
-   String xpath = "//users/user[username='" + username + "' and password='" + password + "']";
-   XPath xPath = XPathFactory.newInstance().newXPath();
-   xPath.evaluate(xpath, document);
-   ```
+## 후보 판정 의사결정
 
-   ```python
-   # Python
-   result = doc.xpath(f"//users/user[username='{username}' and password='{password}']")
-   ```
-
-   ```php
-   // PHP
-   $query = "//users/user[username='" . $username . "' and password='" . $password . "']";
-   $result = $xpath->query($query);
-   ```
-
-   ```javascript
-   // Node.js
-   const nodes = xpath.select(`//users/user[username='${username}']`, doc);
-   ```
-
-   **안전한 패턴:**
-   ```java
-   // Java — 파라미터화된 XPath (XPathVariableResolver)
-   xPath.setXPathVariableResolver(new XPathVariableResolver() {
-     public Object resolveVariable(QName name) {
-       if ("username".equals(name.getLocalPart())) return username;
-       return null;
-     }
-   });
-   xPath.evaluate("//users/user[username=$username]", document);
-   ```
-
-   ```python
-   # Python — lxml 변수 바인딩
-   result = doc.xpath("//users/user[username=$name]", name=username)
-   ```
-
-4. **경로 추적**: Source에서 Sink까지 데이터 흐름 확인
-   - XPath 메타문자(`'`, `"`, `[`, `]`, `/`, `|`, `and`, `or`) 이스케이프 여부
-   - 파라미터화된 XPath 사용 여부 (`$variable` 바인딩)
-   - 입력값 화이트리스트 검증 (영문자/숫자만 허용 등)
-   - XML 기반 인증을 사용하는지 (대부분의 현대 앱은 DB 기반)
-
-5. **후보 목록 작성**: 각 후보에 대해 "어떤 입력으로 어떻게 XPath 로직을 변경할 수 있는지"를 구체적으로 구상. 데이터 흐름 추적을 완료한 뒤에도 공격 경로가 없으면 버린다. 추적 없이 직관으로 버리지 않는다..
+| 조건 | 판정 |
+|---|---|
+| 사용자 입력 → XPath 문자열 연결 + escape/바인딩 없음 | 후보 |
+| 인증 XPath에서 password까지 입력 직접 삽입 | 후보 (라벨: `AUTH_BYPASS`) |
+| XPath 2.0+ 환경에서 `doc()`/`document()` 인자에 입력 | 후보 (라벨: `XPATH_SSRF`) |
+| 변수 바인딩 적용 확인 | 제외 |
+| 화이트리스트 정규식 적용 확인 | 제외 |
 
 ## 후보 판정 제한
 

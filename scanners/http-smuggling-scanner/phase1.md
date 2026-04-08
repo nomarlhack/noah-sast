@@ -1,40 +1,85 @@
-> ## 핵심 원칙: "요청 경계 불일치가 발생하지 않으면 취약점이 아니다"
+---
+grep_patterns:
+  - "Transfer-Encoding"
+  - "Content-Length"
+  - "chunked"
+  - "proxy_pass"
+  - "ProxyPass"
+  - "http-proxy-middleware"
+  - "proxy_http_version"
+  - "changeOrigin"
+  - "http-reuse"
+---
+
+> ## 핵심 원칙: "요청 경계 불일치가 발생해야 취약점이다"
 >
-> 프록시와 백엔드 서버가 있다고 바로 취약점으로 보고하지 않는다. 실제로 `Content-Length`와 `Transfer-Encoding` 헤더의 해석 차이로 인해 하나의 HTTP 요청 안에 숨겨진 두 번째 요청이 백엔드에서 별도로 처리되는 것을 확인해야 취약점이다.
+> 프록시/백엔드 구성 자체는 취약점이 아니다. `Content-Length`/`Transfer-Encoding` 해석 차이로 하나의 HTTP 요청 안에 숨겨진 두 번째 요청이 백엔드에서 별도로 처리되어야 한다.
 >
+> **소스코드에 프록시 설정이 없어도 Phase 1을 "해당 없음"으로 종료하지 않는다.** 프록시 설정은 인프라 레벨이며 소스코드에 없는 것이 일반적. Phase 2 동적 테스트로 검증.
 
-### Phase 1: 정찰 (소스코드/설정 분석)
+## Sink 의미론
 
-인프라 구성과 HTTP 처리 로직을 분석하여 취약점 **후보**를 식별한다.
+HTTP Smuggling sink는 "프론트엔드(프록시)와 백엔드(앱 서버)가 같은 TCP 커넥션을 재사용하면서, CL/TE 헤더를 다르게 해석하는 지점"이다. 코드 sink가 아닌 **인프라 sink** — 분석 대상이 코드보다 설정.
 
-1. **인프라 구조 파악**: 프론트엔드/백엔드 구성 확인
-   - 리버스 프록시: nginx, Apache, HAProxy, AWS ALB/ELB, Cloudflare, Akamai
-   - 백엔드 서버: Express/Node.js, Gunicorn, Tomcat, IIS, Puma
-   - CDN/WAF: Cloudflare, AWS CloudFront, Fastly
-   - HTTP/2 → HTTP/1.1 다운그레이드 여부
+| 카테고리 | 위험 조합 |
+|---|---|
+| CL.TE | 프론트엔드는 `Content-Length` 사용, 백엔드는 `Transfer-Encoding` 사용 |
+| TE.CL | 프론트엔드는 `Transfer-Encoding` 사용, 백엔드는 `Content-Length` 사용 |
+| TE.TE | 양쪽 모두 `Transfer-Encoding` 처리하지만 obfuscated 헤더 (`Transfer-encoding: xchunked`) 처리 다름 |
+| HTTP/2 downgrade | gateway가 HTTP/2 → HTTP/1.1 변환 시 헤더 매핑 실수 |
+| H2.CL / H2.TE | HTTP/2 frame 해석과 HTTP/1.1 변환 사이 불일치 |
 
-2. **프록시 설정 분석**:
-   - nginx: `proxy_pass` 설정, `proxy_http_version` (1.0 vs 1.1), `proxy_set_header Connection`
-   - Apache: `ProxyPass` 설정, `mod_proxy` 동작
-   - HAProxy: `http-reuse`, `option http-server-close` 설정
-   - Express `http-proxy-middleware`: `changeOrigin`, 커넥션 풀링
+## Source-first 추가 패턴
 
-3. **백엔드 HTTP 파서 확인**:
-   - Node.js (`http` 모듈): `--insecure-http-parser` 플래그 사용 여부
-   - Python (Gunicorn/uWSGI): HTTP 파서 엄격성
-   - Java (Tomcat/Jetty): `Transfer-Encoding` 처리 방식
-   - `Content-Length`와 `Transfer-Encoding` 동시 존재 시 처리 방식
+- nginx `proxy_pass` 설정 (`nginx.conf`, `/etc/nginx/sites-*`)
+- Apache `ProxyPass`, `mod_proxy`
+- HAProxy `frontend`/`backend` 설정
+- Envoy/Istio sidecar
+- AWS ALB/ELB 설정 (인프라 코드 IaC)
+- Cloudflare/CloudFront/Fastly 설정
+- Express `http-proxy-middleware` 사용
+- Kubernetes Ingress 설정
+- 백엔드 서버 (Node `http`, Gunicorn, Tomcat, IIS, Puma) 옵션
+- `--insecure-http-parser` 플래그 사용
 
-4. **취약 조건 분석**:
-   - 프론트엔드와 백엔드가 같은 커넥션을 재사용하는지 (HTTP keep-alive/pipelining)
-   - `Transfer-Encoding: chunked`를 프론트엔드와 백엔드가 다르게 처리하는지
-   - `Content-Length`와 `Transfer-Encoding`이 동시에 존재하면 어떻게 처리하는지
-   - HTTP/2 → HTTP/1.1 변환 시 헤더 매핑 방식
+## 자주 놓치는 패턴 (Frequently Missed)
 
-5. **후보 목록 작성**: 각 후보에 대해 "어떤 CL/TE 조합으로 어떻게 요청을 밀수할 수 있는지"를 구체적으로 구상.
+- **Node.js `--insecure-http-parser`**: 엄격한 파서 우회. 운영 환경에서 사용 시 즉시 후보.
+- **HTTP/2 → HTTP/1.1 downgrade**: ALB/Cloudflare가 HTTP/2 수신 후 백엔드에 HTTP/1.1로 전달. HTTP/2의 `:authority` pseudo-header 또는 헤더값 검증이 약하면 백엔드에 CL/TE 인젝션.
+- **`Transfer-Encoding: chunked\r\nTransfer-Encoding: x`** (다중 헤더): 일부 파서가 첫 번째, 일부가 마지막을 사용.
+- **`Transfer-Encoding : chunked`** (공백 트릭): 헤더 이름 검증.
+- **`Transfer-Encoding: chunkedX`** vs **`Transfer-Encoding: xchunked`**: 일부 파서가 substring 매칭.
+- **`Content-Length: 0\r\nContent-Length: 100`**: 다중 CL.
+- **`Content-Length` + `Transfer-Encoding` 동시 존재 시 RFC는 TE 우선이지만 미준수 서버 다수**.
+- **WebSocket upgrade with body**: smuggling 변형.
+- **gRPC over HTTP/1.1 fallback**: 헤더 변환 버그.
+- **Apache Traffic Server, IIS, F5 BIG-IP** 등 특정 벤더 알려진 CVE.
+- **CDN 캐시 poisoning과 결합**: smuggle된 요청이 캐시 응답으로 다른 사용자에게.
+- **`http-proxy-middleware` `changeOrigin` + 커넥션 풀링**: Node 백엔드와 Node 프록시 사이.
+- **CRLF in path**: `/path\r\nX-Header: x` — request line injection.
 
-**주의: 소스코드에 프록시 설정 파일이 없더라도 Phase 1을 "해당 없음"으로 종료하지 않는다.** 프록시 설정은 인프라 레벨에서 관리되어 소스코드에 포함되지 않는 것이 일반적이다. 테스트 환경 URL이 제공되어 있으면 반드시 Phase 2 동적 테스트를 진행한다.
+## 안전 패턴 카탈로그 (FP Guard)
+
+- **HTTP/2 end-to-end**: 프론트엔드와 백엔드 모두 HTTP/2 → CL/TE 개념 자체 없음 (대신 H2C smuggling 별도 점검).
+- **단일 서버 (프록시 없음)**: smuggling 불가능.
+- **프록시가 매 요청마다 새 TCP 커넥션** (keep-alive 비활성화): 부담 크지만 smuggling 차단.
+- **백엔드가 엄격한 HTTP 파서** (Node 엄격 파서, Gunicorn 최신): TE/CL 동시 헤더 거부.
+- **WAF/gateway에서 TE 헤더 차단** 또는 TE chunked 정규화.
+- **nginx `proxy_http_version 1.1` + `proxy_set_header Connection ""`** + 백엔드 동기화.
+
+## 후보 판정 의사결정
+
+소스코드만으로는 확정 어려움. Phase 2 동적 테스트가 결정적.
+
+| 조건 | 판정 |
+|---|---|
+| 프록시 체인 존재 (코드 또는 명시적 설정) | 후보 (Phase 2 필수) |
+| Node.js `--insecure-http-parser` 플래그 운영 환경 | 후보 (라벨: `INSECURE_PARSER`) |
+| HTTP/2 gateway + HTTP/1.1 백엔드 | 후보 (라벨: `H2_DOWNGRADE`, Phase 2 필수) |
+| `http-proxy-middleware` + 백엔드 Node | 후보 (Phase 2) |
+| 단일 서버, 프록시 없음 확인 | 제외 |
+| 인프라 레벨 정보 부재 | 후보 유지 (라벨: `UNKNOWN_INFRA`, Phase 2로 확인) |
 
 ## 후보 판정 제한
 
-프록시 체인이 존재하고 설정 미흡이 확인되면 후보.
+프록시 체인이 존재하거나 인프라 정보 부재 시 후보. 단일 서버 확인 시 제외. 결정적 판정은 Phase 2 동적 테스트.

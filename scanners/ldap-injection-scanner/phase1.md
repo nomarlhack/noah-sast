@@ -1,102 +1,74 @@
+---
+grep_patterns:
+  - "ldapjs"
+  - "activedirectory2"
+  - "passport-ldapauth"
+  - "python-ldap"
+  - "ldap3"
+  - "django-auth-ldap"
+  - "DirContext\\.search\\s*\\("
+  - "LdapTemplate\\.search\\s*\\("
+  - "Net::LDAP"
+  - "ldap_search\\s*\\("
+  - "ldap_bind\\s*\\("
+  - "ldap"
+  - "LDAP"
+---
+
 > ## 핵심 원칙: "LDAP 필터가 변경되지 않으면 취약점이 아니다"
 >
-> 소스코드에서 LDAP 쿼리를 사용한다고 바로 취약점으로 보고하지 않는다. 실제로 사용자가 제어한 입력에 `*`, `)(`, `|`, `&` 등 LDAP 필터 메타문자를 삽입하여 필터 로직을 변경할 수 있는 것을 확인해야 취약점이다.
->
+> LDAP 쿼리 사용 자체는 취약점이 아니다. 사용자 입력에 `*`/`)(`/`|`/`&` 등 필터 메타문자를 삽입하여 필터 로직을 실제로 변경할 수 있어야 한다.
 
-### Phase 1: 정찰 (소스코드 분석)
+## Sink 의미론
 
-사용자 입력 → LDAP 쿼리 경로를 추적하여 취약점 **후보**를 식별한다.
+LDAP Injection sink는 "사용자 입력이 LDAP 필터 문자열의 메타문자 위치(괄호/연산자)에 도달하는 지점"이다. 필터 객체 API(`EqualityFilter`, JNDI `{0}` placeholder)는 입력을 값으로 강제하므로 sink가 아니다.
 
-1. **프로젝트 스택 파악**: LDAP 라이브러리 확인
+| 언어 | 라이브러리 / 위험 sink |
+|---|---|
+| Node.js | `ldapjs` `client.search(base, {filter: "..."})`, `activedirectory2`, `passport-ldapauth` |
+| Python | `python-ldap` `ldap.search_s`, `ldap3` `connection.search`, `django-auth-ldap` |
+| Java | `javax.naming.directory` JNDI `DirContext.search(String)`, Spring `LdapTemplate.search`, UnboundID SDK |
+| Ruby | `Net::LDAP#search`, `ruby-ldap` |
+| PHP | `ldap_search`, `ldap_bind` (DN 인젝션), `Adldap2` |
 
-   **Node.js:**
-   - `ldapjs` — `client.search(base, { filter: ... })`
-   - `activedirectory2` — Active Directory 래퍼
-   - `passport-ldapauth` — LDAP 인증 미들웨어
+## Source-first 추가 패턴
 
-   **Python:**
-   - `python-ldap` (`ldap.search_s()`)
-   - `ldap3` (`connection.search()`)
-   - `django-auth-ldap` — Django LDAP 인증
+- 로그인 폼 username/password (LDAP bind 인증)
+- 사용자 검색 API의 검색어
+- 그룹/조직 조회 파라미터
+- SSO/디렉토리 동기화 파라미터
+- DN 동적 구성 (`uid=${user},ou=people,dc=...`) — DN injection도 함께 점검
 
-   **Java:**
-   - `javax.naming.directory` — JNDI (`DirContext.search()`)
-   - `Spring LDAP` (`LdapTemplate.search()`)
-   - `UnboundID LDAP SDK`
+## 자주 놓치는 패턴 (Frequently Missed)
 
-   **Ruby:**
-   - `net-ldap` (`Net::LDAP#search`)
-   - `ruby-ldap`
+- **인증 우회 (`*` 와일드카드)**: `(&(uid=${u})(userPassword=${p}))`에 `u=*)(&(uid=*`/`p=*` 삽입 → 모든 사용자 매칭.
+- **Blind LDAP injection**: 응답 차이로 속성 값 추출 (`(uid=admin)(cn=a*))(...`).
+- **DN injection**: `uid=${user},ou=people` 형태에 `,` 삽입으로 다른 OU bind. DN 컴포넌트 메타문자(`,`/`+`/`"`/`\`/`<`/`>`/`;`)는 필터 메타문자와 다른 escape 함수 필요.
+- **Java JNDI 자체 RCE**: log4shell 계열 — 사용자 입력이 `ldap://`/`ldaps://` URL로 흘러가서 `InitialContext.lookup(url)` 호출되는 경로. log-injection 케이스. 별도 라벨.
+- **속성명 자체에 입력 삽입**: `client.search(base, {filter: ..., attributes: [userInput]})` — 정보 노출.
+- **Active Directory `objectClass` 필터 우회**: `(objectClass=*)` 같은 과도 매칭.
+- **Unicode/Hex 우회**: `\28`/`\29`로 escape된 괄호가 일부 서버에서 디코딩.
 
-   **PHP:**
-   - `ldap_search()`, `ldap_bind()`
-   - `Adldap2` — Active Directory 래퍼
+## 안전 패턴 카탈로그 (FP Guard)
 
-2. **Source 식별**: 사용자가 제어 가능한 입력 중 LDAP 쿼리에 사용될 수 있는 것
-   - 로그인 폼의 username/password — LDAP 인증 시 필터에 삽입
-   - 사용자 검색 기능의 검색어
-   - 그룹/조직 조회 파라미터
-   - API 요청 본문의 사용자 식별 필드
+- **JNDI 파라미터화**: `ctx.search(base, "(&(uid={0})(pw={1}))", new Object[]{u,p}, ctrl)`.
+- **Python `ldap3.utils.conv.escape_filter_chars(x)`** 적용.
+- **`ldap.filter.escape_filter_chars`** (python-ldap).
+- **ldapjs 필터 객체 API**: `new ldap.AndFilter({filters: [new ldap.EqualityFilter({...})]})`.
+- **Spring LDAP `LdapQueryBuilder`**: `query().where("uid").is(username)`.
+- **엄격 화이트리스트** (`/^[a-zA-Z0-9._-]+$/` 후 사용).
+- **REST API로 디렉토리 위임** (LDAP 직접 호출 안 함).
 
-3. **Sink 식별**: LDAP 쿼리를 실행하는 코드
+## 후보 판정 의사결정
 
-   **문자열 연결로 필터 구성 (위험):**
-   ```javascript
-   // Node.js — ldapjs
-   const filter = `(&(uid=${username})(userPassword=${password}))`;
-   client.search(baseDN, { filter: filter });
-   ```
-
-   ```python
-   # Python — ldap3
-   search_filter = f"(&(uid={username})(userPassword={password}))"
-   conn.search(base_dn, search_filter)
-   ```
-
-   ```java
-   // Java — JNDI
-   String filter = "(&(uid=" + username + ")(userPassword=" + password + "))";
-   ctx.search(baseDN, filter, searchControls);
-   ```
-
-   ```php
-   // PHP
-   $filter = "(&(uid=$username)(userPassword=$password))";
-   ldap_search($conn, $baseDN, $filter);
-   ```
-
-   **안전한 패턴:**
-   ```java
-   // Java — 파라미터화된 LDAP 필터
-   String filter = "(&(uid={0})(userPassword={1}))";
-   ctx.search(baseDN, filter, new Object[]{username, password}, searchControls);
-   ```
-
-   ```python
-   # Python — ldap3 이스케이프
-   from ldap3.utils.conv import escape_filter_chars
-   safe_username = escape_filter_chars(username)
-   search_filter = f"(&(uid={safe_username}))"
-   ```
-
-   ```javascript
-   // Node.js — ldapjs 필터 객체
-   const filter = new ldap.AndFilter({
-     filters: [
-       new ldap.EqualityFilter({ attribute: 'uid', value: username }),
-       new ldap.EqualityFilter({ attribute: 'userPassword', value: password })
-     ]
-   });
-   ```
-
-4. **경로 추적**: Source에서 Sink까지 데이터 흐름 확인
-   - LDAP 필터 메타문자(`*`, `(`, `)`, `\`, `|`, `&`, `!`) 이스케이프 여부
-   - 파라미터화된 필터 사용 여부 (Java JNDI의 `{0}` 플레이스홀더)
-   - 필터 객체 API 사용 여부 (ldapjs의 `EqualityFilter` 등)
-   - `ldap3.utils.conv.escape_filter_chars()` 같은 이스케이프 함수 사용 여부
-   - 입력값 화이트리스트 검증 (영문자/숫자만 허용 등)
-
-5. **후보 목록 작성**: 각 후보에 대해 "어떤 입력으로 어떻게 LDAP 필터를 변경할 수 있는지"를 구체적으로 구상. 데이터 흐름 추적을 완료한 뒤에도 공격 경로가 없으면 버린다. 추적 없이 직관으로 버리지 않는다..
+| 조건 | 판정 |
+|---|---|
+| 사용자 입력 → 필터 문자열 연결 + escape 없음 | 후보 |
+| 인증 필터에서 password 필드까지 입력 직접 삽입 | 후보 (라벨: `AUTH_BYPASS`) |
+| `attributes`/속성명 위치에 입력 | 후보 (라벨: `ATTR_INJECTION`) |
+| DN 컴포넌트 위치에 입력 + DN escape 없음 | 후보 (라벨: `DN_INJECTION`) |
+| `escape_filter_chars`/필터 객체/JNDI placeholder 적용 확인 | 제외 |
+| LDAP URL이 사용자 입력으로 결정 + JNDI lookup | 후보 (라벨: `JNDI_LOOKUP`, log4shell 계열) |
 
 ## 후보 판정 제한
 

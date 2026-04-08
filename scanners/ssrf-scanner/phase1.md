@@ -1,58 +1,107 @@
+---
+grep_patterns:
+  - "axios"
+  - "node-fetch"
+  - "http\\.get\\s*\\("
+  - "https\\.get\\s*\\("
+  - "http\\.request\\s*\\("
+  - "urllib"
+  - "httpx"
+  - "aiohttp"
+  - "HttpURLConnection"
+  - "RestTemplate"
+  - "WebClient"
+  - "Net::HTTP"
+  - "open-uri"
+  - "HTTParty"
+  - "Faraday"
+  - "RestClient"
+  - "http-proxy-middleware"
+  - "requests\\.get\\s*\\("
+  - "requests\\.post\\s*\\("
+  - "OkHttpClient"
+  - "Retrofit"
+  - "HttpClient"
+  - "fetch\\s*\\("
+  - "got\\s*\\("
+  - "urlopen\\s*\\("
+  - "new URL\\s*\\("
+  - "URL\\s*\\("
+  - "curl_exec\\s*\\("
+  - "curl_init\\s*\\("
+  - "Guzzle"
+  - "GuzzleHttp"
+  - "WebRequest\\.Create"
+  - "searchParams\\.get\\s*\\("
+  - "@RequestParam"
+  - "@RequestBody"
+  - "req\\.query"
+  - "req\\.body"
+---
+
 > ## 핵심 원칙: "서버가 요청을 보내지 않으면 취약점이 아니다"
 >
-> 소스코드에서 `axios.get(userInput)`이 있다고 바로 SSRF로 보고하지 않는다. 실제로 사용자가 제어한 URL로 서버가 HTTP 요청을 보내는 것을 확인해야 취약점이다.
->
-> 가정 기반의 취약점 보고는 도움이 되지 않는다. "내부 API가 노출되면 위험", "클라우드 메타데이터에 접근 가능할 수 있음" 같은 가정은 취약점이 아니라 아키텍처 의견이다. 사용자가 제어하는 입력으로 서버가 의도하지 않은 목적지로 요청을 보내도록 만들 수 있어야 한다.
->
+> `axios.get(userInput)`이 있다고 SSRF가 아니다. 서버가 사용자 제어 URL로 실제로 요청을 보내야 한다. "내부 API가 노출되면 위험" 같은 가정은 취약점이 아니다.
 
-### Phase 1: 정찰 (소스코드 분석)
+## Sink 의미론
 
-사용자 입력 → 서버사이드 HTTP 요청 경로를 추적하여 취약점 **후보**를 식별한다.
+SSRF sink는 "URL의 호스트/스킴/경로 일부가 사용자 입력에 의해 결정되고, 그 URL로 서버가 발신 요청을 보내는 지점"이다. **요청 주체가 서버인지 클라이언트인지** 구분이 핵심 — presigned URL 생성처럼 클라이언트가 요청자라면 SSRF 아님.
 
-1. **프로젝트 스택 파악**: package.json, Gemfile, requirements.txt, pom.xml 등에서 프레임워크/언어/HTTP 클라이언트 라이브러리 확인
+| 언어 | 일반 sink |
+|---|---|
+| Node.js | `axios`, `node-fetch`, `got`, `request`, `http.get/request`, `https.get/request`, `undici`, `urllib` |
+| Python | `requests`, `urllib`, `urllib3`, `httpx`, `aiohttp`, `http.client` |
+| Java | `HttpURLConnection`, `HttpClient` (JDK11+), `OkHttp`, `RestTemplate`, `WebClient`, `Jsoup.connect` |
+| Ruby | `Net::HTTP`, `open-uri`, `HTTParty`, `Faraday`, `RestClient` |
+| Go | `http.Get/Post/NewRequest`, `resty` |
+| 공통 | proxy 미들웨어 (`http-proxy-middleware`), 이미지 처리/리사이즈, PDF 변환, 웹훅 발송 |
 
-2. **Source 식별**: 사용자가 제어 가능한 입력 중 URL로 사용될 수 있는 것
-   - HTTP 파라미터 (query, body, header): `url`, `link`, `href`, `src`, `dest`, `redirect`, `uri`, `path`, `domain`, `host`, `callback`, `webhook`, `feed`, `proxy`, `target`, `endpoint`
-   - 파일 업로드의 URL 입력 (원격 파일 가져오기)
-   - API 요청 본문의 URL 필드
-   - Webhook/콜백 URL 등록 기능
-   - RSS/Atom 피드 URL
-   - OpenGraph/메타데이터 크롤링 URL
+## Source-first 추가 패턴
 
-3. **Sink 식별**: 서버사이드에서 HTTP 요청을 수행하는 코드
-   - **Node.js**: `axios`, `node-fetch`, `got`, `request`, `http.get`, `https.get`, `http.request`, `undici`, `urllib`
-   - **Python**: `requests`, `urllib`, `urllib3`, `httpx`, `aiohttp`, `http.client`
-   - **Java**: `HttpURLConnection`, `HttpClient`, `OkHttp`, `RestTemplate`, `WebClient`, `Jsoup.connect`
-   - **Ruby**: `Net::HTTP`, `open-uri`, `HTTParty`, `Faraday`, `RestClient`
-   - **Go**: `http.Get`, `http.Post`, `http.NewRequest`, `resty`
-   - **공통**: 프록시 미들웨어 (`http-proxy-middleware`, `http-proxy`), 이미지 리사이즈/처리 라이브러리의 URL 입력
+- HTTP 파라미터: `url`, `link`, `href`, `src`, `dest`, `redirect`, `uri`, `path`, `domain`, `host`, `callback`, `webhook`, `feed`, `proxy`, `target`, `endpoint`, `image`, `avatar`
+- 파일 업로드의 "URL로 가져오기" 옵션
+- API body의 URL 필드
+- Webhook/콜백 URL 등록 기능
+- RSS/Atom feed URL
+- OpenGraph/메타데이터 크롤링 URL
+- OAuth `redirect_uri` (open-redirect와 겹치지만 SSRF로도 평가)
+- AWS/GCS bucket name (presigned 만들 때)
 
-4. **경로 추적**: Source에서 Sink까지 데이터가 URL 검증 없이 도달하는 경로 확인. 다음을 점검:
-   - URL 파싱 및 검증 로직 존재 여부
-   - 화이트리스트/블랙리스트 도메인 필터링
-   - IP 주소 필터링 (내부 IP 대역 차단)
-   - 프로토콜 제한 (http/https만 허용하는지)
-   - DNS rebinding 방어 여부
+## 자주 놓치는 패턴 (Frequently Missed)
 
-5. **후보 목록 작성**: 각 후보에 대해 "어떤 입력으로 어떻게 내부 요청을 유발할 수 있는지"를 구체적으로 구상. 데이터 흐름 추적을 완료한 뒤에도 공격 경로가 없으면 버린다. 추적 없이 직관으로 버리지 않는다..
+- **PDF 생성 (HTML → PDF)**: `puppeteer.goto(userHTML)`, `wkhtmltopdf`, `weasyprint` — 외부 리소스 로딩으로 SSRF.
+- **이미지 변환/썸네일**: `sharp`/`imagemagick`/`Pillow`가 URL 입력을 받거나 SVG 내부 `<image href=...>`를 fetch.
+- **Webhook 발송**: 사용자 등록 URL로 이벤트 전송. 보통 서버측에서 직접 호출.
+- **OAuth/SSO 콜백 동적 redirect_uri**: 서버가 그 URL로 직접 요청하는 케이스.
+- **XML 처리 → XXE → SSRF**: `<!DOCTYPE [<!ENTITY x SYSTEM "http://internal/">]>`. xxe-scanner와 겹치지만 SSRF 영향도로도 등록.
+- **리버스 프록시 동적 target**: `http-proxy-middleware`의 `target`이 런타임에 결정.
+- **Git clone / SVN checkout**: `git clone ${userUrl}` — 특수 URL(`file://`, `ext::`) 가능.
+- **`open-uri`** (Ruby) 의 `Kernel#open(url)`: file:// 도 처리.
+- **DNS rebinding**: 검증 시점과 요청 시점 사이 DNS 응답이 바뀌는 공격. `127.0.0.1` 검증 후 실제 요청 시 내부 IP. 화이트리스트 검증만으로는 미흡.
+- **URL 파싱 차이 (parser confusion)**: `http://evil.com\@127.0.0.1/`을 `URL.parse`/`urlparse`/`Java.net.URL`이 다르게 해석.
+- **Redirect 따라가기**: 외부 도메인으로 시작했다가 30x로 내부 IP로 리다이렉트. `followRedirects: true` + 검증을 first hop에서만.
+- **gopher://, dict://, file://, ftp://, ldap://** 스킴 (curl/libcurl, PHP `file_get_contents`).
+- **이미지 메타데이터 추출 (exiftool)** 입력에 URL.
 
-#### SSRF가 아닌 패턴 (오탐 주의)
+## 안전 패턴 카탈로그 (FP Guard)
 
-- **presigned URL 생성**: 사용자 입력이 presigned URL(S3, GCS 등)의 호스트/경로에 반영되어 클라이언트에 반환되더라도, 서버가 그 URL로 직접 요청하지 않으면 SSRF가 아니다. 요청을 보내는 주체가 클라이언트인지 서버인지를 반드시 확인한다.
+- **Presigned URL 생성**: 서버가 URL 문자열만 만들고 클라이언트에 반환. 서버가 fetch하지 않음.
+- **Base URL이 환경변수/상수 + 경로만 사용자 입력**: 그러나 경로 traversal이나 `@` 트릭은 별도 확인.
+- **고정 화이트리스트 호스트**: `if (!ALLOWED_HOSTS.includes(parsed.hostname)) reject` — 단, parser confusion 회피 필요.
+- **SSRF 방어 라이브러리**: `ssrf-req-filter`, `private-ip`, `is-private-ip` 등이 IP 해석 후 검증.
+- **DNS resolution을 직접 수행 후 IP 화이트리스트**: 화이트리스트 통과한 IP만 connect (DNS rebinding 방어).
+- **`http://`/`https://` 외 스킴 차단** + Redirect follow 시 매 hop마다 재검증.
 
-#### Sink을 찾을 때 흔히 놓치는 패턴
+## 후보 판정 의사결정
 
-단순한 `axios.get(url)` 외에도 SSRF가 발생하는 패턴이 많다:
-
-- **프록시/리버스 프록시**: `http-proxy-middleware`에서 `target`이 동적으로 결정되는 경우
-- **파일 다운로드**: 원격 URL에서 파일을 가져와 저장하는 기능 (`download`, `fetch`, `import from URL`)
-- **이미지 처리**: 이미지 URL을 받아 리사이즈/썸네일 생성 (`sharp`, `imagemagick`, `Pillow`)
-- **PDF 생성**: HTML-to-PDF 변환 시 외부 리소스 로딩 (`puppeteer`, `wkhtmltopdf`, `weasyprint`)
-- **웹 스크래핑/크롤링**: 사용자 지정 URL의 메타데이터/콘텐츠 가져오기
-- **Webhook 발송**: 사용자가 등록한 URL로 이벤트 알림 전송
-- **OAuth/SSO 콜백**: 동적으로 구성되는 redirect_uri
-- **XML 처리**: XXE를 통한 SSRF (DOCTYPE ENTITY로 외부 리소스 로딩)
-- **Git 클론/SVN checkout**: 사용자가 지정한 저장소 URL
+| 조건 | 판정 |
+|---|---|
+| 사용자 입력 → URL 호스트/스킴 결정 + 검증 없음 | 후보 |
+| 사용자 입력 → URL 경로만 결정 (호스트는 상수) + 경로 정규화 없음 | 후보 (라벨: `PATH_ONLY`, 영향도 낮음) |
+| 화이트리스트 검증 있으나 DNS resolution 후 검증 안 함 | 후보 (라벨: `DNS_REBINDING`) |
+| Redirect follow + first hop만 검증 | 후보 (라벨: `REDIRECT_BYPASS`) |
+| Presigned URL 생성 (서버 fetch 없음) | 제외 |
+| 사용자 입력이 URL 파라미터(query)에만 들어감, 호스트/경로 고정 | 영향도 낮음, 후보 유지하되 명시 |
 
 ## 후보 판정 제한
 

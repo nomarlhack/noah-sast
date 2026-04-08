@@ -1,86 +1,131 @@
+---
+grep_patterns:
+  - "innerHTML"
+  - "dangerouslySetInnerHTML"
+  - "html_safe"
+  - "mark_safe"
+  - "Markup\\s*\\("
+  - "\\|\\s*safe"
+  - "v-html"
+  - "\\.html\\s*\\("
+  - "\\.append\\s*\\("
+  - "\\.prepend\\s*\\("
+  - "\\.after\\s*\\("
+  - "\\.before\\s*\\("
+  - "\\.replaceWith\\s*\\("
+  - "outerHTML"
+  - "srcDoc"
+  - "document\\.write"
+  - "insertAdjacentHTML"
+  - "\\beval\\s*\\("
+  - "raw\\s*\\("
+  - "<%=="
+  - "bypassSecurityTrustHtml"
+  - "\\[innerHTML\\]"
+  - "\\{\\{\\{"
+  - "DomSanitizer"
+  - "createContextualFragment\\s*\\("
+  - "searchParams\\.get\\s*\\("
+  - "useParams\\s*\\("
+  - "@RequestParam"
+  - "@PathVariable"
+  - "@RequestBody"
+  - "req\\.query"
+  - "req\\.body"
+---
+
 > ## 핵심 원칙: "실행되지 않으면 취약점이 아니다"
 >
-> 소스코드에서 위험해 보이는 패턴을 찾는 것만으로는 부족하다. `dangerouslySetInnerHTML`이 있다고, `html_safe`가 있다고 바로 취약점으로 보고하지 않는다. 실제로 XSS 페이로드가 삽입되어 스크립트가 실행되는 것을 확인해야 취약점이다.
+> 위험해 보이는 패턴(`dangerouslySetInnerHTML`, `html_safe` 등)을 찾는 것만으로 취약점이 아니다. 사용자가 직접 제어할 수 있는 입력으로 스크립트가 실행되어야 한다. "서버가 침해되면", "API 응답이 변조되면" 같은 가정은 취약점이 아니다.
 >
-> 가정 기반의 취약점 보고는 모의해킹 담당자에게 도움이 되지 않는다. "서버가 침해되면 XSS 가능", "API 응답이 변조되면 위험" 같은 가정은 취약점이 아니라 아키텍처 의견이다. 사용자가 직접 제어할 수 있는 입력으로 스크립트를 실행시킬 수 있어야 한다.
->
-> **단, "즉시 실행되지 않음"을 "결코 실행되지 않음"으로 해석하지 않는다.**
-> `ReactDOMServer.renderToStaticMarkup()` / `renderToString()` 내부의 `dangerouslySetInnerHTML`은 그 시점에 DOM에 삽입되지 않는다. 그러나 반환된 HTML 문자열이 이후 `$(el).html()`, `innerHTML`, 다른 `dangerouslySetInnerHTML`로 전달되면 XSS가 발생한다. 이 경우 "renderToStaticMarkup 내부이므로 실행되지 않는다"는 판단은 틀렸다. **반환값이 어디로 흘러가는지 추적을 완료하기 전까지 안전하다고 판단하지 않는다.**
->
+> **단, "즉시 실행되지 않음"을 "결코 실행되지 않음"으로 해석하지 않는다.** `ReactDOMServer.renderToStaticMarkup()`/`renderToString()` 내부의 `dangerouslySetInnerHTML`은 그 시점에 DOM에 삽입되지 않지만, 반환된 HTML 문자열이 이후 `$(el).html()`/`innerHTML`/다른 `dangerouslySetInnerHTML`로 전달되면 XSS가 발생한다. **반환값이 어디로 흘러가는지 추적을 완료하기 전까지 안전하다고 판단하지 않는다.**
 
-### Phase 1: 정찰 (소스코드 분석)
+## Sink 의미론
 
-기존의 Source → Sink 추적 방식으로 취약점 **후보**를 식별한다.
+XSS Sink는 "공격자가 제어 가능한 문자열이 HTML 파서/JS 파서에 의해 코드로 해석되는 지점"이다. 즉 `.textContent` 같은 텍스트 전용 API는 sink가 아니고, HTML로 파싱되는 모든 API가 sink다.
 
-1. **프로젝트 스택 파악**: package.json, Gemfile 등에서 프레임워크/언어 확인. 특히 **렌더링 구조를 판별**한다:
-   - **SPA (React/Vue/Angular 등)**: 서버는 JSON API만 제공하고 프론트엔드 JS가 HTML을 렌더링 → **XSS Sink는 프론트엔드 JS 코드에 집중**
-   - **SSR (전통적 서버사이드 렌더링)**: 서버 템플릿(ERB, Slim, Jinja2, JSP 등)이 HTML을 렌더링 → XSS Sink는 서버사이드 코드에 집중
-   - **하이브리드 (SSR + SPA 혼합)**: 양쪽 모두 검색 필요
+**렌더링 구조에 따라 sink 위치가 갈린다 (XSS 고유):**
+- **SPA (React/Vue/Angular)**: 서버는 JSON만 반환 → sink는 프론트엔드 JS 코드에 집중. 서버사이드에 `html_safe` 헬퍼가 있어도 호출되지 않으면 공격 가능한 sink가 아니다.
+- **SSR (ERB/Slim/Jinja2/JSP/Thymeleaf)**: 서버 템플릿이 sink.
+- **하이브리드**: 양쪽 모두 검색.
 
-   SPA 프로젝트에서 서버사이드 헬퍼에 `html_safe`가 있어도, 그 헬퍼가 실제로 호출되지 않으면 현재 공격 가능한 취약점이 아니다. **"서버에 위험 코드가 있으니 후보"로 멈추지 말고, 실제 렌더링을 담당하는 프론트엔드 코드를 반드시 분석한다.**
+**프론트엔드 Sink 패턴:**
 
-2. **Source 식별**: 사용자가 제어 가능한 입력 진입점 (HTTP 파라미터, URL, Cookie, 클립보드, location 등). SPA에서는 API 응답 데이터도 Source에 해당한다. 누가 입력했는지(일반 사용자, 관리자, 파트너, 외부 시스템 등)와 관계없이, **DB를 거쳐 API 응답으로 돌아오는 모든 데이터는 Source로 취급한다.**
+| 프레임워크 | Sink |
+|-----------|------|
+| React | `dangerouslySetInnerHTML` |
+| Vue | `v-html` |
+| Angular | `[innerHTML]`, `bypassSecurityTrustHtml` |
+| jQuery | `.html(`, `.append(`, `.prepend(`, `.after(`, `.before(`, `.replaceWith(` (변수가 인자) |
+| Vanilla | `innerHTML`, `outerHTML`, `document.write(`, `insertAdjacentHTML(` |
+| iframe | `srcDoc` (`sandbox` 없음 또는 `allow-scripts allow-same-origin` 동시 → 후보) |
+| 공통 | `eval(`, `Function(`, `setTimeout(문자열)`, `setInterval(문자열)` |
 
-3. **Sink 식별**: 서버사이드와 프론트엔드 **양쪽 모두**에서 Sink를 검색한다. 어느 한쪽만 검색하고 넘어가지 않는다.
+**서버사이드 Sink 패턴:**
 
-   **3-A. 프론트엔드 Sink 검색 (SPA/하이브리드 프로젝트에서 필수)**:
-   프론트엔드 JS/TS 코드 디렉토리(`app/assets/javascripts/`, `src/`, `pages/`, `components/`, `public/` 등)에서 다음 패턴을 grep한다:
+| 프레임워크 | Sink |
+|-----------|------|
+| Rails | `html_safe`, `raw()`, `<%== %>` (ERB), `==` (Slim) |
+| Django | `\|safe`, `mark_safe()`, `{% autoescape off %}` |
+| Spring | `th:utext` (Thymeleaf), JSP `<%= %>` (no `c:out`) |
+| Express | `res.send(userInput)` (Content-Type: text/html) |
 
-   | 프레임워크 | Sink 패턴 |
-   |-----------|----------|
-   | React | `dangerouslySetInnerHTML` |
-   | Vue | `v-html` |
-   | Angular | `[innerHTML]`, `bypassSecurityTrustHtml` |
-   | jQuery | `.html(`, `.append(`, `.prepend(`, `.after(`, `.before(`, `.replaceWith(` (변수가 인자인 경우) |
-   | Vanilla JS | `innerHTML`, `outerHTML`, `document.write(`, `insertAdjacentHTML(` |
-   | iframe | `srcDoc` (sandbox 속성 없으면 same-origin으로 JS 실행 가능) |
-   | 공통 | `eval(`, `Function(`, `setTimeout(문자열)`, `setInterval(문자열)` |
+## Source-first 추가 패턴
 
-   **Sink 목록 수집 절차 (필수):**
-   1단계: 위 테이블의 Sink 패턴을 소스코드 전체에서 grep하여 파일 목록을 수집한다.
-          **이 단계에서는 grep 결과를 판단·필터링 없이 전부 수집한다.**
-          "즉시 취약해 보이지 않는다", "renderToStaticMarkup 내부라서 DOM에 직접 삽입 안 된다",
-          "SSR 컴포넌트라서 브라우저에서 실행 안 된다" 등의 이유로 파일을 목록에서 제외하지 않는다.
-          취약 여부 판단은 2단계(파일 분석) 이후에만 내릴 수 있다.
-   2단계: 목록의 각 파일을 순서대로 직접 열어 데이터 흐름을 추적한다.
-   → 같은 이름의 컴포넌트를 다른 파일에서 이미 분석했더라도 2단계는 파일별로 반드시 실행한다.
+XSS source는 일반적인 HTTP 입력 외에 다음을 포함한다 (인덱스에 안 잡힐 수 있음):
 
-   **[필수] 파일 분석 중 패턴 인덱스에 없는 다른 Sink를 발견한 경우:** 해당 Sink도 즉시 분석한다. "별도 항목에 해당"이라며 분석을 미루거나 다른 스캐너에 위임하지 않는다. phase1.md의 Sink 테이블에 정의된 Sink라면 발견 경위와 무관하게 이 스캐너에서 분석을 완료한다.
+- **API 응답 데이터**: SPA에서 fetch 결과를 sink로 흘리는 코드. **DB를 거쳐 API 응답으로 돌아오는 모든 데이터는 source로 취급한다.** 작성자가 일반 사용자/관리자/파트너인지와 무관.
+- **Cookie / localStorage / sessionStorage 읽기**: 공격자가 다른 채널로 주입할 수 있는 storage값이 sink에 도달하는 경로
+- **`window.location.hash` / `search` / `pathname`**: DOM XSS는 dom-xss-scanner에서 다루지만, hash/search값을 서버 sink로 보내는 reflected 케이스는 여기서 확인
+- **`postMessage` 수신부의 `event.data`**
+- **`URLSearchParams` / `new URL().searchParams`**
 
-   각 Sink에 대해 **삽입되는 데이터의 출처**를 추적한다. 특히:
-   - API 응답 데이터를 `dangerouslySetInnerHTML`로 렌더링하는 경우 → 해당 API 응답에 사용자 입력이 포함되는지 확인
-   - 에디터/글쓰기 컴포넌트에서 `$(el).html(content)` 패턴 → content가 어디서 오는지 추적
-   - 모달/알림에서 `dangerouslySetInnerHTML={{__html: message}}` → message가 사용자 입력을 포함하는지 확인
-   - 같은 컴포넌트 내에서 `escapeHtml()` 등 이스케이프가 적용되는지 확인한다.
-   - **`dangerouslySetInnerHTML`이 `ReactDOMServer.renderToStaticMarkup()` / `renderToString()` 내부에서 발견된 경우**: 해당 컴포넌트 분석에서 멈추지 않는다. `renderToStaticMarkup()` 호출 결과를 받는 변수를 찾아, 그 변수가 `$(el).html()` / `innerHTML` / 다른 `dangerouslySetInnerHTML`로 전달되는 경로가 있는지 반드시 추적한다. 또한 중간에 `stripTags` 등 필터가 있더라도 허용 태그(`<img>`, `<a>` 등)에 이벤트 핸들러 속성이 통과되는지 확인한다.
+각 source에서 시작해 위 sink 패턴까지 도달하는 경로가 인덱스에 없는지 grep으로 보강한다.
 
-   **`srcDoc` Sink 판정:** `sandbox` 속성이 없거나 `allow-scripts allow-same-origin` 동시 포함 → 후보.
+## 자주 놓치는 패턴 (Frequently Missed)
 
-   **[필수] "API 응답 = 서버 데이터 = 안전" 판단 금지:**
-   데이터가 서버 API 응답에서 온다는 사실만으로 Sink를 후보에서 제외하지 않는다. API 응답의 특정 필드는 사용자가 제출한 값을 그대로 저장한 것일 수 있다. 제외하려면 서버사이드 컨트롤러 코드에서 해당 파라미터에 대한 검증·sanitize 로직을 직접 확인하여 근거를 명시해야 한다. 코드 확인 없이 "서버에서 오므로 안전"으로 판단하는 것은 허용하지 않는다.
+- **`renderToStaticMarkup()`/`renderToString()` 체인**: 컴포넌트 내부 `dangerouslySetInnerHTML`이 `renderToStaticMarkup` 안에 있다는 이유로 안전하다고 판단하면 안 됨. 반환 문자열이 이후 `$(el).html()`/`innerHTML`로 전달되는 경로 전수 추적 필수.
+- **`stripTags`/`sanitize` 후 허용 태그의 이벤트 핸들러**: `<img>`/`<a>` 태그를 허용하는 sanitize는 `onerror`/`onclick` 같은 이벤트 핸들러 속성을 막지 않으면 우회됨. 허용 태그 화이트리스트만으로 안전하다고 판단 금지.
+- **에디터 컨텐츠 (CKEditor/TinyMCE/Quill 등)**: 에디터 입력값을 그대로 `dangerouslySetInnerHTML`로 렌더링하는 패턴. 서버에서 sanitize 안 하면 stored XSS.
+- **모달/알림/토스트 메시지**: `dangerouslySetInnerHTML={{__html: message}}` 형태에서 `message`가 i18n 키가 아니라 user-controlled string인 경우.
+- **에러 메시지 반사**: `throw new Error(userInput)` 후 클라이언트가 `error.message`를 `innerHTML`로 출력하는 경우.
+- **JSON.stringify 후 HTML 컨텍스트 삽입**: `<script>var data = ${JSON.stringify(userInput)}</script>` 패턴에서 `</script>`가 escape 안 되면 XSS.
+- **markdown 렌더러**: `marked`/`markdown-it`의 `html: true` 옵션 또는 raw HTML 허용 설정.
+- **SVG 업로드 렌더링**: 사용자 업로드 SVG를 `<img>`가 아닌 `<object>`/inline으로 렌더링.
+- **링크 href에 `javascript:` 스킴**: `<a href={userInput}>` 패턴.
 
-   **3-B. 서버사이드 Sink 검색**:
-   서버사이드 코드에서 이스케이프 없이 출력되는 지점을 검색한다:
+## 안전 패턴 카탈로그 (FP Guard)
 
-   | 프레임워크 | Sink 패턴 |
-   |-----------|----------|
-   | Rails | `html_safe`, `raw()`, `<%== %>` (ERB), `==` (Slim, 이중 등호) |
-   | Django | `\|safe`, `mark_safe()`, `{% autoescape off %}` |
-   | Spring | `th:utext` (Thymeleaf), JSP `<%= %>` without `c:out` |
-   | Express | `res.send(userInput)` (Content-Type: text/html) |
+코드에서 직접 확인된 경우에만 후보에서 제외 가능:
 
-   **Sink 목록 수집 절차 (필수):**
-   1단계: 위 테이블의 Sink 패턴을 소스코드 전체에서 grep하여 파일 목록을 수집한다.
-          **이 단계에서는 grep 결과를 판단·필터링 없이 전부 수집한다.**
-          "즉시 취약해 보이지 않는다", "헬퍼가 호출되지 않을 것 같다" 등의 이유로
-          파일을 목록에서 제외하지 않는다. 취약 여부 판단은 2단계 이후에만 내릴 수 있다.
-   2단계: 목록의 각 파일을 순서대로 직접 열어 데이터 흐름을 추적한다.
-   → 같은 이름의 함수/헬퍼를 다른 파일에서 이미 분석했더라도 2단계는 파일별로 반드시 실행한다.
+- **React JSX 텍스트 보간 `{value}`**: 자동 escape됨. `dangerouslySetInnerHTML`이 아닌 일반 보간은 sink가 아니다.
+- **Angular `{{ value }}` (interpolation)**: 자동 escape. `[innerHTML]`/`bypassSecurityTrustHtml`만 sink.
+- **Vue `{{ value }}` (mustache)**: 자동 escape. `v-html`만 sink.
+- **`DOMPurify.sanitize(value)` 직후 sink로 전달**: 동일 라인/직전 라인에서 호출 확인 + 옵션이 기본값(또는 USE_PROFILES 외 위험 옵션 없음)인 경우.
+- **Rails `<%= %>` (단일 등호)**: ERB 자동 escape. `<%== %>`/`raw`/`html_safe`만 sink.
+- **Django `{{ value }}` (autoescape on)**: 자동 escape. `|safe` 필터만 sink.
+- **Thymeleaf `th:text`**: 자동 escape. `th:utext`만 sink.
+- **`textContent` / `innerText` 할당**: HTML 파싱 안 함. sink 아님.
+- **서버 컨트롤러에서 입력값에 대한 명시적 sanitize/escape 호출 확인된 경우** (예: `sanitizeHtml(input, {allowedTags: []})`).
 
-   파일명·함수명·맥락만 보고 넘기지 않는다. Sink가 직접 변수를 참조하면 그 변수가 어떻게 조립되는지(중간 변환 로직, 문자열 조립, 정규식 replace 등)를 반드시 코드에서 읽어 확인한다.
+**[필수] "API 응답 = 서버 데이터 = 안전" 판단 금지.** 데이터가 서버 API 응답에서 온다는 사실만으로 sink를 후보에서 제외하지 않는다. 서버 컨트롤러 코드에서 해당 필드의 sanitize 로직을 직접 확인해야 제외 가능.
 
-4. **경로 추적**: Sink 목록의 각 항목에 대해 실제 코드를 읽으며 Source까지 역방향으로 데이터 흐름을 추적한다. 추적 완료 전에 "이건 안전할 것 같다"는 직관으로 건너뛰지 않는다.
-5. **후보 목록 작성**: 추적 결과를 바탕으로 취약해 보이는 코드 위치와 예상 공격 벡터를 정리한다. 데이터 흐름 추적을 완료한 뒤에도 사용자가 제어 가능한 입력이 Sink에 도달하는 경로가 없는 것이 코드에서 확인된 경우에만 목록에서 제외한다. 추적하지 않고 직관으로 제외하지 않는다.
+## 후보 판정 의사결정
+
+| 조건 | 판정 |
+|------|------|
+| Source가 사용자 제어 가능 + sink 도달 + 검증 코드 없음 | 후보 (reflected/stored 구분하여 명시) |
+| Source가 사용자 제어 가능 + sink 도달 + 부분 검증 (예: 길이/타입만) | 후보 + "무엇이 검증되고 무엇이 안 되는지" 기술 |
+| Source가 사용자 제어 가능 + sink 도달 + 위 안전 패턴 카탈로그 항목 코드 확인 | 제외 + 근거 라인 명시 |
+| Sink는 있으나 source 추적 불가 (변수가 어디서 오는지 모름) | 후보 유지 (직관 제외 금지) |
+| Sink가 SPA 빌드에서 호출되지 않는 서버사이드 헬퍼 | 제외 (실제 라우트/뷰에서 호출되지 않음을 grep으로 확인) |
+| `renderToStaticMarkup` 내부 sink, 반환값 흐름 추적 미완료 | 후보 유지 |
+
+**Reflected vs Stored 라벨 (트리거 채널 분류):**
+- **REFLECTED**: URL/파라미터/헤더가 동일 응답에 즉시 출력
+- **STORED**: DB/파일/세션에 저장 후 다른 요청에서 출력
+- **DOM**: 클라이언트 JS만으로 source→sink 완결 (dom-xss-scanner와 중복 시 dom-xss-scanner에 위임)
+- **SELF**: 트리거가 본인 세션에만 영향 (예: localStorage 본인 값) — 위협 모델 약함이지만 후보 유지하고 라벨링
 
 ## 후보 판정 제한
 

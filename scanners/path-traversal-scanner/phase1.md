@@ -1,86 +1,105 @@
+---
+grep_patterns:
+  - "fs\\.readFile"
+  - "fs\\.readFileSync"
+  - "fs\\.createReadStream"
+  - "path\\.join\\s*\\("
+  - "path\\.resolve\\s*\\("
+  - "fs\\.writeFile"
+  - "send_file"
+  - "render.*file:"
+  - "File\\.open"
+  - "File\\.read"
+  - "file_get_contents\\s*\\("
+  - "include\\s*\\("
+  - "require\\s*\\("
+  - "open\\s*\\("
+  - "readFile"
+  - "new File\\s*\\("
+  - "Paths\\.get\\s*\\("
+  - "Files\\.newInputStream"
+  - "fs\\.createWriteStream"
+  - "fs\\.writeFileSync"
+  - "sendFile\\s*\\("
+  - "searchParams\\.get\\s*\\("
+  - "@RequestParam"
+  - "@PathVariable"
+  - "req\\.query"
+  - "req\\.params"
+---
+
 > ## 핵심 원칙: "의도하지 않은 리소스에 접근하지 못하면 취약점이 아니다"
 >
-> 소스코드에서 `fs.readFile(userInput)`이 있다고 바로 LFI로 보고하지 않는다. 실제로 `../` 등 경로 조작 문자를 삽입하여 의도하지 않은 파일의 내용을 읽거나, 내부 API의 다른 엔드포인트를 호출할 수 있는 것을 확인해야 취약점이다.
->
+> `fs.readFile(userInput)`이 있다고 LFI가 아니다. `../` 등 경로 조작 문자를 삽입하여 의도하지 않은 파일이나 내부 API 엔드포인트에 실제로 접근할 수 있어야 취약점이다.
 
-### Phase 1: 정찰 (소스코드 분석)
+## Sink 의미론
 
-사용자 입력 → 파일 시스템 접근 경로를 추적하여 취약점 **후보**를 식별한다.
+Path Traversal sink는 두 종류:
 
-1. **프로젝트 스택 파악**: 프레임워크/언어 확인
+1. **파일 시스템 sink**: 사용자 입력이 OS 파일 경로의 일부가 되는 지점
+2. **내부 API path sink**: 사용자 입력이 백엔드 HTTP 클라이언트 URL의 path 세그먼트가 되는 지점 (게이트웨이/프록시 체인에서 `%2f`/`#`로 다른 API를 호출)
 
-2. **Source 식별**: 사용자가 제어 가능한 입력 중 파일 경로로 사용될 수 있는 것
-   - HTTP 파라미터: `file`, `path`, `page`, `template`, `include`, `doc`, `document`, `folder`, `root`, `dir`, `name`, `filename`, `download`, `lang`, `locale`, `view`, `content`, `log`
-   - URL 경로 자체 (동적 라우트 파라미터)
-   - 파일 업로드의 파일명
-   - API 요청 본문의 파일 경로 필드
+| 언어 | 파일 시스템 sink |
+|---|---|
+| Node.js | `fs.readFile/Sync`, `createReadStream`, `readdir`, `stat`, `access`, `require()`, `import()` (동적), `res.sendFile`, `res.download`, 템플릿 엔진 `renderFile` |
+| Python | `open()`, Flask `send_file/send_from_directory`, Django/FastAPI `FileResponse`, `importlib.import_module`, `__import__` |
+| Java | `new File()`, `Files.readAllBytes`, `FileInputStream`, `ClassLoader.getResource(As)Stream`, `RequestDispatcher.include/forward` |
+| Ruby | `File.read/open`, `IO.read`, `send_file`, `render file:` |
+| PHP | `include`, `require`, `include_once`, `require_once`, `file_get_contents`, `fopen`, `readfile` |
 
-3. **Sink 식별**: 파일 시스템 또는 내부 API에 접근하는 코드
+**내부 API path sink:**
 
-   **파일 시스템 Sink:**
+- Spring `WebClient.get().uri("${host}/v2/bots/${botId}/...")`에 `@PathVariable`이 직접 들어가는 경우
+- Node `axios.get(\`${host}/api/${id}/data\`)`에 `req.params.id` 직접
+- Python `requests.get(f"{host}/api/{param}/data")` + path param
+- 프록시 미들웨어 (`http-proxy-middleware`, nginx `proxy_pass`)에서 path 그대로 전달
 
-   **Node.js:**
-   - `fs.readFile()`, `fs.readFileSync()`, `fs.createReadStream()`
-   - `fs.readdir()`, `fs.stat()`, `fs.access()`
-   - `path.join()`, `path.resolve()` (이것 자체는 안전하지만, 결과가 fs 함수에 전달되면 Sink)
-   - `require()`, `import()` (동적 모듈 로딩)
-   - `res.sendFile()`, `res.download()` (Express 파일 전송)
-   - `ejs.renderFile()`, `pug.renderFile()` 등 템플릿 엔진의 파일 렌더링
+## Source-first 추가 패턴
 
-   **Python:**
-   - `open()`, `os.path.join()` → `open()`
-   - `send_file()`, `send_from_directory()` (Flask)
-   - `FileResponse()` (Django/FastAPI)
-   - `importlib.import_module()`, `__import__()`
+- HTTP 파라미터: `file`, `path`, `page`, `template`, `include`, `doc`, `folder`, `root`, `dir`, `name`, `filename`, `download`, `lang`, `locale`, `view`, `log`
+- URL 동적 라우트 파라미터 (`/files/:name`, `@PathVariable`)
+- 파일 업로드의 원본 파일명
+- ZIP/TAR 아카이브 내부 entry 이름 (zipslip-scanner와 겹치지만 단일 파일 LFI는 여기)
+- i18n locale 코드 (`/locales/{lang}.json`)
+- theme 이름 (`/themes/{theme}/style.css`)
 
-   **Java:**
-   - `new File()`, `Files.readAllBytes()`, `FileInputStream()`
-   - `ClassLoader.getResource()`, `getResourceAsStream()`
-   - `RequestDispatcher.include()`, `RequestDispatcher.forward()`
+## 자주 놓치는 패턴 (Frequently Missed)
 
-   **Ruby:**
-   - `File.read()`, `File.open()`, `IO.read()`
-   - `send_file`, `render file:`
+- **`path.join(BASE, userInput)`만으로는 안전하지 않다**: `../`이 BASE를 벗어남. `path.resolve` 후 `startsWith(BASE)` 체크 필수.
+- **Express `res.sendFile(userPath)`**: `root` 옵션 없이 절대경로 사용 시 디스크 임의 파일 노출.
+- **null byte 우회** (구버전 PHP/Node, Java < 7u40): `file=secret.pdf%00.html`로 확장자 검증 우회.
+- **URL 인코딩된 traversal**: `%2e%2e%2f`, `..%2f`, `%2e%2e/`. 검증 후 디코딩되는 더블 디코딩 케이스.
+- **Windows 경로 분리자**: `..\\`, `..%5c`. `\` 검증 누락.
+- **Java `new File("/safe", userInput)`**: userInput이 절대경로이면 `/safe`가 무시되고 절대경로가 사용됨.
+- **`require(userInput)` (Node)**: `.js`/`.json`만 로드되지만 `/proc/self/environ` 같은 정보 노출 변형.
+- **`importlib.import_module(userInput)` (Python)**: 모듈 트리 walk → `os.system` 호출 가능.
+- **내부 API `%2f` 우회**: Spring `WebClient.uri(...)`에 `botId=foo%252fadmin%252fdelete` → 백엔드가 디코딩 후 다른 엔드포인트.
+- **`#` fragment trick**: 경로 뒤에 `#`을 넣어 뒤쪽 경로 무효화. HTTP 클라이언트가 fragment를 서버로 보내지 않음을 악용.
+- **심볼릭 링크 추적**: 업로드 디렉토리에 사용자가 심볼릭 링크 생성 가능한 경우.
+- **압축 해제 시 절대 경로 entry**: `/etc/passwd`로 시작하는 entry name (zipslip).
+- **`res.sendFile`/`render file:` 의 옵션 객체에서 입력값이 path가 되는 경우**.
 
-   **PHP:**
-   - `include()`, `require()`, `include_once()`, `require_once()`
-   - `file_get_contents()`, `fopen()`, `readfile()`
+## 안전 패턴 카탈로그 (FP Guard)
 
-   **내부 API Path Traversal Sink:**
+- **`path.resolve(BASE, userInput)` + `resolved.startsWith(BASE + path.sep)` 검증**.
+- **Python `os.path.commonpath([base, resolved]) == base`** 검증.
+- **Java `Path.normalize().startsWith(basePath)`**.
+- **허용 파일 화이트리스트** (`if (!['en','ko','ja'].includes(lang)) reject`).
+- **`send_from_directory(safe_dir, filename)`** (Flask) — 내부적으로 escape 검증. 단 `filename`이 절대경로면 무시되는 케이스 확인.
+- **확장자 + 정규식 화이트리스트** (`/^[a-z0-9_-]+\.pdf$/`).
+- **DB ID로만 파일 찾기**: 사용자 입력이 DB primary key, 실제 경로는 서버가 매핑.
 
-   URL 경로 파라미터(`@PathVariable`, `req.params` 등)가 내부 HTTP 클라이언트의 URL에 삽입되어 다른 서비스로 요청이 전달되는 코드. 프록시 체인(서비스 A → 게이트웨이 B → 백엔드 C) 구조에서 경로 파라미터에 `%2f`(URL 인코딩된 `/`)나 `#`(fragment)를 삽입하면 백엔드 서비스의 다른 API를 호출할 수 있다.
+## 후보 판정 의사결정
 
-   - **Java/Spring**: `@PathVariable`이 `WebClient.get().uri("$host/v2/bots/$botId/...")` 같은 내부 HTTP 요청 URL에 삽입되는 경우
-   - **Node.js**: `req.params.id`가 `axios.get(\`${host}/api/${id}/data\`)` 같은 내부 요청에 삽입되는 경우
-   - **Python**: `path_param`이 `requests.get(f"{host}/api/{param}/data")` 같은 내부 요청에 삽입되는 경우
-   - **프록시 미들웨어**: `http-proxy-middleware`, `nginx proxy_pass` 등에서 경로가 그대로 전달되는 경우
-
-   **내부 API Path Traversal 탐지 포인트:**
-   - `@PathVariable`/`req.params` 값이 내부 HTTP 클라이언트 URL에 문자열 연결/템플릿으로 삽입되는지
-   - 경로 파라미터에 대한 입력 검증(정규식, 화이트리스트)이 있는지
-   - 프록시/게이트웨이가 URL 인코딩된 경로 구분자(`%2f`, `%5c`)를 디코딩 후 전달하는지
-   - `#`(fragment)를 사용하여 뒤의 경로를 무효화할 수 있는지
-
-4. **경로 추적**: Source에서 Sink까지 데이터가 경로 검증 없이 도달하는 경로 확인. 다음을 점검:
-
-   **파일 시스템 Path Traversal:**
-   - `../` 필터링 여부
-   - `path.join()` / `path.resolve()`로 정규화 후 기준 디렉토리 안에 있는지 검증 (path prefix check)
-   - 허용 파일 목록(화이트리스트) 존재 여부
-   - 확장자 제한 여부
-   - null byte (`%00`) 우회 가능 여부 (구 버전 PHP/Node.js)
-   - URL 인코딩된 `../` (`%2e%2e%2f`, `..%2f`, `%2e%2e/`) 처리 여부
-   - Express `res.sendFile()`의 `root` 옵션 사용 여부 (root 없이 절대경로 사용 시 취약)
-
-   **내부 API Path Traversal:**
-   - `@PathVariable`/경로 파라미터에 대한 입력 검증 여부 (정규식, 허용 문자 제한)
-   - 프록시/게이트웨이 단계에서 URL 인코딩 디코딩 시점 (double decoding 여부)
-   - 내부 HTTP 클라이언트가 URL을 정규화하는지 (`../`를 resolve하는지)
-   - `%2f` → `/` 디코딩이 프록시 단계에서 발생하는지 애플리케이션 단계에서 발생하는지
-   - `#`(fragment)로 뒤의 경로를 잘라낼 수 있는지 (HTTP 클라이언트가 fragment를 서버로 전송하는지)
-   - 서비스 간 인증/인가가 있는지 (내부 API를 직접 호출해도 인증이 필요한지)
-
-5. **후보 목록 작성**: 각 후보에 대해 "어떤 입력으로 어떻게 의도하지 않은 파일이나 내부 API에 접근할 수 있는지"를 구체적으로 구상. 데이터 흐름 추적을 완료한 뒤에도 공격 경로가 없으면 버린다. 추적 없이 직관으로 버리지 않는다..
+| 조건 | 판정 |
+|---|---|
+| 사용자 입력 → 파일 sink + traversal 검증 없음 | 후보 |
+| `path.resolve` 후 prefix check 확인됨 | 제외 |
+| `send_file(absolute_user_path)` 또는 root 옵션 없음 | 후보 |
+| 절대경로 차단 없음 (Java `new File(base, x)` 형태) | 후보 (라벨: `ABS_PATH`) |
+| 내부 HTTP 클라이언트 URL에 path param 직접 삽입 + 인코딩 검증 없음 | 후보 (라벨: `INTERNAL_API_TRAVERSAL`) |
+| `require(userInput)` 동적 import | 후보 (라벨: `DYNAMIC_IMPORT`) |
+| 화이트리스트 또는 DB ID 매핑 확인 | 제외 |
 
 ## 후보 판정 제한
 

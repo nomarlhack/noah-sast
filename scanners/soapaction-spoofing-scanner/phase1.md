@@ -1,55 +1,89 @@
-> ## 핵심 원칙: "인가가 우회되지 않으면 취약점이 아니다"
+---
+grep_patterns:
+  - "SOAPAction"
+  - "@WebService"
+  - "@WebMethod"
+  - "Apache CXF"
+  - "Apache Axis"
+  - "@Endpoint"
+  - "@PayloadRoot"
+  - "zeep"
+  - "spyne"
+  - "SoapServer"
+  - "wsdl"
+  - "WSDL"
+  - "savon"
+  - "soap"
+  - "SOAP"
+---
+
+> ## 핵심 원칙: "SOAPAction 변조로 인가가 우회되어야 취약점이다"
 >
-> SOAPAction 헤더를 변조할 수 있다는 것만으로는 취약점이 아니다. 변조된 SOAPAction 헤더로 인해 권한이 없는 오퍼레이션이 실제로 실행되거나, 인증/인가가 우회되는 것을 확인해야 취약점이다.
->
+> SOAPAction 헤더 변조 가능성 자체가 취약점이 아니다. 변조로 권한 없는 오퍼레이션이 실행되거나 인증/인가가 우회되어야 한다.
 
-### Phase 1: 정찰 (소스코드 분석)
+## Sink 의미론
 
-SOAP 서비스 구현을 분석하여 SOAPAction 검증 미흡을 식별한다.
+SOAPAction Spoofing sink는 "SOAP 서비스가 SOAPAction 헤더와 SOAP Body의 오퍼레이션을 일치시키지 않거나, SOAPAction 기반 인가와 실제 실행 오퍼레이션 사이에 불일치가 있는 지점"이다.
 
-1. **프로젝트 스택 파악**: SOAP 프레임워크/라이브러리 확인
+| 언어 | 프레임워크 |
+|---|---|
+| Java | JAX-WS (`@WebService`/`@WebMethod`), Apache CXF, Apache Axis/Axis2, Spring-WS (`@Endpoint`/`@PayloadRoot`) |
+| Python | `zeep` (client), `spyne` (server), `suds` (client) |
+| Node | `soap`, `strong-soap`, Express + 직접 XML |
+| .NET | WCF, ASP.NET Web Services (`.asmx`) |
+| PHP | `SoapServer` (내장), `NuSOAP` |
 
-   **Java:**
-   - JAX-WS (`@WebService`, `@WebMethod`)
-   - Apache CXF
-   - Apache Axis / Axis2
-   - Spring-WS (`@Endpoint`, `@PayloadRoot`)
+## Source-first 추가 패턴
 
-   **Python:**
-   - `zeep` — SOAP 클라이언트
-   - `spyne` — SOAP 서버
-   - `suds` — SOAP 클라이언트
+- WSDL 파일 (`.wsdl`)
+- `@WebService`/`@WebMethod` 어노테이션
+- Spring-WS `@Endpoint`/`@PayloadRoot`
+- WCF `[OperationContract]`
+- WAF/gateway의 SOAPAction 라우팅 규칙
+- 인터셉터/handler chain
+- WS-Security 설정
 
-   **Node.js:**
-   - `soap` — SOAP 서버/클라이언트
-   - `strong-soap`
-   - `express` + XML 파싱으로 직접 구현
+## 자주 놓치는 패턴 (Frequently Missed)
 
-   **.NET:**
-   - WCF (Windows Communication Foundation)
-   - ASP.NET Web Services (.asmx)
+- **SOAPAction 헤더와 Body 오퍼레이션 불일치 미검증**: gateway는 SOAPAction으로 인가, 백엔드는 Body로 디스패치 → 가벼운 SOAPAction으로 통과 후 권한 있는 오퍼레이션 호출.
+- **빈 SOAPAction (`SOAPAction: ""`)**: 일부 서버가 모든 오퍼레이션 허용 또는 디폴트 처리.
+- **SOAPAction 누락**: 동일.
+- **SOAPAction 인용부호 처리 차이**: `SOAPAction: "op"` vs `SOAPAction: op`.
+- **WAF가 SOAPAction만 검사, Body 미검사**: signature-based WAF 회피.
+- **여러 오퍼레이션 동일 SOAPAction**: namespace collision.
+- **WS-Addressing `wsa:Action` vs SOAPAction 불일치**: SOAP 1.2.
+- **SOAPAction이 case-insensitive 매칭**: `getUserInfo` vs `getuserinfo`.
+- **Method-level 인가 어노테이션 누락**: `@RolesAllowed` 미적용 + 클래스 레벨만.
+- **WSDL operation overloading**: 같은 이름 다른 인자 → 디스패치 혼동.
+- **WS-Security UsernameToken 검증 누락**.
+- **`mustUnderstand` 헤더 처리 미흡**.
+- **SOAP Body의 namespace 변조**: 다른 namespace의 동명 오퍼레이션.
+- **`xsi:type` 인젝션**: polymorphic deserialization (deserialization-scanner와 결합).
+- **WS-Trust/WS-Federation 토큰 검증 누락**.
+- **MTOM/XOP 첨부에 페이로드 숨김**.
+- **PHP `SoapServer` `actor`/`mustUnderstand` 처리**.
 
-   **PHP:**
-   - `SoapServer` — 내장 SOAP 서버
-   - `NuSOAP`
+## 안전 패턴 카탈로그 (FP Guard)
 
-2. **WSDL 분석**: WSDL 파일에서 오퍼레이션 목록과 SOAPAction 매핑 확인
-   - 각 오퍼레이션에 할당된 SOAPAction 값
-   - 관리자 전용 오퍼레이션 식별
-   - 인증/인가가 필요한 오퍼레이션 식별
+- **메서드 레벨 인가** (`@PreAuthorize`/`@RolesAllowed`/`@Secured`).
+- **JAX-WS handler chain에서 SOAPAction == Body operation 검증**.
+- **Spring-WS `@PayloadRoot`** 매칭 (Body 기반 디스패치) + 메서드 레벨 인가.
+- **WS-Security UsernameToken/Timestamp/Signature 검증** 활성.
+- **gateway 인가를 SOAPAction이 아닌 인증 토큰 기반**.
+- **WSDL 비공개** + 정확한 schema validation.
 
-3. **SOAPAction 처리 로직 분석**:
-   - 서버가 SOAPAction 헤더를 어떻게 사용하는지 (라우팅, 인가, 무시)
-   - SOAPAction과 SOAP Body의 오퍼레이션 일치 검증 여부
-   - WAF/게이트웨이에서 SOAPAction 기반 필터링이 있는지
+## 후보 판정 의사결정
 
-4. **인가 로직 분석**:
-   - 오퍼레이션별 권한 검사가 SOAPAction 기반인지, SOAP Body 기반인지
-   - 미들웨어/인터셉터에서 SOAPAction으로 인가를 판단하는지
-   - WS-Security 적용 여부
-
-5. **후보 목록 작성**: 각 후보에 대해 "어떤 SOAPAction 변조로 어떤 제한된 오퍼레이션을 실행할 수 있는지"를 구체적으로 구상. 데이터 흐름 추적을 완료한 뒤에도 공격 경로가 없으면 버린다. 추적 없이 직관으로 버리지 않는다..
+| 조건 | 판정 |
+|---|---|
+| SOAPAction 기반 인가 + Body 기반 디스패치 (불일치 가능) | 후보 |
+| 빈/누락 SOAPAction 처리가 default 오퍼레이션 호출 | 후보 |
+| 메서드 레벨 인가 어노테이션 누락 (클래스 레벨만) | 후보 |
+| WS-Security 설정 없음 + 외부 노출 | 후보 (라벨: `NO_WSSEC`) |
+| Spring-WS `@PayloadRoot` + `@PreAuthorize` 메서드 레벨 | 제외 |
+| WAF SOAPAction 필터링이 유일 방어 | 후보 (라벨: `WAF_BYPASS`) |
+| `xsi:type` polymorphic 처리 + 화이트리스트 없음 | 후보 (라벨: `TYPE_INJECTION`) |
 
 ## 후보 판정 제한
 
-SOAP 엔드포인트를 직접 구현하는 코드가 있는 경우만 분석.
+SOAP 엔드포인트를 직접 구현하는 코드가 있는 경우만 분석. 외부 SOAP 클라이언트 호출만 있는 경우 제외.

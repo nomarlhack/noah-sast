@@ -1,58 +1,112 @@
+---
+grep_patterns:
+  - "multer"
+  - "formidable"
+  - "busboy"
+  - "multiparty"
+  - "express-fileupload"
+  - "FileField"
+  - "ImageField"
+  - "request\\.files"
+  - "UploadFile"
+  - "MultipartFile"
+  - "move_uploaded_file"
+  - "ActiveStorage"
+  - "CarrierWave"
+  - "Shrine"
+  - "multipart/form-data"
+  - "content_type"
+  - "@RequestPart"
+  - "contentType"
+  - "getOriginalFilename\\s*\\("
+  - "Content-Disposition"
+  - "\\.endsWith\\s*\\(\\s*['\"]\\."
+  - "magic_bytes"
+  - "mime\\.lookup"
+---
+
 > ## 핵심 원칙: "악성 파일이 업로드되고 접근 가능하지 않으면 취약점이 아니다"
 >
-> 파일 업로드 기능이 있다고 바로 취약점으로 보고하지 않는다. 다음 조건이 모두 충족되어야 취약점이다:
-> 1. 위험한 파일(웹셸, 실행 파일 등)이 업로드됨
-> 2. 업로드된 파일에 접근할 수 있음 (URL로 직접 접근 가능)
-> 3. 파일이 서버에서 실행되거나, 다른 사용자에게 서빙됨
->
-> 검증 없이 "업로드 기능에 확장자 검증이 없다"고만 보고하는 것은 부족하다. 업로드된 파일이 어디에 저장되고, 어떻게 서빙되는지까지 추적해야 한다.
->
+> 파일 업로드 기능 자체는 취약점이 아니다. (1) 위험한 파일이 업로드되고, (2) 업로드된 파일에 접근 가능하며, (3) 서버에서 실행되거나 다른 사용자에게 서빙되어야 한다. "확장자 검증이 없다"만 보고하는 것은 부족 — 저장 위치와 서빙 방식까지 추적해야 한다.
 
-### Phase 1: 정찰 (소스코드 분석)
+## Sink 의미론
 
-파일 업로드 처리 로직을 분석하여 취약점 **후보**를 식별한다.
+File Upload sink는 "사용자가 제공한 바이트가 디스크/스토리지에 기록되고, 그 결과물이 서버 실행/타인 다운로드의 입력이 되는 지점"이다. 단순 디스크 기록(`fs.writeFile`) 자체는 sink가 아니고, 그 결과가 어떻게 노출되는지가 핵심.
 
-1. **프로젝트 스택 파악**: 프레임워크/언어 및 파일 업로드 라이브러리 확인
-   - **Node.js**: `multer`, `formidable`, `busboy`, `multiparty`, `express-fileupload`
-   - **Python**: Django `FileField`/`ImageField`, Flask `request.files`, FastAPI `UploadFile`
-   - **Java**: Spring `MultipartFile`, Apache Commons FileUpload
-   - **Ruby**: Rails `ActiveStorage`, CarrierWave, Shrine
-   - **PHP**: `$_FILES`, `move_uploaded_file()`
+| 언어/라이브러리 | 업로드 처리 |
+|---|---|
+| Node.js | `multer`, `formidable`, `busboy`, `multiparty`, `express-fileupload` |
+| Python | Django `FileField`/`ImageField`, Flask `request.files`, FastAPI `UploadFile` |
+| Java | Spring `MultipartFile`, Apache Commons FileUpload |
+| Ruby | Rails `ActiveStorage`, CarrierWave, Shrine |
+| PHP | `$_FILES`, `move_uploaded_file()` |
+| Go | `r.FormFile`, `multipart.Reader` |
 
-2. **업로드 엔드포인트 식별**: 파일 업로드를 처리하는 API/라우트 찾기
-   - `multipart/form-data`를 처리하는 라우트
-   - 파일 업로드 미들웨어가 적용된 라우트
-   - 프론트엔드에서 파일을 전송하는 코드 (FormData, input[type=file])
+**검증 차원:**
+1. 파일 유형 (Content-Type/확장자/매직 바이트)
+2. 파일명 처리 (traversal, null byte, 이중 확장자)
+3. 저장 위치 (웹루트 안/밖, 클라우드)
+4. 서빙 방식 (Content-Type, Disposition, nosniff)
+5. 크기/요청 수 제한
 
-3. **검증 로직 분석**: 각 업로드 엔드포인트에서 다음을 점검
+## Source-first 추가 패턴
 
-   **파일 유형 검증:**
-   - Content-Type(MIME) 검증 여부 — 클라이언트가 조작 가능하므로 단독으로는 불충분
-   - 파일 확장자 검증 여부 — 블랙리스트 vs 화이트리스트
-   - 파일 매직 바이트(시그니처) 검증 여부 — 가장 신뢰할 수 있는 방법
-   - 이중 확장자 (`file.php.jpg`, `file.jsp.png`) 처리 여부
+- `multipart/form-data` 처리 라우트
+- 프론트엔드 `FormData` 전송 코드 → 매핑되는 서버 라우트
+- 프로필 이미지 업로드
+- 첨부 파일 업로드
+- 임포트 기능 (CSV/Excel/ZIP)
+- 아바타/배경 업로드
+- 리치 에디터 이미지 paste 업로드
+- API gateway에서 multipart 통과 라우트
 
-   **파일명 처리:**
-   - 원본 파일명을 그대로 사용하는지, 랜덤 이름으로 변환하는지
-   - 파일명에 `../` 등 경로 조작 문자가 포함될 때 필터링 여부
-   - null byte (`file.php%00.jpg`) 처리 여부
+## 자주 놓치는 패턴 (Frequently Missed)
 
-   **저장 위치:**
-   - 웹 루트 안에 저장되는지 (직접 URL 접근 가능)
-   - 웹 루트 밖에 저장되는지 (API를 통해서만 접근)
-   - 클라우드 스토리지(S3, GCS 등)에 저장되는지
-   - CDN을 통해 서빙되는지
+- **이중 확장자 (`shell.php.jpg`)**: Apache `mod_mime` `AddHandler` 설정에 따라 `.php`로 실행. nginx도 `\0`/null byte 잔존 케이스.
+- **Content-Type만 검증, 확장자 미검증**: 클라이언트가 Content-Type 위조 → 서버는 통과 → 파일명에 `.php` → 웹서버가 확장자로 실행 결정.
+- **확장자 검증, 매직바이트 미검증**: PNG로 위장한 PHP 웹셸. `<?php` 코드 + GIF 헤더.
+- **SVG XSS**: SVG는 XML + JavaScript 실행 가능. 이미지로 취급되지만 브라우저에서 열면 XSS.
+- **HTML/SVG가 same-origin으로 서빙**: `Content-Disposition: attachment` 없이 `inline` 서빙 + 사용자 도메인이면 XSS.
+- **Path traversal in filename**: `filename: "../../etc/cron.d/x"`.
+- **Null byte (`shell.php\0.jpg`)**: 일부 레거시 환경에서 `\0` 이후 무시.
+- **`.htaccess` 업로드**: Apache 환경에서 업로드된 디렉토리에 `.htaccess`를 두면 처리 규칙 변경.
+- **`.config`/`web.config`** (IIS): 동일 효과.
+- **ZIP/TAR 폭탄 (decompression bomb)**: 작은 파일이 압축 해제 시 디스크 가득 채움.
+- **이미지 처리 라이브러리 RCE** (ImageMagick `ImageTragick`, libwebp, libvips): 파일 변환 자체가 sink.
+- **EXIF/XMP 메타데이터 노출**: GPS 좌표 등 PII.
+- **클라우드 스토리지 ACL**: S3 bucket public-read 또는 presigned URL 만료 미설정.
+- **CDN 캐시 + 동일 파일명 덮어쓰기**: 사용자 A 파일이 사용자 B에게 캐시 응답.
+- **`Content-Type: image/jpeg`로 강제 서빙해도 `X-Content-Type-Options: nosniff` 없으면 IE/구버전이 sniff**.
+- **Polyglot 파일**: GIF + JS 동시 valid → `<script src="image.gif">` 로 JS 실행.
+- **파일명에 RTL 유니코드** (`evil\u202Egpj.exe`): UI에서 `evilexe.jpg`로 보임.
+- **Concurrent upload race**: 임시 파일 → 검증 → 이동의 race window.
 
-   **서빙 방식:**
-   - 업로드된 파일이 원본 Content-Type으로 서빙되는지
-   - `Content-Disposition: attachment` 헤더 설정 여부
-   - `X-Content-Type-Options: nosniff` 헤더 설정 여부
+## 안전 패턴 카탈로그 (FP Guard)
 
-   **크기 제한:**
-   - 파일 크기 제한이 설정되어 있는지
-   - 업로드 요청 수 제한(Rate Limiting)이 있는지
+- **랜덤 파일명 생성** (UUID) + 원본 확장자 무시 또는 매핑 테이블.
+- **웹루트 외부 저장** + API 통한 서빙 (Content-Type/Disposition 강제).
+- **클라우드 스토리지 (S3 등) + private bucket** + presigned URL 만료.
+- **매직 바이트 검증** (`file-type` 라이브러리, `python-magic`).
+- **이미지 재인코딩** (sharp/Pillow re-save) — 메타데이터 제거 + 악성 페이로드 무력화.
+- **`Content-Disposition: attachment`** 강제.
+- **`X-Content-Type-Options: nosniff`** 헤더.
+- **확장자 화이트리스트** + 케이스 정규화 + 다중 확장자 차단 (`if (filename.split('.').length > 2) reject`).
+- **크기 제한** + rate limit.
+- **별도 도메인에서 서빙** (`usercontent.example.com`) — same-origin XSS 차단.
+- **CSP `sandbox`/`Content-Security-Policy: sandbox`**.
 
-4. **후보 목록 작성**: 검증이 누락된 업로드 엔드포인트 정리. 각 후보에 대해 "어떤 파일을 업로드하면 어떤 위험이 발생하는지"를 구체적으로 구상.
+## 후보 판정 의사결정
+
+| 조건 | 판정 |
+|---|---|
+| 확장자 검증 없음 + 웹루트 저장 + 원본 Content-Type 서빙 | 후보 (라벨: `RCE_RISK`) |
+| 확장자 화이트리스트 있으나 SVG/HTML 허용 + 같은 도메인 서빙 | 후보 (라벨: `STORED_XSS`) |
+| 매직바이트 검증 + 재인코딩 + 클라우드 저장 | 제외 |
+| 별도 도메인 + Content-Disposition attachment | 제외 |
+| 파일명을 그대로 디스크 경로로 사용 (UUID 미적용) | 후보 (라벨: `PATH_TRAVERSAL`) |
+| 이미지 처리 라이브러리 직접 호출 + 버전 미패치 (ImageMagick/libvips) | 후보 (라벨: `IMAGE_LIB_RCE`) |
+| 압축 해제 후 처리 (ZIP/TAR) | zipslip-scanner와 연계 |
+| 크기 제한 없음 + 동기 처리 | 후보 (라벨: `DOS`) |
 
 ## 후보 판정 제한
 
