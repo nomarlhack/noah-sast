@@ -84,7 +84,7 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-    Skills["35개 스캐너\nSKILL.md"] -->|grep_patterns 추출| Grep["grep -rn 일괄 실행\n80+ 확장자 화이트리스트"]
+    Skills["grep-patterns.yml\n35개 스캐너 통합 패턴"] -->|패턴 로드| Grep["grep -rn 일괄 실행\n80+ 확장자 화이트리스트"]
     Grep -->|스캐너별 JSON 저장| Dir[("/tmp/scan_index_{project}/\nxss-scanner.json\nssrf-scanner.json\n...")]
 
     style Skills fill:#16213e,stroke:#0f3460,color:#eee
@@ -235,26 +235,11 @@ Phase 1 후보가 2건 이상이면 `chain-analysis` 스킬이 실행됩니다:
 
 ```
 noah-sast/scanners/{scanner-name}/
-├── SKILL.md       # 스캐너 정의 (frontmatter에 grep_patterns 포함)
-├── phase1.md      # 정적 분석 지침 (Sink 목록, 판정 기준, 안전 패턴)
-└── phase2.md      # 동적 테스트 지침 (테스트 절차, 도구, 판정 기준)
+├── phase1.md      # 정적 분석 지침 (Sink 목록, 판정 기준, 안전 패턴, 핵심 원칙)
+└── phase2.md      # 동적 테스트 지침 (테스트 절차, 도구, 스캐너별 확인됨 조건)
 ```
 
-### SKILL.md frontmatter 예시 (xss-scanner)
-
-```yaml
----
-name: xss-scanner
-description: "XSS 취약점을 탐지하는 스킬"
-grep_patterns:
-  - "innerHTML"
-  - "dangerouslySetInnerHTML"
-  - "outerHTML"
-  - "document.write"
-  - "v-html"
-  # ... (26개 패턴)
----
-```
+> grep 패턴은 35개 스캐너 모두 `noah-sast/grep-patterns.yml`에 통합되어 있다. 스캐너 디렉토리에 별도 SKILL.md는 두지 않는다.
 
 ### phase1.md 핵심 구조
 
@@ -387,11 +372,13 @@ cp -r skills/noah-sast ~/.claude/skills/
 ├── scanner-selector.py               # 스캐너 자동 선별 스크립트
 ├── agent-guidelines-phase1.md        # 정적 분석 공통 지침
 ├── agent-guidelines-phase2.md        # 동적 분석 공통 지침
+├── prompts/                          # 서브 에이전트 프롬프트 (메인 SKILL.md에서 분리)
+│   ├── grep-agent.md                 # grep 인덱싱 에이전트 지시문
+│   └── phase1-group-agent.md         # Phase 1 그룹 에이전트 지시문
 │
 ├── scanners/                         # 35개 취약점 스캐너
 │   ├── xss-scanner/
-│   │   ├── SKILL.md                  # 스캐너 설명 + 분석 원칙
-│   │   ├── phase1.md                 # 정적 분석 지침
+│   │   ├── phase1.md                 # 정적 분석 지침 (핵심 원칙 포함)
 │   │   └── phase2.md                 # 동적 테스트 지침
 │   ├── sqli-scanner/
 │   └── ... (35개)

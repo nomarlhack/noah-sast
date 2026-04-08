@@ -1,4 +1,7 @@
-> **호출부 추적 — 실제 URL 경로 확정**: 모든 후보에 대해 라우트 정의 파일을 Read로 읽어 실제 URL 경로를 확정한다. 컴포넌트/파일 이름에서 경로를 유추하는 것은 확정이 아니다. 절차: (1) Sink의 호출부를 Grep → 최종 페이지 컴포넌트/컨트롤러 식별 (2) 라우트 정의(routes/index.tsx, @RequestMapping 등)를 Read로 읽어 경로 문자열 확인 (3) 후보 반환 시 근거 포함: `실제 경로: /home/apply (src/routes/index.tsx:42)`
+> ## 핵심 원칙: "역직렬화로 의도하지 않은 동작이 발생하지 않으면 취약점이 아니다"
+>
+> 소스코드에서 `JSON.parse()`를 사용한다고 바로 Deserialization 취약점으로 보고하지 않는다. JSON은 데이터만 표현하므로 코드 실행으로 이어지지 않는다. 취약한 역직렬화란 **객체 타입 정보를 포함한 직렬화 포맷**(Java ObjectInputStream, Python pickle, PHP unserialize, Ruby Marshal, Node.js node-serialize 등)에서 사용자가 제어한 데이터가 역직렬화되어 임의 객체가 생성되거나 코드가 실행되는 것을 말한다.
+>
 
 ### Phase 1: 정찰 (소스코드 분석)
 
