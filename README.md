@@ -1,7 +1,7 @@
 # Noah SAST
 
 > Claude Code 스킬 기반의 자동화된 소스코드 취약점 분석 시스템.
-> 35개 개별 스캐너를 오케스트레이션하여 정적 분석 → 연계 분석 → 동적 테스트 → 보고서 생성까지 수행합니다.
+> 37개 개별 스캐너를 오케스트레이션하여 정적 분석 → 연계 분석 → 동적 테스트 → 보고서 생성까지 수행합니다.
 
 ---
 
@@ -187,7 +187,7 @@ Phase 1 후보가 2건 이상이면 `chain-analysis` 스킬이 실행됩니다:
 
 ## 스캐너 목록
 
-### 35개 취약점 스캐너
+### 37개 취약점 스캐너
 
 | # | 스캐너 | 취약점 유형 | 그룹 |
 |---|--------|-----------|------|
@@ -226,6 +226,8 @@ Phase 1 후보가 2건 이상이면 `chain-analysis` 스킬이 실행됩니다:
 | 33 | soapaction-spoofing-scanner | SOAPAction Spoofing | protocol-check |
 | 34 | ldap-injection-scanner | LDAP Injection | protocol-check |
 | 35 | xpath-injection-scanner | XPath Injection | protocol-check |
+| 36 | security-headers-scanner | Security Headers (CSP, CORS, HSTS 등) | infra-config |
+| 37 | business-logic-scanner | Business Logic Vulnerabilities | business-logic |
 
 ---
 
@@ -239,7 +241,7 @@ noah-sast/scanners/{scanner-name}/
 └── phase2.md      # 동적 테스트 지침 (테스트 절차, 도구, 스캐너별 확인됨 조건)
 ```
 
-> grep 패턴은 각 스캐너의 `phase1.md` 최상단 YAML frontmatter (`grep_patterns:`)에 정의되어 있다. Step 0 grep 인덱싱 에이전트가 35개 phase1.md frontmatter를 직접 파싱하여 사용한다. 별도 통합 yml 파일은 없다.
+> grep 패턴은 각 스캐너의 `phase1.md` 최상단 YAML frontmatter (`grep_patterns:`)에 정의되어 있다. Step 0 grep 인덱싱 에이전트가 37개 phase1.md frontmatter를 직접 파싱하여 사용한다. 별도 통합 yml 파일은 없다.
 
 ### phase1.md 핵심 구조
 
@@ -380,12 +382,12 @@ cp -r skills/noah-sast ~/.claude/skills/
 │   ├── grep-agent.md                 # grep 인덱싱 에이전트 지시문
 │   └── phase1-group-agent.md         # Phase 1 그룹 에이전트 지시문
 │
-├── scanners/                         # 35개 취약점 스캐너
+├── scanners/                         # 37개 취약점 스캐너
 │   ├── xss-scanner/
 │   │   ├── phase1.md                 # 정적 분석 지침 (핵심 원칙 포함)
 │   │   └── phase2.md                 # 동적 테스트 지침
 │   ├── sqli-scanner/
-│   └── ... (35개)
+│   └── ... (37개)
 │
 └── utils/                            # 보고서·분석·테스트 도구
     ├── scan-report/

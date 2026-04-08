@@ -1,11 +1,11 @@
 ---
 name: noah-sast
-description: "35개 취약점 스캐너 스킬을 한번에 실행하고 결과를 통합 보고서로 작성하는 스킬. XSS, SSRF, SQLi, CSRF 등 모든 취약점 유형을 소스코드 분석과 동적 테스트로 점검한다. 사용자가 'noah-sast', 'noah sast', 'sast', '소스코드 취약점 스캔' 등을 요청할 때 이 스킬을 사용한다."
+description: "37개 취약점 스캐너 스킬을 한번에 실행하고 결과를 통합 보고서로 작성하는 스킬. XSS, SSRF, SQLi, CSRF, 비즈니스 로직 등 모든 취약점 유형을 소스코드 분석과 동적 테스트로 점검한다. 사용자가 'noah-sast', 'noah sast', 'sast', '소스코드 취약점 스캔' 등을 요청할 때 이 스킬을 사용한다."
 ---
 
 # Noah SAST — 통합 취약점 스캐너
 
-35개 개별 취약점 스캐너를 순차적으로 실행하고, 모든 결과를 하나의 통합 보고서로 작성하는 스킬이다.
+37개 개별 취약점 스캐너를 순차적으로 실행하고, 모든 결과를 하나의 통합 보고서로 작성하는 스킬이다.
 
 > `[필수]`는 과거 위반 이력이 있어 추가 강조된 항목이다. 태그가 없는 항목도 모두 준수 의무가 있다.
 
@@ -34,7 +34,7 @@ fi
   agent-guidelines-phase1.md
   agent-guidelines-phase2.md
   scanner-selector.py
-  scanners/                         ← 35개 취약점 스캐너
+  scanners/                         ← 37개 취약점 스캐너
     xss-scanner/
     sqli-scanner/
     ...
@@ -116,7 +116,27 @@ python3 <NOAH_SAST_DIR>/scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT>
 - grep 결과 1건 이상 → 반드시 포함
 - grep 결과 0건 → 스크립트가 아키텍처 조건을 검사하여 제외 가능 여부 판단
 
-스크립트 결과를 검토한 후, 필요하면 수동으로 조정한다 (예: 스크립트가 제외했으나 포함이 필요한 경우).
+#### Step 2-2: 스캐너 선별 결과 AI 검토
+
+`scanner-selector.py`는 라이브러리 의존성 + grep 히트 수만으로 판단하므로 아래 케이스를 놓친다. 메인 에이전트가 제외된 스캐너 목록을 아래 체크리스트로 검토하여 복원 여부를 결정한다.
+
+**검토 체크리스트 (제외된 각 스캐너에 대해):**
+
+1. **커스텀 구현 확인**: 알려진 라이브러리 없이 네이티브 API로 직접 구현한 경우가 있는가?
+   - 예: `fetch()` (Node 18+ 내장)로 서버사이드 HTTP 요청 → SSRF 스캐너 복원
+   - 예: `net/http` (Go 표준 라이브러리)로 HTTP 요청 → SSRF 스캐너 복원
+   - 예: `string.format()` + `cursor.execute()` (Python 내장)으로 SQL 쿼리 → SQLi 스캐너 복원
+   - 예: `xml.etree.ElementTree` (Python 내장)으로 XML 파싱 → XXE 스캐너 복원
+
+2. **프레임워크 내장 기능 확인**: 프레임워크 자체가 해당 기능을 제공하는 경우가 있는가?
+   - 예: Spring의 `RestTemplate`/`WebClient` → SSRF 스캐너 복원
+   - 예: Rails의 `render inline:` → SSTI 스캐너 복원
+   - 예: Django ORM의 `raw()`, `extra()` → SQLi 스캐너 복원
+
+3. **멀티 언어 프로젝트**: `package.json`에 없지만 다른 언어 서브프로젝트에서 사용하는 경우가 있는가?
+   - Step 1에서 파악한 프로젝트 스택 정보 활용
+
+**적용**: 체크리스트에 해당하는 스캐너가 있으면 적용 목록에 복원한다. 검토 결과를 1줄 요약으로 기록하고 진행한다.
 
 ### Step 3: 정적 분석 → 연계 분석 → 동적 분석
 
@@ -139,9 +159,10 @@ python3 <NOAH_SAST_DIR>/scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT>
 | xml-serialization | xxe, xslt-injection, deserialization |
 | auth-protocol | jwt, oauth, saml, csrf, idor |
 | client-rendering | redos, css-injection, prototype-pollution |
-| infra-config | http-smuggling, sourcemap, subdomain-takeover |
+| infra-config | http-smuggling, sourcemap, subdomain-takeover, security-headers |
 | data-export | csv-injection |
 | protocol-check | graphql, websocket, soapaction-spoofing, ldap-injection |
+| business-logic | business-logic |
 
 선별 결과 그룹 내 스캐너가 모두 제외된 그룹은 에이전트를 생성하지 않는다.
 

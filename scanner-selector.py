@@ -57,7 +57,8 @@ SCANNERS = [
     "redos-scanner", "pdf-generation-scanner", "saml-scanner",
     "http-smuggling-scanner", "zipslip-scanner", "graphql-scanner",
     "sourcemap-scanner", "csv-injection-scanner", "prototype-pollution-scanner",
-    "websocket-scanner", "subdomain-takeover-scanner", "idor-scanner"
+    "websocket-scanner", "subdomain-takeover-scanner", "idor-scanner",
+    "business-logic-scanner", "security-headers-scanner"
 ]
 
 pkg = read_pkg_json()
@@ -149,6 +150,10 @@ def check_exclude(scanner):
     elif scanner == "subdomain-takeover-scanner":
         if not has_file("*.tf", "CNAME", "dns*"):
             return "DNS/인프라 설정 없음"
+    elif scanner == "business-logic-scanner":
+        pass  # grep-less 스캐너: 항상 포함 (AI가 라우트 전수 조사)
+    elif scanner == "security-headers-scanner":
+        pass  # 보안 헤더는 모든 웹 프로젝트에 해당
     # open-redirect, crlf, path-traversal, http-method-tampering, host-header,
     # css-injection, redos, http-smuggling, idor: 아키텍처만으로 제외하기 어려움 → 포함
     return None

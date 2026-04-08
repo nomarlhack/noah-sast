@@ -2,13 +2,53 @@
 
 
 **서버사이드 리다이렉트 테스트:**
-1. curl에 `-v` 또는 `-I` 플래그를 사용하여 응답 헤더 확인 (리다이렉트를 따라가지 않음)
-2. `Location` 헤더에 외부 도메인이 반영되는지 확인
-3. HTML `meta refresh`의 경우 응답 본문에서 외부 URL이 삽입되는지 확인
+```
+# 기본 외부 도메인 리다이렉트
+curl -I "https://target.com/redirect?url=https://evil.com"
+curl -I "https://target.com/redirect?next=https://evil.com"
+curl -I "https://target.com/redirect?returnTo=https://evil.com"
 
-**클라이언트사이드 리다이렉트 테스트:**
-- curl로는 재현 불가. webapp-testing 스킬이나 Playwright 등 브라우저 자동화 도구가 있으면 활용한다.
-- 브라우저 도구가 없으면 "후보 (브라우저 테스트 필요)"로 보고한다.
+# Location 헤더에서 외부 도메인 확인
+curl -v "https://target.com/redirect?url=https://evil.com" 2>&1 | grep -i "location:"
+```
+
+**클라이언트사이드 리다이렉트 Playwright 테스트:**
+```javascript
+const { chromium } = require('playwright');
+(async () => {
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
+
+  // 클라이언트 리다이렉트 감지 (window.location, meta refresh, JS redirect)
+  let redirectedTo = null;
+  page.on('framenavigated', frame => {
+    if (frame === page.mainFrame()) {
+      redirectedTo = frame.url();
+    }
+  });
+
+  await page.goto('https://target.com/page?redirect=https://evil.com', {
+    waitUntil: 'networkidle',
+    timeout: 10000
+  });
+
+  console.log('Final URL:', page.url());
+  if (page.url().includes('evil.com')) {
+    console.log('CONFIRMED: Client-side open redirect');
+  }
+
+  // hash fragment 기반 리다이렉트
+  await page.goto('https://target.com/page#redirect=https://evil.com', {
+    waitUntil: 'networkidle',
+    timeout: 10000
+  });
+  console.log('Fragment redirect final URL:', page.url());
+
+  await browser.close();
+})();
+```
+
+Playwright 실행이 불가능한 경우에만 "후보 (브라우저 테스트 필요)"로 보고한다.
 
 **URL 검증 우회 테스트 (검증 로직이 존재하는 경우):**
 - 프로토콜 상대 URL: `//evil.com`
