@@ -81,6 +81,11 @@ HTTP Method Tampering sink는 "라우트의 일부 메서드에는 인증/인가
 | 모든 메서드에 동일 미들웨어 chain 확인 | 제외 |
 | CSRF 토큰이 모든 unsafe method에 적용 | 제외 (CSRF 한정) |
 
+## 인접 스캐너 분담
+
+- **method override를 통한 CSRF 토큰 우회** (POST → GET 변환으로 CSRF 스킵)는 **csrf-scanner** 단독 담당. 본 스캐너 후보 아님.
+- 본 스캐너 `OVERRIDE_BYPASS`는 method override가 **인증/인가 미들웨어를 우회**하는 케이스만 담당(CSRF 무관).
+
 ## 후보 판정 제한
 
 라우트별 메서드 적용에 차이가 있고, 그 차이가 인증/인가/CSRF 보호에 영향을 미치는 경우만 후보.

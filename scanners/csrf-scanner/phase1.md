@@ -98,6 +98,11 @@ CSRF sink는 "쿠키 기반 인증으로 호출되는 상태 변경 엔드포인
 | WebSocket handshake에 Origin 검증 없음 | 후보 (라벨: `CSWSH`) |
 | GraphQL mutation을 GET으로 허용 | 후보 |
 
+## 인접 스캐너 분담
+
+- **method override(`X-HTTP-Method-Override` 등)를 통한 CSRF 토큰 우회** (예: POST → GET 변환으로 CSRF 토큰 검증 스킵)는 본 스캐너 단독 담당. http-method-tampering-scanner 후보 아님.
+- **method override가 인증 미들웨어를 우회**하는 케이스(CSRF 무관, 인가 영향)는 **http-method-tampering-scanner `OVERRIDE_BYPASS`** 단독 담당.
+
 ## 후보 판정 제한
 
 쿠키만으로 인증이 완료되는 endpoint만 후보. 커스텀 헤더 기반 인증/Bearer 토큰은 CSRF 면역이므로 제외.

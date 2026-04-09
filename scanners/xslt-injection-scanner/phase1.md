@@ -79,6 +79,11 @@ XSLT Injection sink는 두 종류:
 | 고정 스타일시트 + 사용자 입력은 XML 데이터/파라미터만 | 제외 |
 | lxml `extensions` 정적 등록만, 동적 함수 없음 | 제외 |
 
+## 인접 스캐너 분담
+
+- **XSLT `document()`/`unparsed-text()` 함수**에 의한 외부 리소스 로드(SSRF/file read 효과)는 본 스캐너 단독 담당. xxe-scanner 후보 아님.
+- **XML parser entity expansion** (DTD, external entity)은 **xxe-scanner** 단독 담당. XSLT 엔진 내부에서 XML 파싱 시에도 entity 관련 결함은 xxe-scanner.
+
 ## 후보 판정 제한
 
 XSLT 변환 코드에 사용자 입력이 삽입되거나 확장 기능이 활성화된 경우만 후보.
