@@ -82,17 +82,52 @@ flowchart TB
 
 ### Step 0: 패턴 사전 인덱싱
 
-개별 스캐너가 코드베이스를 중복 탐색하는 것을 방지하기 위해, **grep 인덱싱 에이전트**가 모든 패턴을 일괄 실행합니다.
+개별 스캐너가 코드베이스를 중복 탐색하는 것을 방지하기 위해, 37개 스캐너의 grep 패턴을 일괄 실행하여 인덱스를 생성합니다.
 
 ```mermaid
 flowchart LR
-    Skills["scanners/*/phase1.md\nfrontmatter grep_patterns"] -->|패턴 로드| Grep["grep -rn 일괄 실행\n80+ 확장자 화이트리스트"]
-    Grep -->|스캐너별 JSON 저장| Dir[("/tmp/scan_index_{project}/\nxss-scanner.json\nssrf-scanner.json\n...")]
+    Cache{"캐시 확인\ncache_manager.py status"}
+    Cache -->|CACHE_HIT| Skip["grep 스킵\n기존 인덱스 재사용"]
+    Cache -->|CACHE_STALE| Inc["변경 파일만\n증분 grep"]
+    Cache -->|CACHE_MISS| Full["전체 grep 실행"]
 
-    style Skills fill:#16213e,stroke:#0f3460,color:#eee
+    Full --> Agent["grep 인덱싱 에이전트\n(prompts/grep-agent.md)"]
+    Inc --> Agent
+    Agent -->|"37개 phase1.md\nfrontmatter 파싱"| Grep["grep -rn 일괄 실행\n80+ 확장자 화이트리스트"]
+    Grep -->|스캐너별 JSON 저장| Dir[("패턴 인덱스\nxss-scanner.json\nssrf-scanner.json\n...")]
+    Dir --> Save["캐시 저장\ncache_manager.py save"]
+
+    style Cache fill:#533483,stroke:#533483,color:#fff
+    style Agent fill:#16213e,stroke:#0f3460,color:#eee
     style Grep fill:#0f3460,stroke:#533483,color:#eee
     style Dir fill:#1a1a2e,stroke:#e94560,color:#eee
+    style Skip fill:#0f3460,stroke:#0f3460,color:#eee
+    style Inc fill:#0f3460,stroke:#0f3460,color:#eee
+    style Full fill:#0f3460,stroke:#0f3460,color:#eee
+    style Save fill:#16213e,stroke:#0f3460,color:#eee
 ```
+
+#### Step 0-0: 캐시 확인
+
+이전 실행의 grep 인덱스가 `.noah-sast-cache/`에 캐싱되어 있으면 재사용합니다.
+
+```bash
+python3 tools/cache_manager.py status <PROJECT_ROOT>
+```
+
+| 출력 | 의미 | 조치 |
+|------|------|------|
+| `CACHE_HIT` | 코드 변경 없음 | 기존 인덱스 재사용, Step 0-1 스킵 |
+| `CACHE_STALE` | 일부 파일 변경 | 변경 파일만 증분 grep |
+| `CACHE_MISS` | 캐시 없음 | 전체 grep 실행 |
+
+#### Step 0-1: grep 인덱싱 에이전트 실행
+
+메인 에이전트가 `PATTERN_INDEX_DIR` 경로를 생성하고, `prompts/grep-agent.md`의 지시를 따르는 서브 에이전트를 생성합니다. 이 에이전트가 수행하는 작업:
+
+1. 37개 스캐너의 `phase1.md` frontmatter에서 `grep_patterns:` 추출
+2. 80+ 확장자 화이트리스트로 프로젝트 전체 grep 실행
+3. 스캐너별 JSON 파일로 결과 저장
 
 **패턴 인덱스 파일 형식:**
 
@@ -108,18 +143,32 @@ flowchart LR
 - 히트 없는 패턴도 빈 배열로 포함
 - 개별 스캐너 에이전트는 자신의 JSON 파일만 읽어 분석 시작
 
+#### Step 0-2: 카운트 요약 수신 및 캐시 저장
+
+grep 에이전트가 반환한 스캐너별 히트 건수를 보관합니다. 풀 스캔 또는 증분 완료 후 `cache_manager.py save/merge`로 캐시를 저장하여 다음 실행에서 재사용할 수 있도록 합니다.
+
+---
+
 ### Step 1: 프로젝트 스택 파악
 
 모든 스캐너에 공통으로 필요한 프로젝트 정보를 파악합니다:
 
-- `package.json`, `build.gradle.kts`, `requirements.txt` 등에서 프레임워크/언어 확인
-- DB 종류 (MySQL, PostgreSQL, MongoDB, Redis 등)
-- 인증 방식 (세션, JWT, OAuth, SAML 등)
-- 프록시/CDN/로드밸런서 구조
+| 파악 항목 | 확인 대상 |
+|-----------|----------|
+| 프레임워크/언어 | `package.json`, `build.gradle.kts`, `requirements.txt`, `Gemfile`, `pom.xml` 등 |
+| DB 종류 | MySQL, PostgreSQL, MongoDB, Redis, LDAP 등 |
+| 인증 방식 | 세션 기반, JWT, OAuth, SAML 등 |
+| 인프라 구조 | 프록시, CDN, 로드밸런서, 마이크로서비스 여부 |
+
+이 정보는 모든 그룹 에이전트 프롬프트에 공통 컨텍스트로 전달됩니다.
+
+---
 
 ### Step 2: 스캐너 선별
 
-`tools/scanner-selector.py`가 grep 인덱스 + 프로젝트 아키텍처를 기반으로 자동 선별합니다.
+#### Step 2-1: 자동 선별 (scanner-selector.py)
+
+`tools/scanner-selector.py`가 grep 인덱스 + 프로젝트 의존성을 기반으로 자동 선별합니다.
 
 ```bash
 python3 tools/scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT>
@@ -131,15 +180,32 @@ python3 tools/scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT>
 | grep 히트 0건 + 관련 라이브러리 존재 | 포함 |
 | grep 히트 0건 + 관련 라이브러리 없음 | 제외 (사유 명시) |
 
+**다국어 의존성 파싱:** `package.json`(Node.js)뿐 아니라 `requirements.txt`/`Pipfile`/`pyproject.toml`(Python), `Gemfile`(Ruby), `pom.xml`/`build.gradle`(Java)에서도 실제 패키지명을 파싱합니다.
+
+스크립트 출력:
+- 적용/제외 판정 테이블 (grep 히트 건수 + 사유)
+- 적용 스캐너 목록
+- **그룹 편성** (grep 히트 수 기반 동적 리밸런싱)
+
+#### Step 2-2: AI 검토
+
+스크립트는 라이브러리 의존성 + grep 히트 수만으로 판단하므로, 메인 에이전트가 제외된 스캐너를 추가 검토합니다:
+
+- 표준 라이브러리로 직접 구현한 경우 (예: `fetch()`로 SSRF, `xml.etree`로 XXE)
+- 프레임워크 내장 기능 (예: Spring `RestTemplate`, Django ORM `raw()`)
+- 멀티 언어 프로젝트에서 다른 서브프로젝트의 의존성
+
 > **기본 원칙: 포함이 기본이고, 제외에는 근거가 필요합니다.**
+
+---
 
 ### Step 3: 분석 실행
 
-3단계 분석 파이프라인으로 구성됩니다:
+#### Step 3-1: Phase 1 정적 분석 (병렬)
 
-#### Phase 1: 정적 분석 (병렬)
+선별된 스캐너를 의미적 연관성 기반 그룹으로 묶어 **단일 응답에서 모든 그룹의 Agent를 동시 호출**합니다. 과부하 그룹(grep 히트 합계 150건 초과 또는 5개 이상)은 자동 분할됩니다.
 
-선별된 스캐너를 의미적 연관성 기반 그룹으로 묶어 동시 실행합니다. `scanner-selector.py`가 grep 히트 수를 기반으로 과부하 그룹을 자동 분할합니다:
+**기본 그룹 (과부하 시 자동 분할):**
 
 | 그룹 | 스캐너 |
 |------|--------|
@@ -152,40 +218,116 @@ python3 tools/scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT>
 | xml-serialization | xxe, xslt-injection, deserialization |
 | auth-protocol | jwt, oauth, saml, csrf, idor |
 | client-rendering | redos, css-injection, prototype-pollution |
-| infra-config | http-smuggling, sourcemap, subdomain-takeover |
+| infra-config | http-smuggling, sourcemap, subdomain-takeover, security-headers |
 | data-export | csv-injection |
 | protocol-check | graphql, websocket, soapaction-spoofing, ldap-injection |
+| business-logic | business-logic |
 
-각 그룹 에이전트의 분석 흐름:
+각 그룹 에이전트(`prompts/phase1-group-agent.md`)의 분석 흐름:
 
 1. `prompts/guidelines-phase1.md` (공통 지침) 읽기
-2. 그룹 내 각 스캐너의 `phase1.md` 읽기
-3. 패턴 인덱스 JSON 읽기
-4. **Sink-first** + **Source-first** 병행 분석
-5. 후보 목록을 `===SCANNER_BOUNDARY===` 구분자 + `[스캐너명]` 태그로 반환
+2. 그룹 내 각 스캐너의 `phase1.md` 읽기 → Sink 의미론, 안전 패턴 카탈로그 파악
+3. 패턴 인덱스 JSON 읽기 → 분석 대상 파일 확정
+4. **Sink-first 분석**: 패턴 인덱스의 모든 파일을 전수 분석 (하한선)
+5. **Source-first 분석**: 사용자 입력 Source에서 위험 함수까지 추적
+6. **래퍼 함수 재귀 추적**: 유틸리티 파일의 Sink를 호출하는 코드까지 최대 3단계 추적
+7. 후보 목록을 `===SCANNER_BOUNDARY===` 구분자 + `[스캐너명]` 태그로 반환
 
-#### Phase 2: 연계 분석
+**결과 수집:** 모든 그룹 에이전트의 결과를 통합하여 **후보 마스터 목록**을 생성합니다. 각 후보에 고유 ID(예: `XSS-1`, `SSRF-2`)를 부여하며, 이 마스터 목록이 이후 모든 단계의 단일 진실 원천입니다.
 
-Phase 1 후보가 2건 이상이면 `chain-analysis` 스킬이 실행됩니다:
+#### Step 3-2: 연계 분석
+
+Phase 1 후보가 2건 이상이면 `sub-skills/chain-analysis/SKILL.md`에 따라 연계 분석 에이전트를 실행합니다.
+
+```mermaid
+flowchart LR
+    P["전제조건\n매트릭스"] --> M["연계\n매트릭스"]
+    M --> R["R1~R5\n규칙 검사"]
+    R -->|통과| C["공격 체인\n구성"]
+    R -->|폐기| I["독립 후보\n정리"]
+
+    style P fill:#16213e,stroke:#0f3460,color:#eee
+    style M fill:#16213e,stroke:#0f3460,color:#eee
+    style R fill:#533483,stroke:#533483,color:#fff
+    style C fill:#e94560,stroke:#e94560,color:#fff
+    style I fill:#0f3460,stroke:#0f3460,color:#eee
+```
+
+| 단계 | 설명 |
+|------|------|
+| 전제조건 매트릭스 | 각 후보의 트리거 전제조건을 `[권한]`/`[데이터]`/`[네트워크]`/`[환경]`으로 분류 |
+| 연계 매트릭스 | "후보 A의 출력이 후보 B의 입력 sink에 코드 경로로 도달하는가?" (파일:라인 2개 이상 필수) |
+| 체인 구성 규칙 검사 | R1(포함 관계), R2(정찰 결함), R3(동일 권한 잉여), R4(데이터 흐름 부재), R5(Narrative 의존) — 1개라도 해당 시 폐기 |
+| 공격 체인 구성 | 규칙 검사 통과한 것만 "완전 체인" 또는 "부분 체인"으로 작성 |
+| 독립 후보 정리 | 체인에 미포함된 후보별 사유 테이블 |
+
+> 체인 0건은 정상 결과입니다. 억지 체인 1건보다 무체인 결론이 우월합니다.
+
+#### Step 3-3: 동적 분석 정보 요청
+
+Phase 1 후보가 발견되면, 동적 테스트에 필요한 정보를 한번에 사용자에게 요청합니다:
 
 ```
-전제조건 매트릭스 → 연계 매트릭스 → 공격 체인 구성 → 테스트 시나리오 도출
+## 동적 테스트 진행을 위해 필요한 정보
+
+1. **테스트 환경 URL**: https://sandbox-...
+2. **세션 쿠키/인증 토큰**: (로그인 후 쿠키 값)
+3. **[XSS 후보 2건]**: 추가 정보 불필요
+4. **[SSRF 후보 1건]**: 외부 콜백 서비스 URL (webhook.site 등)
+5. **[OAuth 후보 1건]**: OAuth 인가 코드 (수동 획득 필요)
 ```
 
-#### Phase 3: 동적 분석 (Tier 기반 병렬화)
+이 시점에서 사용자의 응답을 기다립니다. 사용자가 명시적으로 거부한 경우에만 동적 분석을 건너뜁니다.
 
-사용자가 테스트 환경 정보를 제공하면 실행됩니다:
+#### Step 3-4: 도구 권한 사전 확인
 
-- **Tier A** (인증 불요): security-headers, http-smuggling 등 → 다른 Tier와 병렬
-- **Tier B** (공유 세션): xss, sqli, ssrf 등 주요 스캐너 → Tier 내 순차
-- **Tier C** (독립 인증): oauth, saml, jwt → Tier B와 병렬
-- 스캐너당 1 에이전트 원칙
-- curl + Playwright(SPA/DOM XSS) 사용
-- 결과: **확인됨** / **후보** / **안전** 최종 판정
+동적 테스트에 필요한 도구(`curl`, `node`, `npx`, `python3`) 권한이 Claude Code `settings.json`의 `permissions.allow`에 포함되어 있는지 확인합니다. 누락 시 사용자에게 추가 여부를 묻습니다.
+
+#### Step 3-5: Phase 2 동적 분석 (Tier 기반 병렬화)
+
+후보가 발견된 모든 스캐너에 대해 동적 테스트를 수행합니다. 인증 컨텍스트에 따라 3개 Tier로 분류하여, Tier 간 병렬 실행합니다.
+
+| Tier | 특성 | 해당 스캐너 | 실행 방식 |
+|------|------|------------|----------|
+| **A** | 인증 불요 | security-headers, http-smuggling, host-header, http-method-tampering, crlf-injection, sourcemap, subdomain-takeover | Tier 내 순차, 다른 Tier와 **병렬** |
+| **B** | 공유 세션 | xss, sqli, ssrf 등 대부분의 스캐너 | Tier 내 **순차** |
+| **C** | 독립 인증 | oauth, saml, jwt | Tier 내 순차, Tier B와 **병렬** |
+
+각 스캐너 에이전트는:
+1. `prompts/guidelines-phase2.md` (공통 지침) 읽기
+2. 해당 스캐너의 `phase2.md` 읽기
+3. **도메인 분류** (sandbox만 허용, prod/cbt/staging 차단)
+4. 모든 후보에 대해 curl/Playwright로 테스트 실행
+5. 결과를 `확인됨`/`후보`/`안전`으로 판정
+
+**도메인 안전 규칙:** sandbox/dev 키워드가 있는 도메인만 테스트 허용. prod, cbt, staging 도메인에서는 동적 테스트를 절대 수행하지 않습니다.
+
+#### Step 3-6: 결과 검증
+
+모든 동적 분석 완료 후, **보고서 작성 전에** 체크리스트를 출력합니다:
+
+```
+| ID | 후보 제목 | 테스트 수행 | 결과 | 미수행 사유 |
+|----|----------|------------|------|------------|
+| XSS-1 | Comment innerHTML | ✓ | 확인됨 | — |
+| SSRF-2 | Webhook URL fetch | ✗ | — | [환경 제한] |
+```
+
+미수행 항목에 대한 즉시 조치:
+
+| 사유 태그 | 조치 |
+|-----------|------|
+| `[도구 한계]` | 메인 에이전트가 직접 해당 테스트를 재실행 |
+| `[정보 부족]` | 사용자에게 추가 정보 요청 |
+| `[환경 제한]` | "후보"로 보고서에 포함 (사유 명시) |
+
+**최종 점검:** 모든 항목에 상태가 부여되고, 모든 후보에 실제 URL 경로가 확정된 후에만 Step 4로 진행합니다.
+
+---
 
 ### Step 4: 보고서 생성
 
-`scan-report` 스킬이 통합 보고서를 생성합니다. 상세 흐름은 [보고서 파이프라인](#보고서-파이프라인) 참조.
+`sub-skills/scan-report/SKILL.md`에 따라 통합 보고서를 생성합니다. 상세 흐름은 [보고서 파이프라인](#보고서-파이프라인) 참조.
 
 ---
 
@@ -345,23 +487,27 @@ sast
 
 ```mermaid
 flowchart TD
-    User["사용자: /noah-sast"] --> S0["Step 0: grep 인덱싱 (자동)"]
-    S0 --> S1["Step 1: 프로젝트 스택 분석 (자동)"]
-    S1 --> S2["Step 2: 스캐너 선별 결과 테이블 출력"]
-    S2 --> S3["Step 3: Phase 1 정적 분석\n(12개 그룹 병렬)"]
+    User["사용자: /noah-sast"] --> S0["Step 0: 캐시 확인 → grep 인덱싱"]
+    S0 --> S1["Step 1: 프로젝트 스택 분석"]
+    S1 --> S2["Step 2: 스캐너 선별\n(다국어 의존성 + AI 검토)"]
+    S2 --> S3["Step 3-1: Phase 1 정적 분석\n(그룹 병렬 실행)"]
     S3 --> Check{후보 발견?}
     Check -->|0건| S4["Step 4: 보고서 생성"]
-    Check -->|1건+| Chain["연계 분석"]
-    Chain --> Ask["동적 테스트 정보 요청"]
+    Check -->|2건+| Chain["Step 3-2: 연계 분석\n(R1~R5 규칙 검사)"]
+    Check -->|1건| Ask
+    Chain --> Ask["Step 3-3: 동적 테스트 정보 요청"]
     Ask --> UserReply{사용자 응답}
-    UserReply -->|정보 제공| Dynamic["Phase 2: 동적 분석 (순차)"]
+    UserReply -->|정보 제공| Perm["Step 3-4: 도구 권한 확인"]
     UserReply -->|거부| S4
-    Dynamic --> S4
+    Perm --> Dynamic["Step 3-5: 동적 분석\n(Tier A/B/C 병렬)"]
+    Dynamic --> Verify["Step 3-6: 결과 검증\n(미수행 항목 보완)"]
+    Verify --> S4
     S4 --> Open["브라우저에서 보고서 열기"]
 
     style User fill:#e94560,stroke:#e94560,color:#fff
     style Open fill:#e94560,stroke:#e94560,color:#fff
     style Check fill:#533483,stroke:#533483,color:#fff
+    style UserReply fill:#533483,stroke:#533483,color:#fff
 ```
 
 ### 설치
