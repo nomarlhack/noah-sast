@@ -72,7 +72,7 @@ IDOR sink는 "엔드포인트가 객체 식별자를 받고 그 식별자로 리
 - **2FA setup endpoint**: `POST /users/:id/2fa/disable` — 본인 인증 없이.
 - **Social login link/unlink**: 다른 사용자 계정에 자기 social 연결.
 - **`org_id` switch**: 멀티테넌시에서 사용자가 다른 org_id로 요청하면 통과.
-- **role/permission 변경 endpoint**: `PUT /users/:id/role` — admin 체크는 있지만 같은 admin 끼리도 다른 사람 role 변경 가능 (의도 vs 결함 확인).
+- **role/permission 변경 endpoint**: `PUT /users/:id/role`에서 **다른 사용자**의 role을 변경하는 케이스만 본 스캐너 담당(cross-user). 자기 자신 role을 변경하는 mass assignment는 business-logic `PRIV_ESCALATION` 담당.
 
 ## 안전 패턴 카탈로그 (FP Guard)
 
@@ -93,12 +93,27 @@ IDOR sink는 "엔드포인트가 객체 식별자를 받고 그 식별자로 리
 | 라우트 인증만 있고 객체 인가 없음 | 후보 |
 | GraphQL global node resolver + 타입별 권한 미체크 | 후보 (라벨: `GRAPHQL_NODE`) |
 | Batch endpoint + 일부 ID만 검사 | 후보 (라벨: `BATCH_PARTIAL`) |
-| Mass assignment + owner_id/role 변경 가능 | 후보 (라벨: `MASS_ASSIGNMENT`) |
+| Mass assignment + `owner_id`/`tenant_id` 등 **소유관계 필드** 변경 가능 | 후보 (라벨: `MASS_ASSIGNMENT`) |
+| Mass assignment + `role`/`permissions`/`isAdmin` 등 **자기 권한 상승** | **business-logic `PRIV_ESCALATION` 담당** — 본 스캐너 후보 아님 |
+| 상태 변경 엔드포인트(approve/cancel/transfer 등)에서 객체 소유권 검증 누락 | 후보 (수직 IDOR로 단독 분류, business-logic STATE_BYPASS와 중복 등재 금지) |
 | 글로벌 미들웨어/쿼리 scope 확인 | 제외 |
 | 본인 자원만 조회 (식별자 받지만 무시) | 제외 |
 | 공개 리소스 (비즈니스 요구사항 확인됨) | 제외 |
 | Read는 보호, Update/Delete는 미검증 | 후보 |
 
+## 본 스캐너 담당 아님 (business-logic-scanner 참조)
+
+아래 패턴은 코드 표면이 IDOR과 비슷해 보일 수 있으나 본 스캐너 후보로 등록하지 않는다. 후보 표면이 겹치는 경우 business-logic-scanner 단독으로 보고된다.
+
+- **상태 전이 순서 우회 (워크플로우)**: `order.status = req.body.status` 등 결제/승인 단계 건너뛰기 → `STATE_BYPASS`
+- **Race / TOCTOU**: 잔액 차감, 쿠폰 중복 사용, 재고 마이너스 등 비원자적 연산 → `RACE_CONDITION`
+- **멱등성 위반**: Idempotency-Key 미사용으로 중복 결제/주문 → `DATA_INTEGRITY`
+- **가격·수량·할인 무결성**: 클라이언트가 보낸 가격·수량·쿠폰 값을 서버가 재계산 없이 신뢰 → `PRICE_TAMPER`
+- **레이트 리밋·기능 남용**: OTP/SMS/초대/쿠폰 발급의 rate limit 부재 → `FEATURE_ABUSE`
+- **자기 자신 권한 상승 (mass assignment)**: 일반 사용자가 `{role: "admin"}` 등으로 자기 role 변경 → `PRIV_ESCALATION`
+
+위 항목은 후보로 등록하지 않고 Source→Sink 추적도 수행하지 않는다.
+
 ## 후보 판정 제한
 
-사용자가 제공한 식별자로 다른 사용자 리소스에 접근 가능한 경로가 존재하는 경우 후보. 글로벌 미들웨어 소유권 검증 또는 쿼리 사용자 scope 적용 시 제외.
+사용자가 제공한 식별자로 **다른 사용자** 리소스에 접근 가능한 경로가 존재하는 경우 후보. 글로벌 미들웨어 소유권 검증 또는 쿼리 사용자 scope 적용 시 제외.
