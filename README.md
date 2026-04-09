@@ -26,9 +26,11 @@ Noah SAST는 Claude Code의 **스킬(Skill)** 시스템 위에 구축된 통합 
 | 설계 원칙 | 설명 |
 |-----------|------|
 | **중복 탐색 방지** | Step 0에서 모든 grep 패턴을 사전 인덱싱하여 개별 스캐너가 코드베이스를 중복 탐색하지 않음 |
-| **병렬 실행** | 12개 스캐너 그룹을 Agent 도구로 동시 실행하여 분석 시간 단축 |
+| **병렬 실행** | 스캐너 그룹을 Agent 도구로 동시 실행 (grep 히트 수 기반 동적 리밸런싱) |
 | **단일 진실 원천** | 후보 마스터 목록이 전체 프로세스의 유일한 상태 저장소 |
 | **오탐 방지** | Sink-first + Source-first 병행 분석, 보고서 작성 후 소스코드 대조 검증 |
+| **증분 분석** | `.noah-sast-cache/`에 grep 인덱스를 캐싱하여 변경된 파일만 재스캔 |
+| **다국어 지원** | Node.js, Python, Ruby, Java 매니페스트에서 의존성을 파싱하여 정확한 스캐너 선별 |
 
 **지원 범위:** Kotlin, Java, TypeScript, JavaScript, Python, Go, Ruby, PHP, C# 등 80+ 확장자. Spring Boot, React, Vue, Django, Express 등 주요 프레임워크의 보안 패턴 인식.
 
@@ -52,7 +54,7 @@ flowchart TB
     S0 -->|위임| GrepAgent["grep 인덱싱\n에이전트"]
     GrepAgent -->|저장| IndexDir[("패턴 인덱스\n(스캐너별 JSON)")]
 
-    S2 -->|실행| Selector["tools/scanner-selector.py"]
+    S2 -->|실행| Selector["tools/scanner-selector.py\n(다국어 의존성 파싱 + 그룹 리밸런싱)"]
 
     S3 -->|병렬 실행| P1["Phase 1 정적 분석\n(12개 그룹 에이전트)"]
     P1 -->|후보 2건+| Chain["연계 분석\n에이전트"]
@@ -137,7 +139,7 @@ python3 tools/scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT>
 
 #### Phase 1: 정적 분석 (병렬)
 
-선별된 스캐너를 **12개 그룹**으로 묶어 동시 실행합니다:
+선별된 스캐너를 의미적 연관성 기반 그룹으로 묶어 동시 실행합니다. `scanner-selector.py`가 grep 히트 수를 기반으로 과부하 그룹을 자동 분할합니다:
 
 | 그룹 | 스캐너 |
 |------|--------|
@@ -160,7 +162,7 @@ python3 tools/scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT>
 2. 그룹 내 각 스캐너의 `phase1.md` 읽기
 3. 패턴 인덱스 JSON 읽기
 4. **Sink-first** + **Source-first** 병행 분석
-5. 후보 목록을 `=== 스캐너명 ===` 구분자로 반환
+5. 후보 목록을 `===SCANNER_BOUNDARY===` 구분자 + `[스캐너명]` 태그로 반환
 
 #### Phase 2: 연계 분석
 
@@ -170,11 +172,13 @@ Phase 1 후보가 2건 이상이면 `chain-analysis` 스킬이 실행됩니다:
 전제조건 매트릭스 → 연계 매트릭스 → 공격 체인 구성 → 테스트 시나리오 도출
 ```
 
-#### Phase 3: 동적 분석 (순차)
+#### Phase 3: 동적 분석 (Tier 기반 병렬화)
 
 사용자가 테스트 환경 정보를 제공하면 실행됩니다:
 
-- **순차 실행** (세션 충돌 방지를 위해 병렬 불가)
+- **Tier A** (인증 불요): security-headers, http-smuggling 등 → 다른 Tier와 병렬
+- **Tier B** (공유 세션): xss, sqli, ssrf 등 주요 스캐너 → Tier 내 순차
+- **Tier C** (독립 인증): oauth, saml, jwt → Tier B와 병렬
 - 스캐너당 1 에이전트 원칙
 - curl + Playwright(SPA/DOM XSS) 사용
 - 결과: **확인됨** / **후보** / **안전** 최종 판정
@@ -376,13 +380,11 @@ cp -r skills/noah-sast ~/.claude/skills/
 ~/.claude/skills/noah-sast/
 ├── SKILL.md                          # 통합 오케스트레이터
 │
-├── guidelines/                       # 서브 에이전트 공통 지침
-│   ├── phase1.md                     # 정적 분석 공통 지침
-│   └── phase2.md                     # 동적 분석 공통 지침
-│
-├── prompts/                          # 서브 에이전트 프롬프트 템플릿
-│   ├── grep-agent.md                 # grep 인덱싱 에이전트 지시문
-│   └── phase1-group-agent.md         # Phase 1 그룹 에이전트 지시문
+├── prompts/                          # 서브 에이전트 지시 문서 (공통 지침 + 프롬프트)
+│   ├── guidelines-phase1.md          # 정적 분석 공통 지침
+│   ├── guidelines-phase2.md          # 동적 분석 공통 지침
+│   ├── grep-agent.md                 # grep 인덱싱 에이전트 프롬프트
+│   └── phase1-group-agent.md         # Phase 1 그룹 에이전트 프롬프트
 │
 ├── scanners/                         # 37개 취약점 스캐너
 │   ├── xss-scanner/
@@ -391,21 +393,31 @@ cp -r skills/noah-sast ~/.claude/skills/
 │   ├── sqli-scanner/
 │   └── ... (37개)
 │
-├── tools/                            # 유틸리티 스크립트·보고서·분석·테스트 도구
-│   ├── scanner-selector.py           # 스캐너 자동 선별 스크립트
-│   ├── chain-analysis/
-│   │   └── SKILL.md                  # 연계 분석
-│   ├── scan-report/
-│   │   ├── SKILL.md                  # 보고서 작성 프로세스
-│   │   ├── assemble_report.py        # MD 조립 스크립트
-│   │   ├── md_to_html.py             # HTML 변환기
-│   │   ├── validate_links.py         # 앵커 링크 검증
-│   │   └── validate_report.py        # 정량 검증
-│   ├── scan-report-review/
-│   │   └── SKILL.md                  # 보고서 정확성 검증
-│   └── webapp-testing/
-│       └── SKILL.md                  # Playwright 동적 테스트 도구
+├── tools/                            # Python 유틸리티 스크립트
+│   ├── scanner-selector.py           # 스캐너 선별 + 그룹 리밸런싱
+│   ├── build-master-list.py          # Phase 1 결과 → master-list.json
+│   ├── cache_manager.py              # grep 인덱스 증분 캐시
+│   └── parse_phase1_output.py        # Phase 1 출력 파서
 │
-└── tests/                            # grep 커버리지 테스트
+├── sub-skills/                       # SKILL.md 기반 서브스킬
+│   ├── scan-report/                  # 보고서 작성
+│   │   ├── SKILL.md
+│   │   ├── assemble_report.py        # MD 조립
+│   │   ├── md_to_html.py             # HTML 변환
+│   │   ├── validate_links.py         # 앵커 링크 검증
+│   │   ├── validate_report.py        # 정량 검증
+│   │   └── vuln-format.md            # 취약점 상세 형식 템플릿
+│   ├── scan-report-review/           # 보고서 정확성 검증
+│   │   ├── SKILL.md
+│   │   └── checklist.md
+│   ├── chain-analysis/               # 연계 분석
+│   │   ├── SKILL.md
+│   │   └── chain-construction-rules.md
+│   └── webapp-testing/               # Playwright 동적 테스트 도구
+│       └── SKILL.md
+│
+└── tests/                            # grep 패턴 커버리지 테스트
     └── grep-coverage/
+        ├── run_coverage.py
+        └── fixtures/                 # 35개 스캐너별 must_hit.txt
 ```
