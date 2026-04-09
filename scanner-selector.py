@@ -8,7 +8,7 @@ Output:
     - 적용 스캐너 목록 (grep 히트 건수 포함)
     - 제외 스캐너 목록 (제외 사유 포함)
 """
-import json, os, sys, glob
+import json, os, re, sys, glob
 
 if len(sys.argv) < 3:
     print("Usage: python3 scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT>")
@@ -66,6 +66,145 @@ has_requirements = has_file("requirements.txt", "Pipfile", "pyproject.toml")
 has_gemfile = has_file("Gemfile")
 has_pom = has_file("pom.xml", "build.gradle")
 
+# --- Python 의존성 파싱 ---
+def read_python_deps():
+    """requirements.txt, Pipfile, pyproject.toml에서 패키지명 추출."""
+    deps = set()
+    # requirements.txt (+ requirements/*.txt)
+    req_files = glob.glob(os.path.join(PROJECT_ROOT, "requirements*.txt"))
+    req_files += glob.glob(os.path.join(PROJECT_ROOT, "requirements", "*.txt"))
+    for rf in req_files:
+        try:
+            with open(rf, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#") or line.startswith("-"):
+                        continue
+                    name = re.split(r"[>=<!\[;]", line)[0].strip().lower()
+                    if name:
+                        deps.add(name)
+        except (OSError, UnicodeDecodeError):
+            pass
+    # Pipfile
+    pipfile = os.path.join(PROJECT_ROOT, "Pipfile")
+    if os.path.exists(pipfile):
+        try:
+            in_packages = False
+            with open(pipfile, encoding="utf-8") as f:
+                for line in f:
+                    stripped = line.strip()
+                    if stripped.startswith("[") and "packages" in stripped.lower():
+                        in_packages = True
+                        continue
+                    if stripped.startswith("["):
+                        in_packages = False
+                        continue
+                    if in_packages and "=" in stripped:
+                        name = stripped.split("=")[0].strip().strip('"').strip("'").lower()
+                        if name:
+                            deps.add(name)
+        except (OSError, UnicodeDecodeError):
+            pass
+    # pyproject.toml (PEP 621 dependencies)
+    pyproject = os.path.join(PROJECT_ROOT, "pyproject.toml")
+    if os.path.exists(pyproject):
+        try:
+            with open(pyproject, encoding="utf-8") as f:
+                content = f.read()
+            for m in re.finditer(r'"([a-zA-Z0-9_-]+)', content):
+                deps.add(m.group(1).lower())
+        except (OSError, UnicodeDecodeError):
+            pass
+    return deps
+
+# --- Ruby 의존성 파싱 ---
+def read_ruby_deps():
+    """Gemfile에서 gem 패키지명 추출."""
+    deps = set()
+    gemfile = os.path.join(PROJECT_ROOT, "Gemfile")
+    if os.path.exists(gemfile):
+        try:
+            with open(gemfile, encoding="utf-8") as f:
+                for line in f:
+                    m = re.match(r"""^\s*gem\s+['"]([a-zA-Z0-9_-]+)['"]""", line)
+                    if m:
+                        deps.add(m.group(1).lower())
+        except (OSError, UnicodeDecodeError):
+            pass
+    return deps
+
+# --- Java 의존성 파싱 ---
+def read_java_deps():
+    """pom.xml의 artifactId, build.gradle의 의존성 추출."""
+    deps = set()
+    pom_files = glob.glob(os.path.join(PROJECT_ROOT, "pom.xml"))
+    pom_files += glob.glob(os.path.join(PROJECT_ROOT, "**/pom.xml"), recursive=True)
+    for pf in pom_files[:5]:  # 최대 5개 pom 파싱
+        try:
+            with open(pf, encoding="utf-8") as f:
+                content = f.read()
+            for m in re.finditer(r"<artifactId>\s*([^<]+?)\s*</artifactId>", content):
+                deps.add(m.group(1).lower())
+        except (OSError, UnicodeDecodeError):
+            pass
+    gradle_files = glob.glob(os.path.join(PROJECT_ROOT, "build.gradle"))
+    gradle_files += glob.glob(os.path.join(PROJECT_ROOT, "**/build.gradle"), recursive=True)
+    gradle_files += glob.glob(os.path.join(PROJECT_ROOT, "build.gradle.kts"))
+    gradle_files += glob.glob(os.path.join(PROJECT_ROOT, "**/build.gradle.kts"), recursive=True)
+    for gf in gradle_files[:5]:
+        try:
+            with open(gf, encoding="utf-8") as f:
+                for line in f:
+                    m = re.match(r"""\s*(?:implementation|compile|api|runtimeOnly|testImplementation)\s*[\('"]\s*['"]?([^:'"]+):([^:'"]+)""", line)
+                    if m:
+                        deps.add(m.group(2).lower())
+        except (OSError, UnicodeDecodeError):
+            pass
+    return deps
+
+# --- 통합 의존성 검색 ---
+_py_deps = None
+_rb_deps = None
+_java_deps = None
+
+def _get_py_deps():
+    global _py_deps
+    if _py_deps is None:
+        _py_deps = read_python_deps()
+    return _py_deps
+
+def _get_rb_deps():
+    global _rb_deps
+    if _rb_deps is None:
+        _rb_deps = read_ruby_deps()
+    return _rb_deps
+
+def _get_java_deps():
+    global _java_deps
+    if _java_deps is None:
+        _java_deps = read_java_deps()
+    return _java_deps
+
+def has_dep_any(*names):
+    """Node.js, Python, Ruby, Java 모든 매니페스트에서 의존성 검색."""
+    lower_names = [n.lower() for n in names]
+    # Node.js
+    if has_dependency(pkg, *names):
+        return True
+    # Python
+    py = _get_py_deps()
+    if any(n in py for n in lower_names):
+        return True
+    # Ruby
+    rb = _get_rb_deps()
+    if any(n in rb for n in lower_names):
+        return True
+    # Java
+    java = _get_java_deps()
+    if any(n in java for n in lower_names):
+        return True
+    return False
+
 def check_exclude(scanner):
     """grep 0건일 때 아키텍처 조건으로 제외 가능한지 확인. 제외 시 사유 반환, 포함 시 None."""
     if scanner == "xss-scanner":
@@ -75,77 +214,224 @@ def check_exclude(scanner):
         if not has_file("*.js", "*.jsx", "*.ts", "*.tsx", "*.vue"):
             return "프론트엔드 JS 코드 없음"
     elif scanner == "ssrf-scanner":
-        if not has_dependency(pkg, "axios", "node-fetch", "got", "request", "urllib3", "requests", "httpx"):
+        if not has_dep_any(
+            # Node.js
+            "axios", "node-fetch", "got", "request",
+            # Python
+            "requests", "urllib3", "httpx", "aiohttp",
+            # Ruby
+            "httparty", "faraday", "rest-client", "typhoeus",
+            # Java
+            "httpclient", "okhttp", "retrofit", "spring-web",
+        ):
             return "서버사이드 HTTP 요청 라이브러리 없음"
     elif scanner == "csrf-scanner":
-        if has_dependency(pkg, "jsonwebtoken", "jose") and not has_file("*.erb", "*.html"):
+        if has_dep_any("jsonwebtoken", "jose", "pyjwt", "ruby-jwt") and not has_file("*.erb", "*.html"):
             return "쿠키 기반 인증 아님 (토큰 전용 API)"
     elif scanner == "file-upload-scanner":
-        if not has_dependency(pkg, "multer", "busboy", "formidable", "multiparty"):
-            if not has_requirements and not has_gemfile:
-                return "파일 업로드 엔드포인트 없음"
+        if not has_dep_any(
+            # Node.js
+            "multer", "busboy", "formidable", "multiparty",
+            # Python
+            "flask", "django", "fastapi", "flask-uploads",
+            # Ruby
+            "carrierwave", "shrine", "paperclip", "active_storage",
+        ):
+            return "파일 업로드 엔드포인트 없음"
     elif scanner == "command-injection-scanner":
         pass  # grep이 0이면 exec/system 호출 없으므로 안전
     elif scanner == "sqli-scanner":
-        if not has_dependency(pkg, "mysql", "mysql2", "pg", "better-sqlite3", "sequelize", "knex", "typeorm", "prisma"):
-            if not has_requirements and not has_gemfile and not has_pom:
-                return "SQL 라이브러리/ORM 없음"
+        if not has_dep_any(
+            # Node.js
+            "mysql", "mysql2", "pg", "better-sqlite3", "sequelize", "knex", "typeorm", "prisma",
+            # Python
+            "psycopg2", "psycopg2-binary", "pymysql", "sqlalchemy", "django", "peewee", "asyncpg",
+            # Ruby
+            "activerecord", "sequel", "pg", "mysql2", "sqlite3",
+            # Java
+            "mybatis", "hibernate-core", "spring-jdbc", "jooq",
+        ):
+            return "SQL 라이브러리/ORM 없음"
     elif scanner == "xxe-scanner":
-        if not has_dependency(pkg, "xml2js", "fast-xml-parser", "libxmljs", "sax", "xmldom"):
-            if not has_requirements and not has_pom:
-                return "XML 파싱 라이브러리 없음"
+        if not has_dep_any(
+            # Node.js
+            "xml2js", "fast-xml-parser", "libxmljs", "sax", "xmldom",
+            # Python
+            "lxml", "defusedxml", "xml",
+            # Ruby
+            "nokogiri", "rexml",
+            # Java
+            "jaxb-api", "jackson-dataformat-xml", "dom4j", "xercesimpl",
+        ):
+            return "XML 파싱 라이브러리 없음"
     elif scanner == "deserialization-scanner":
         pass  # grep이 0이면 역직렬화 함수 호출 없음
     elif scanner == "ssti-scanner":
-        if not has_dependency(pkg, "ejs", "pug", "handlebars", "nunjucks", "mustache"):
-            if not has_requirements and not has_gemfile:
-                return "서버사이드 템플릿 엔진 없음"
+        if not has_dep_any(
+            # Node.js
+            "ejs", "pug", "handlebars", "nunjucks", "mustache",
+            # Python
+            "jinja2", "mako", "django",
+            # Ruby
+            "erb", "slim", "haml", "liquid",
+        ):
+            return "서버사이드 템플릿 엔진 없음"
     elif scanner == "jwt-scanner":
-        if not has_dependency(pkg, "jsonwebtoken", "jose", "jwt-decode", "jwks-rsa"):
+        if not has_dep_any(
+            # Node.js
+            "jsonwebtoken", "jose", "jwt-decode", "jwks-rsa",
+            # Python
+            "pyjwt", "python-jose", "authlib",
+            # Ruby
+            "ruby-jwt", "jwt",
+            # Java
+            "jjwt", "nimbus-jose-jwt", "java-jwt",
+        ):
             return "JWT 라이브러리 없음"
     elif scanner == "oauth-scanner":
-        if not has_dependency(pkg, "passport", "passport-oauth2", "openid-client", "oauth", "grant"):
+        if not has_dep_any(
+            # Node.js
+            "passport", "passport-oauth2", "openid-client", "oauth", "grant",
+            # Python
+            "authlib", "oauthlib", "social-auth-core", "django-allauth",
+            # Ruby
+            "omniauth", "doorkeeper", "oauth2",
+            # Java
+            "spring-security-oauth2",
+        ):
             return "OAuth/OIDC 라이브러리 없음"
     elif scanner == "nosqli-scanner":
-        if not has_dependency(pkg, "mongoose", "mongodb", "mongoist"):
+        if not has_dep_any(
+            # Node.js
+            "mongoose", "mongodb", "mongoist",
+            # Python
+            "pymongo", "mongoengine", "motor",
+            # Ruby
+            "mongoid", "mongo",
+            # Java
+            "mongo-java-driver", "spring-data-mongodb",
+        ):
             return "NoSQL 라이브러리 없음"
     elif scanner == "ldap-injection-scanner":
-        if not has_dependency(pkg, "ldapjs", "ldap-authentication", "activedirectory"):
-            if not has_requirements:
-                return "LDAP 라이브러리 없음"
+        if not has_dep_any(
+            # Node.js
+            "ldapjs", "ldap-authentication", "activedirectory",
+            # Python
+            "python-ldap", "ldap3",
+            # Ruby
+            "net-ldap",
+            # Java
+            "unboundid-ldapsdk",
+        ):
+            return "LDAP 라이브러리 없음"
     elif scanner == "xslt-injection-scanner":
-        if not has_dependency(pkg, "xslt", "saxon", "libxslt"):
+        if not has_dep_any(
+            # Node.js
+            "xslt", "saxon", "libxslt",
+            # Python
+            "lxml",
+            # Java
+            "saxon-he", "xalan",
+        ):
             return "XSLT 라이브러리 없음"
     elif scanner == "xpath-injection-scanner":
-        if not has_dependency(pkg, "xpath", "xmldom", "libxmljs"):
+        if not has_dep_any(
+            # Node.js
+            "xpath", "xmldom", "libxmljs",
+            # Python
+            "lxml",
+            # Ruby
+            "nokogiri",
+        ):
             return "XPath 라이브러리 없음"
     elif scanner == "soapaction-spoofing-scanner":
-        if not has_dependency(pkg, "soap", "strong-soap"):
+        if not has_dep_any(
+            # Node.js
+            "soap", "strong-soap",
+            # Python
+            "zeep", "suds",
+            # Java
+            "cxf-rt-frontend-jaxws", "axis2",
+        ):
             if not has_file("*.wsdl"):
                 return "SOAP 라이브러리/WSDL 없음"
     elif scanner == "pdf-generation-scanner":
-        if not has_dependency(pkg, "puppeteer", "wkhtmltopdf", "pdfkit", "html-pdf", "playwright"):
+        if not has_dep_any(
+            # Node.js
+            "puppeteer", "wkhtmltopdf", "pdfkit", "html-pdf", "playwright",
+            # Python
+            "weasyprint", "reportlab", "xhtml2pdf", "pdfkit",
+            # Ruby
+            "wicked_pdf", "prawn", "grover",
+            # Java
+            "flying-saucer-pdf", "openhtmltopdf", "itext",
+        ):
             return "PDF 생성 라이브러리 없음"
     elif scanner == "saml-scanner":
-        if not has_dependency(pkg, "saml2-js", "passport-saml", "samlify", "node-saml"):
+        if not has_dep_any(
+            # Node.js
+            "saml2-js", "passport-saml", "samlify", "node-saml",
+            # Python
+            "python3-saml", "djangosaml2",
+            # Ruby
+            "ruby-saml",
+            # Java
+            "opensaml", "spring-security-saml2-service-provider",
+        ):
             return "SAML 라이브러리 없음"
     elif scanner == "zipslip-scanner":
-        if not has_dependency(pkg, "adm-zip", "unzipper", "yauzl", "tar", "archiver"):
+        if not has_dep_any(
+            # Node.js
+            "adm-zip", "unzipper", "yauzl", "tar", "archiver",
+            # Python
+            "zipfile", "tarfile",
+            # Ruby
+            "rubyzip",
+            # Java
+            "commons-compress", "zip4j",
+        ):
             return "압축 해제 라이브러리 없음"
     elif scanner == "graphql-scanner":
-        if not has_dependency(pkg, "graphql", "apollo-server", "express-graphql", "mercurius"):
+        if not has_dep_any(
+            # Node.js
+            "graphql", "apollo-server", "express-graphql", "mercurius",
+            # Python
+            "graphene", "strawberry-graphql", "ariadne",
+            # Ruby
+            "graphql-ruby",
+            # Java
+            "graphql-java", "graphql-spring-boot-starter",
+        ):
             return "GraphQL 라이브러리 없음"
     elif scanner == "sourcemap-scanner":
-        if not has_dependency(pkg, "webpack", "vite", "esbuild", "rollup", "parcel"):
+        if not has_dep_any("webpack", "vite", "esbuild", "rollup", "parcel"):
             return "프론트엔드 빌드 도구 없음"
     elif scanner == "csv-injection-scanner":
-        if not has_dependency(pkg, "csv-writer", "csv-stringify", "exceljs", "xlsx", "papaparse"):
+        if not has_dep_any(
+            # Node.js
+            "csv-writer", "csv-stringify", "exceljs", "xlsx", "papaparse",
+            # Python
+            "openpyxl", "xlsxwriter", "pandas",
+            # Ruby
+            "csv", "axlsx", "roo",
+            # Java
+            "poi", "opencsv",
+        ):
             return "CSV/Excel 라이브러리 없음"
     elif scanner == "prototype-pollution-scanner":
         if not has_file("*.js", "*.ts", "*.mjs"):
             return "JavaScript/Node.js 프로젝트 아님"
     elif scanner == "websocket-scanner":
-        if not has_dependency(pkg, "ws", "socket.io", "sockjs", "faye-websocket"):
+        if not has_dep_any(
+            # Node.js
+            "ws", "socket.io", "sockjs", "faye-websocket",
+            # Python
+            "websockets", "channels", "flask-socketio",
+            # Ruby
+            "faye-websocket", "actioncable",
+            # Java
+            "spring-websocket", "tyrus",
+        ):
             return "WebSocket 라이브러리 없음"
     elif scanner == "subdomain-takeover-scanner":
         if not has_file("*.tf", "CNAME", "dns*"):
@@ -189,3 +475,79 @@ print()
 print("--- 적용 스캐너 목록 ---")
 for s, c in included:
     print(s)
+
+# --- 그룹 리밸런싱 ---
+
+# 기본 그룹 정의 (의미적 연관성 기반)
+BASE_GROUPS = {
+    "url-navigation": ["xss-scanner", "dom-xss-scanner", "open-redirect-scanner"],
+    "response-header": ["crlf-injection-scanner", "host-header-scanner", "http-method-tampering-scanner"],
+    "db-query": ["sqli-scanner", "nosqli-scanner"],
+    "process-execution": ["command-injection-scanner", "ssti-scanner"],
+    "server-request": ["ssrf-scanner", "pdf-generation-scanner"],
+    "file-system": ["path-traversal-scanner", "file-upload-scanner", "zipslip-scanner"],
+    "xml-serialization": ["xxe-scanner", "xslt-injection-scanner", "deserialization-scanner"],
+    "auth-protocol": ["jwt-scanner", "oauth-scanner", "saml-scanner", "csrf-scanner", "idor-scanner"],
+    "client-rendering": ["redos-scanner", "css-injection-scanner", "prototype-pollution-scanner"],
+    "infra-config": ["http-smuggling-scanner", "sourcemap-scanner", "subdomain-takeover-scanner", "security-headers-scanner"],
+    "data-export": ["csv-injection-scanner"],
+    "protocol-check": ["graphql-scanner", "websocket-scanner", "soapaction-spoofing-scanner", "ldap-injection-scanner"],
+    "business-logic": ["business-logic-scanner"],
+}
+
+# 의미적 서브그룹 (과부하 그룹 분할 시 사용)
+SPLIT_HINTS = {
+    "auth-protocol": [
+        ["jwt-scanner", "oauth-scanner", "saml-scanner"],  # 토큰/프로토콜 인증
+        ["csrf-scanner", "idor-scanner"],                    # 요청 위조/권한
+    ],
+    "infra-config": [
+        ["http-smuggling-scanner", "security-headers-scanner"],
+        ["sourcemap-scanner", "subdomain-takeover-scanner"],
+    ],
+    "protocol-check": [
+        ["graphql-scanner", "websocket-scanner"],
+        ["soapaction-spoofing-scanner", "ldap-injection-scanner"],
+    ],
+}
+
+MAX_GROUP_WORKLOAD = 150  # 그룹당 최대 grep 히트 합계
+MAX_GROUP_SIZE = 4        # 그룹당 최대 스캐너 수
+
+included_set = {s for s, _ in included}
+included_hits = {s: c for s, c in included}
+
+
+def rebalance_groups():
+    """적용 스캐너만으로 그룹을 재편성한다. 과부하 그룹은 분할, 빈 그룹은 제거."""
+    groups = {}
+
+    for group_name, members in BASE_GROUPS.items():
+        active = [s for s in members if s in included_set]
+        if not active:
+            continue
+
+        total_hits = sum(included_hits.get(s, 0) for s in active)
+
+        # 분할 필요 여부 판단
+        if (total_hits > MAX_GROUP_WORKLOAD or len(active) > MAX_GROUP_SIZE) and group_name in SPLIT_HINTS:
+            hints = SPLIT_HINTS[group_name]
+            for i, hint_members in enumerate(hints):
+                sub_active = [s for s in hint_members if s in included_set]
+                if sub_active:
+                    sub_name = f"{group_name}-{i+1}"
+                    groups[sub_name] = sub_active
+        else:
+            groups[group_name] = active
+
+    return groups
+
+
+balanced_groups = rebalance_groups()
+
+print()
+print("--- 그룹 편성 ---")
+for gname, members in balanced_groups.items():
+    member_strs = [f"{s}({included_hits.get(s, 0)})" for s in members]
+    total = sum(included_hits.get(s, 0) for s in members)
+    print(f"Group ({gname}): {', '.join(member_strs)} [총 {total}건]")

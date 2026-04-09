@@ -16,10 +16,11 @@
 
 ## 결과 반환 형식
 
-스캐너별로 `=== 스캐너명 ===` 구분자로 나누어 반환하세요.
+스캐너별로 `===SCANNER_BOUNDARY===` 구분자와 `[스캐너명]` 태그로 나누어 반환하세요. 구분자는 첫 스캐너 앞에도 포함합니다.
 
 ```
-=== xss-scanner ===
+===SCANNER_BOUNDARY===
+[xss-scanner]
 
 후보 N건:
 1. (후보 상세 — 파일:라인, 코드 스니펫, Source→Sink, 실제 URL 경로 + 근거)
@@ -27,7 +28,8 @@
 
 이상 없음 항목: (1줄 요약)
 
-=== dom-xss-scanner ===
+===SCANNER_BOUNDARY===
+[dom-xss-scanner]
 
 후보 0건 (이상 없음)
 이상 없음 항목: (1줄 요약)

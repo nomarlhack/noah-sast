@@ -38,13 +38,13 @@ lines = [l.rstrip('\n') for l in _md_text.splitlines()]
 # 대시보드 수치를 MD에서 동적으로 집계
 def _parse_dashboard(md):
     confirmed = candidate = safe = na = 0
-    m = re.search(r'\|\s*확인된 취약점\s*\|\s*(\d+)건', md)
+    m = re.search(r'\|\s*(?:확인된 취약점|확인됨)\s*\|\s*(\d+)건', md)
     if m: confirmed = int(m.group(1))
     m = re.search(r'\|\s*후보.*?\|\s*(\d+)건', md)
     if m: candidate = int(m.group(1))
-    m = re.search(r'\|\s*스캔 완료.*?\|\s*(\d+)개', md)
+    m = re.search(r'\|\s*(?:스캔 완료|이상 없음 스캐너|이상 없음)\s*\|\s*(\d+)개', md)
     if m: safe = int(m.group(1))
-    m = re.search(r'\|\s*해당 없음.*?\|\s*(\d+)개', md)
+    m = re.search(r'\|\s*(?:해당 없음|미적용 스캐너|미적용)\s*\|\s*(\d+)개', md)
     if m: na = int(m.group(1))
     return confirmed, candidate, safe, na
 
