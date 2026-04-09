@@ -8,6 +8,9 @@ _html_path = os.path.join(_base, 'noah-sast-report.html')
 with open(_md_path, encoding='utf-8') as f:
     _md_text = f.read()
 
+# --- 리뷰 섹션 자동 제거 (scan-report-review 산출물이 잔류한 경우) ---
+_md_text = re.sub(r'\n## (?:보고서 )?(?:리뷰|검증) 결과.*?(?=\n## |\Z)', '', _md_text, flags=re.DOTALL)
+
 # --- 변환 전 요약 테이블·총괄 요약 자동 동기화 ---
 # assemble_report.py 의 build_table_from_details 를 임포트하여
 # 상세 섹션 → 요약 테이블을 항상 재생성한��.
@@ -23,8 +26,9 @@ def _sync_dashboard(md):
     rows = tbl.group(1)
     confirmed = len(re.findall(r'\|\s*확인됨\s*\|', rows))
     candidate = len(re.findall(r'\|\s*후보\s*\|', rows))
-    md = re.sub(r'(\|\s*확인된 취약점\s*\|\s*)\d+건', rf'\g<1>{confirmed}건', md)
-    md = re.sub(r'(\|\s*후보[^|]*\|\s*)\d+건', rf'\g<1>{candidate}건', md)
+    # suffix(건) 유무 모두 매칭하여 정규화된 형식으로 치환
+    md = re.sub(r'(\|\s*(?:확인된 취약점|확인됨)\s*\|\s*)\d+(?:건)?', rf'\g<1>{confirmed}건', md)
+    md = re.sub(r'(\|\s*후보[^|]*\|\s*)\d+(?:건)?', rf'\g<1>{candidate}건', md)
     return md
 
 _md_text = _sync_dashboard(_md_text)
@@ -35,16 +39,16 @@ with open(_md_path, 'w', encoding='utf-8') as f:
 
 lines = [l.rstrip('\n') for l in _md_text.splitlines()]
 
-# 대시보드 수치를 MD에서 동적으로 집계
+# 대시보드 수치를 MD에서 동적으로 집계 (suffix 유무 모두 허용)
 def _parse_dashboard(md):
     confirmed = candidate = safe = na = 0
-    m = re.search(r'\|\s*(?:확인된 취약점|확인됨)\s*\|\s*(\d+)건', md)
+    m = re.search(r'\|\s*(?:확인된 취약점|확인됨)\s*\|\s*(\d+)(?:건)?', md)
     if m: confirmed = int(m.group(1))
-    m = re.search(r'\|\s*후보.*?\|\s*(\d+)건', md)
+    m = re.search(r'\|\s*후보.*?\|\s*(\d+)(?:건)?', md)
     if m: candidate = int(m.group(1))
-    m = re.search(r'\|\s*(?:스캔 완료|이상 없음 스캐너|이상 없음)\s*\|\s*(\d+)개', md)
+    m = re.search(r'\|\s*(?:스캔 완료|이상 없음 스캐너|이상 없음)\s*\|\s*(\d+)(?:개)?', md)
     if m: safe = int(m.group(1))
-    m = re.search(r'\|\s*(?:해당 없음|미적용 스캐너|미적용)\s*\|\s*(\d+)개', md)
+    m = re.search(r'\|\s*(?:해당 없음|미적용 스캐너|미적용)\s*\|\s*(\d+)(?:개)?', md)
     if m: na = int(m.group(1))
     return confirmed, candidate, safe, na
 
@@ -66,7 +70,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;m
 h1{color:#1a1a2e;font-size:1.75em;font-weight:800;border:none;padding-bottom:0;margin-bottom:4px}
 h1+p,h1+hr{margin-top:6px}
 h2{color:#1a1a2e;margin-top:0;font-size:1.15em;font-weight:700;letter-spacing:-0.01em}
-h3{color:#2563eb;margin-top:18px;font-size:1em;font-weight:600}
+h3{color:#1a1a2e;margin-top:18px;font-size:1em;font-weight:600}
+h3.scanner-heading,.chain-card>h3,details.vuln-block>summary h3{color:#2563eb}
 h4{color:#374151;margin-top:16px;font-size:0.92em;font-weight:600}
 h5{color:#4b5563;margin-top:12px;font-size:0.88em;font-weight:600}
 table{border-collapse:collapse;width:100%;margin:14px 0;background:white;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06),0 0 0 1px rgba(0,0,0,.04)}
@@ -406,7 +411,7 @@ for line in lines:
             # ### [XSS] Scanner 등 스캐너 소제목
             if re.match(r'^\[', title):
                 close_vuln()
-                out.append(f'<h3>{esc(title)}</h3>')
+                out.append(f'<h3 class="scanner-heading">{esc(title)}</h3>')
                 continue
             # 스캐너 섹션 내부 + "N." 으로 시작 → 취약점 블록 (실제 번호로 id 부여)
             num3_match = re.match(r'^(\d+)\.', title) if state['scanner_results_open'] else None
