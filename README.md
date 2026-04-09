@@ -156,7 +156,7 @@ python3 tools/scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT>
 
 각 그룹 에이전트의 분석 흐름:
 
-1. `guidelines/phase1.md` (공통 지침) 읽기
+1. `prompts/guidelines-phase1.md` (공통 지침) 읽기
 2. 그룹 내 각 스캐너의 `phase1.md` 읽기
 3. 패턴 인덱스 JSON 읽기
 4. **Sink-first** + **Source-first** 병행 분석

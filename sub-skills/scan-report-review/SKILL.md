@@ -6,7 +6,7 @@
 - **보고서 MD 파일 경로** (예: `noah-sast-report.md`, `xss-scan-report.md`)
 - **프로젝트 루트 경로** (예: `/Users/noah/Workspace/docdo`)
 
-> **참고**: 검증 에이전트 프롬프트 본체, 검증 유형별 상세 지침(4-1~4-3), "수정 없음" 결과 자가 검증은 별도 파일 `<NOAH_SAST_DIR>/tools/scan-report-review/checklist.md`에 정의되어 있다. 본 SKILL.md는 메인 오케스트레이션만 다룬다.
+> **참고**: 검증 에이전트 프롬프트 본체, 검증 유형별 상세 지침(4-1~4-3), "수정 없음" 결과 자가 검증은 별도 파일 `<NOAH_SAST_DIR>/sub-skills/scan-report-review/checklist.md`에 정의되어 있다. 본 SKILL.md는 메인 오케스트레이션만 다룬다.
 
 ---
 
@@ -36,7 +36,7 @@ MD 파일을 Read 도구로 읽어 검증 대상을 추출한다:
 **[필수] 메인 에이전트는 검증 체크리스트 본문을 인라인으로 복사하지 않는다.** 대신 아래 형식의 짧은 프롬프트로 각 검증 서브에이전트를 생성한다.
 
 ```
-<NOAH_SAST_DIR>/tools/scan-report-review/checklist.md를 Read 도구로 읽고
+<NOAH_SAST_DIR>/sub-skills/scan-report-review/checklist.md를 Read 도구로 읽고
 그 안의 "검증 에이전트 프롬프트 본체" + "검증 유형별 상세 지침"을 정확히 따라
 아래 보고서 항목을 검증하세요.
 
