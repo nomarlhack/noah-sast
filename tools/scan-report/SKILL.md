@@ -4,7 +4,7 @@ noah-sast에서 호출되며, `<NOAH_SAST_DIR>`은 이미 결정된 상태이다
 
 > `[필수]`는 과거 위반 이력이 있어 추가 강조된 항목이다. 태그가 없는 항목도 모두 준수 의무가 있다.
 
-> **참고**: 취약점 상세 형식(확인됨/후보/이상 없음 템플릿), 통합 보고서 구조 마크다운 예시, 공통 HTML 사양 + 앵커 스크립트는 별도 파일 `<NOAH_SAST_DIR>/utils/scan-report/vuln-format.md`에 정의되어 있다. 본 SKILL.md는 오케스트레이션만 다룬다.
+> **참고**: 취약점 상세 형식(확인됨/후보/이상 없음 템플릿), 통합 보고서 구조 마크다운 예시, 공통 HTML 사양 + 앵커 스크립트는 별도 파일 `<NOAH_SAST_DIR>/tools/scan-report/vuln-format.md`에 정의되어 있다. 본 SKILL.md는 오케스트레이션만 다룬다.
 
 **입력:**
 - 스캐너별 분석 결과 (확인됨/후보/안전 판정, Source→Sink 경로, 코드 스니펫)
@@ -47,7 +47,7 @@ noah-sast에서 호출되며, `<NOAH_SAST_DIR>`은 이미 결정된 상태이다
 **서브에이전트 프롬프트에 반드시 포함할 내용:**
 
 1. 해당 스캐너의 취약점 데이터 전체 (파일 경로, 코드 스니펫, Source→Sink, 동적 테스트 증거)
-2. 다음 한 줄 지시: **"`<NOAH_SAST_DIR>/utils/scan-report/vuln-format.md`를 Read 도구로 읽고, 그 안의 '확인됨 형식' / '후보 형식' / '이상 없음 형식' 템플릿을 그대로 따라 MD 텍스트를 작성하라."** 메인 에이전트는 템플릿 본문을 인라인으로 복사하지 않는다.
+2. 다음 한 줄 지시: **"`<NOAH_SAST_DIR>/tools/scan-report/vuln-format.md`를 Read 도구로 읽고, 그 안의 '확인됨 형식' / '후보 형식' / '이상 없음 형식' 템플릿을 그대로 따라 MD 텍스트를 작성하라."** 메인 에이전트는 템플릿 본문을 인라인으로 복사하지 않는다.
 3. 다음 필수 준수 사항:
 
 > **필수 준수 사항:**
@@ -71,7 +71,7 @@ noah-sast에서 호출되며, `<NOAH_SAST_DIR>`은 이미 결정된 상태이다
 
 **[필수] Write 도구를 직접 사용하지 않는다.** 보고서 전체를 한 번에 Write하면 32K 토큰 한도를 초과할 수 있다. 반드시 아래 Python 스크립트로 조립한다.
 
-**조립 스크립트:** `<NOAH_SAST_DIR>/utils/scan-report/assemble_report.py`를 참조한다. 스크립트 내의 `skeleton`, `subagent_results`, `chain_analysis`, `report_name` 변수를 설정한 후 Bash로 실행한다.
+**조립 스크립트:** `<NOAH_SAST_DIR>/tools/scan-report/assemble_report.py`를 참조한다. 스크립트 내의 `skeleton`, `subagent_results`, `chain_analysis`, `report_name` 변수를 설정한 후 Bash로 실행한다.
 
 **`chain_analysis` 변수 설정:**
 
@@ -108,7 +108,7 @@ chain_analysis = {
 **[필수] 직접 HTML을 작성하지 않는다.** 반드시 스킬 디렉토리에 저장된 변환기를 사용한다.
 
 ```bash
-python3 <NOAH_SAST_DIR>/utils/scan-report/md_to_html.py
+python3 <NOAH_SAST_DIR>/tools/scan-report/md_to_html.py
 ```
 
 이 스크립트는 `noah-sast-report.md`를 읽어 `noah-sast-report.html`을 생성한다.
@@ -120,13 +120,13 @@ python3 <NOAH_SAST_DIR>/utils/scan-report/md_to_html.py
 **[필수]** HTML 생성 직후, 요약 테이블의 `#vuln-N` 링크가 실제로 HTML 내 `id="vuln-N"` 요소와 1:1 대응되는지 검증한다. 링크가 끊겨 있으면 MD를 수정하고 HTML을 재생성해야 한다.
 
 ```bash
-python3 <NOAH_SAST_DIR>/utils/scan-report/validate_links.py noah-sast-report.html
+python3 <NOAH_SAST_DIR>/tools/scan-report/validate_links.py noah-sast-report.html
 ```
 
 **LINK FAIL 시 처리:**
 1. `missing_ids`에 해당하는 MD 섹션을 찾아 헤딩 형식 확인
 2. `**N번 - ID**: 제목` 형식이면 `#### N. 제목`으로 변환
-3. HTML 재생성(`python3 <NOAH_SAST_DIR>/utils/scan-report/md_to_html.py`)
+3. HTML 재생성(`python3 <NOAH_SAST_DIR>/tools/scan-report/md_to_html.py`)
 4. 링크 검증 재실행 → LINK OK 확인 후 Step 5로 진행
 
 ### Step 5: 정량적 검증 (자동화 필수)
@@ -134,7 +134,7 @@ python3 <NOAH_SAST_DIR>/utils/scan-report/validate_links.py noah-sast-report.htm
 **[필수]** 보고서 생성 후, 검증 스크립트를 실행한다. 자율적 판단으로 검증을 대체하지 않는다. PASS를 반환할 때까지 Step 6으로 진행하지 않는다.
 
 ```bash
-python3 <NOAH_SAST_DIR>/utils/scan-report/validate_report.py [확인됨+후보 건수]
+python3 <NOAH_SAST_DIR>/tools/scan-report/validate_report.py [확인됨+후보 건수]
 ```
 
 **동작:**

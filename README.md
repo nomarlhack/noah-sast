@@ -52,7 +52,7 @@ flowchart TB
     S0 -->|위임| GrepAgent["grep 인덱싱\n에이전트"]
     GrepAgent -->|저장| IndexDir[("패턴 인덱스\n(스캐너별 JSON)")]
 
-    S2 -->|실행| Selector["scanner-selector.py"]
+    S2 -->|실행| Selector["tools/scanner-selector.py"]
 
     S3 -->|병렬 실행| P1["Phase 1 정적 분석\n(12개 그룹 에이전트)"]
     P1 -->|후보 2건+| Chain["연계 분석\n에이전트"]
@@ -117,10 +117,10 @@ flowchart LR
 
 ### Step 2: 스캐너 선별
 
-`scanner-selector.py`가 grep 인덱스 + 프로젝트 아키텍처를 기반으로 자동 선별합니다.
+`tools/scanner-selector.py`가 grep 인덱스 + 프로젝트 아키텍처를 기반으로 자동 선별합니다.
 
 ```bash
-python3 scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT>
+python3 tools/scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT>
 ```
 
 | 조건 | 판정 |
@@ -156,7 +156,7 @@ python3 scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT>
 
 각 그룹 에이전트의 분석 흐름:
 
-1. `agent-guidelines-phase1.md` (공통 지침) 읽기
+1. `guidelines/phase1.md` (공통 지침) 읽기
 2. 그룹 내 각 스캐너의 `phase1.md` 읽기
 3. 패턴 인덱스 JSON 읽기
 4. **Sink-first** + **Source-first** 병행 분석
@@ -375,10 +375,12 @@ cp -r skills/noah-sast ~/.claude/skills/
 ```
 ~/.claude/skills/noah-sast/
 ├── SKILL.md                          # 통합 오케스트레이터
-├── scanner-selector.py               # 스캐너 자동 선별 스크립트
-├── agent-guidelines-phase1.md        # 정적 분석 공통 지침
-├── agent-guidelines-phase2.md        # 동적 분석 공통 지침
-├── prompts/                          # 서브 에이전트 프롬프트 (메인 SKILL.md에서 분리)
+│
+├── guidelines/                       # 서브 에이전트 공통 지침
+│   ├── phase1.md                     # 정적 분석 공통 지침
+│   └── phase2.md                     # 동적 분석 공통 지침
+│
+├── prompts/                          # 서브 에이전트 프롬프트 템플릿
 │   ├── grep-agent.md                 # grep 인덱싱 에이전트 지시문
 │   └── phase1-group-agent.md         # Phase 1 그룹 에이전트 지시문
 │
@@ -389,17 +391,21 @@ cp -r skills/noah-sast ~/.claude/skills/
 │   ├── sqli-scanner/
 │   └── ... (37개)
 │
-└── utils/                            # 보고서·분석·테스트 도구
-    ├── scan-report/
-    │   ├── SKILL.md                  # 보고서 작성 프로세스
-    │   ├── assemble_report.py        # MD 조립 스크립트
-    │   ├── md_to_html.py             # HTML 변환기
-    │   ├── validate_links.py         # 앵커 링크 검증
-    │   └── validate_report.py        # 정량 검증
-    ├── scan-report-review/
-    │   └── SKILL.md                  # 보고서 정확성 검증
-    ├── chain-analysis/
-    │   └── SKILL.md                  # 연계 분석
-    └── webapp-testing/
-        └── SKILL.md                  # Playwright 동적 테스트 도구
+├── tools/                            # 유틸리티 스크립트·보고서·분석·테스트 도구
+│   ├── scanner-selector.py           # 스캐너 자동 선별 스크립트
+│   ├── chain-analysis/
+│   │   └── SKILL.md                  # 연계 분석
+│   ├── scan-report/
+│   │   ├── SKILL.md                  # 보고서 작성 프로세스
+│   │   ├── assemble_report.py        # MD 조립 스크립트
+│   │   ├── md_to_html.py             # HTML 변환기
+│   │   ├── validate_links.py         # 앵커 링크 검증
+│   │   └── validate_report.py        # 정량 검증
+│   ├── scan-report-review/
+│   │   └── SKILL.md                  # 보고서 정확성 검증
+│   └── webapp-testing/
+│       └── SKILL.md                  # Playwright 동적 테스트 도구
+│
+└── tests/                            # grep 커버리지 테스트
+    └── grep-coverage/
 ```

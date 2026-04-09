@@ -5,12 +5,12 @@
 ## 절차
 
 먼저 아래 파일을 Read하세요:
-- `<NOAH_SAST_DIR>/agent-guidelines-phase1.md`
+- `<NOAH_SAST_DIR>/guidelines/phase1.md`
 
 그 후 메인 에이전트가 프롬프트에 나열한 스캐너를 **순서대로** 실행하세요. 각 스캐너마다:
 1. 해당 스캐너의 phase1.md를 Read
 2. 해당 스캐너의 패턴 인덱스 JSON을 Read
-3. agent-guidelines-phase1.md와 phase1.md의 지침을 그대로 따라 분석 수행
+3. guidelines/phase1.md와 phase1.md의 지침을 그대로 따라 분석 수행
 
 이미 읽은 파일은 다시 읽지 마세요. (지침 7)
 

@@ -1,6 +1,6 @@
 ### Phase 2: 동적 테스트 (검증)
 
-> 공통 시작 절차 / 공통 검증 기준은 `agent-guidelines-phase2.md` 지침 7에 정의되어 있다. 이 파일은 비즈니스 로직 스캐너의 고유 절차만 다룬다.
+> 공통 시작 절차 / 공통 검증 기준은 `guidelines/phase2.md` 지침 7에 정의되어 있다. 이 파일은 비즈니스 로직 스캐너의 고유 절차만 다룬다.
 
 **도구 선택:** 상태 변경 API에 대한 curl 요청으로 충분하다. 브라우저 렌더링이 필요한 테스트가 아니므로 Playwright는 사용하지 않는다.
 
@@ -25,7 +25,7 @@
 
 ## 테스트 식별자 사전 획득
 
-`agent-guidelines-phase2.md` 지침 3에 따라 curl 명령에 `<placeholder>`를 남기지 않는다. 각 라벨 테스트 전에 아래를 먼저 획득한다.
+`guidelines/phase2.md` 지침 3에 따라 curl 명령에 `<placeholder>`를 남기지 않는다. 각 라벨 테스트 전에 아래를 먼저 획득한다.
 
 - 계정 A/B의 세션 쿠키 또는 토큰 (지침 9의 우선순위에 따라 획득)
 - 테스트 대상 리소스 ID (주문, 쿠폰, 게시글 등): 정상 요청으로 신규 생성한 뒤 응답에서 추출
@@ -82,7 +82,7 @@ curl -si "https://<host>/api/admin/users" \
 
 ### `RACE_CONDITION` — 레이스 / TOCTOU
 
-`agent-guidelines-phase2.md` 지침 5의 race 예외 적용: **단일 Bash 호출** 내부에서 쉘 백그라운드로 병렬 발사. 별도 Bash 호출 병렬은 여전히 금지.
+`guidelines/phase2.md` 지침 5의 race 예외 적용: **단일 Bash 호출** 내부에서 쉘 백그라운드로 병렬 발사. 별도 Bash 호출 병렬은 여전히 금지.
 
 대상: 쿠폰 1회 사용 제한, 잔액 차감, 재고 감소, 투표/좋아요 1인 1회 제한.
 

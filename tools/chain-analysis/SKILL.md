@@ -69,7 +69,7 @@ HOST-2   |       |       |        |   -    |     |
 
 ### Step 3: 체인 구성 규칙 자가 검사 (필수)
 
-`utils/chain-analysis/chain-construction-rules.md`를 Read 도구로 읽어,
+`tools/chain-analysis/chain-construction-rules.md`를 Read 도구로 읽어,
 정의된 5개 규칙(R1~R5)을 모든 잠재 체인에 적용한다.
 
 검사 결과를 출력에 다음 표 형식으로 포함한다:

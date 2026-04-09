@@ -82,7 +82,7 @@
 
 ### 4-3. 공격 시나리오 검증 (M_chains > 0이면 필수)
 
-`<NOAH_SAST_DIR>/utils/chain-analysis/chain-construction-rules.md`를 Read 도구로 읽어, chain-analysis가 적용한 동일한 5개 규칙(R1~R5)을 보고서의 모든 체인에 독립적으로 재적용한다. 1차 작성자가 통과시킨 체인이라도 review에서 다시 검사한다.
+`<NOAH_SAST_DIR>/tools/chain-analysis/chain-construction-rules.md`를 Read 도구로 읽어, chain-analysis가 적용한 동일한 5개 규칙(R1~R5)을 보고서의 모든 체인에 독립적으로 재적용한다. 1차 작성자가 통과시킨 체인이라도 review에서 다시 검사한다.
 
 각 체인에 대해 코드로 입증한다:
 (a) Step N의 출력이 Step N+1의 입력으로 도달하는 코드 경로 (파일경로:라인번호 최소 2개 지점)
