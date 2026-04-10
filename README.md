@@ -29,7 +29,6 @@ Noah SAST는 Claude Code의 **스킬(Skill)** 시스템 위에 구축된 통합 
 | **병렬 실행** | 스캐너 그룹을 Agent 도구로 동시 실행 (grep 히트 수 기반 동적 리밸런싱) |
 | **단일 진실 원천** | 후보 마스터 목록이 전체 프로세스의 유일한 상태 저장소 |
 | **오탐 방지** | Sink-first + Source-first 병행 분석, 보고서 작성 후 소스코드 대조 검증 |
-| **증분 분석** | `.noah-sast-cache/`에 grep 인덱스를 캐싱하여 변경된 파일만 재스캔 |
 | **다국어 지원** | Node.js, Python, Ruby, Java 매니페스트에서 의존성을 파싱하여 정확한 스캐너 선별 |
 
 **지원 범위:** Kotlin, Java, TypeScript, JavaScript, Python, Go, Ruby, PHP, C# 등 80+ 확장자. Spring Boot, React, Vue, Django, Express 등 주요 프레임워크의 보안 패턴 인식.
@@ -86,40 +85,14 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-    Cache{"캐시 확인\ncache_manager.py status"}
-    Cache -->|CACHE_HIT| Skip["grep 스킵\n기존 인덱스 재사용"]
-    Cache -->|CACHE_STALE| Inc["변경 파일만\n증분 grep"]
-    Cache -->|CACHE_MISS| Full["전체 grep 실행"]
-
-    Full --> Agent["grep 인덱싱 에이전트\n(prompts/grep-agent.md)"]
-    Inc --> Agent
+    Agent["grep 인덱싱 에이전트\n(prompts/grep-agent.md)"]
     Agent -->|"37개 phase1.md\nfrontmatter 파싱"| Grep["grep -rn 일괄 실행\n80+ 확장자 화이트리스트"]
     Grep -->|스캐너별 JSON 저장| Dir[("패턴 인덱스\nxss-scanner.json\nssrf-scanner.json\n...")]
-    Dir --> Save["캐시 저장\ncache_manager.py save"]
 
-    style Cache fill:#533483,stroke:#533483,color:#fff
     style Agent fill:#16213e,stroke:#0f3460,color:#eee
     style Grep fill:#0f3460,stroke:#533483,color:#eee
     style Dir fill:#1a1a2e,stroke:#e94560,color:#eee
-    style Skip fill:#0f3460,stroke:#0f3460,color:#eee
-    style Inc fill:#0f3460,stroke:#0f3460,color:#eee
-    style Full fill:#0f3460,stroke:#0f3460,color:#eee
-    style Save fill:#16213e,stroke:#0f3460,color:#eee
 ```
-
-#### Step 0-0: 캐시 확인
-
-이전 실행의 grep 인덱스가 `.noah-sast-cache/`에 캐싱되어 있으면 재사용합니다.
-
-```bash
-python3 tools/cache_manager.py status <PROJECT_ROOT>
-```
-
-| 출력 | 의미 | 조치 |
-|------|------|------|
-| `CACHE_HIT` | 코드 변경 없음 | 기존 인덱스 재사용, Step 0-1 스킵 |
-| `CACHE_STALE` | 일부 파일 변경 | 변경 파일만 증분 grep |
-| `CACHE_MISS` | 캐시 없음 | 전체 grep 실행 |
 
 #### Step 0-1: grep 인덱싱 에이전트 실행
 
@@ -143,9 +116,9 @@ python3 tools/cache_manager.py status <PROJECT_ROOT>
 - 히트 없는 패턴도 빈 배열로 포함
 - 개별 스캐너 에이전트는 자신의 JSON 파일만 읽어 분석 시작
 
-#### Step 0-2: 카운트 요약 수신 및 캐시 저장
+#### Step 0-2: 카운트 요약 수신
 
-grep 에이전트가 반환한 스캐너별 히트 건수를 보관합니다. 풀 스캔 또는 증분 완료 후 `cache_manager.py save/merge`로 캐시를 저장하여 다음 실행에서 재사용할 수 있도록 합니다.
+grep 에이전트가 반환한 스캐너별 히트 건수를 보관합니다.
 
 ---
 
@@ -487,7 +460,7 @@ sast
 
 ```mermaid
 flowchart TD
-    User["사용자: /noah-sast"] --> S0["Step 0: 캐시 확인 → grep 인덱싱"]
+    User["사용자: /noah-sast"] --> S0["Step 0: grep 인덱싱"]
     S0 --> S1["Step 1: 프로젝트 스택 분석"]
     S1 --> S2["Step 2: 스캐너 선별\n(다국어 의존성 + AI 검토)"]
     S2 --> S3["Step 3-1: Phase 1 정적 분석\n(그룹 병렬 실행)"]
@@ -542,7 +515,6 @@ cp -r skills/noah-sast ~/.claude/skills/
 ├── tools/                            # Python 유틸리티 스크립트
 │   ├── scanner-selector.py           # 스캐너 선별 + 그룹 리밸런싱
 │   ├── build-master-list.py          # Phase 1 결과 → master-list.json
-│   ├── cache_manager.py              # grep 인덱스 증분 캐시
 │   └── parse_phase1_output.py        # Phase 1 출력 파서
 │
 ├── sub-skills/                       # SKILL.md 기반 서브스킬
