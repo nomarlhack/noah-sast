@@ -26,10 +26,14 @@ def _sync_dashboard(md):
     rows = tbl.group(1)
     confirmed = len(re.findall(r'\|\s*확인됨\s*\|', rows))
     candidate = len(re.findall(r'\|\s*후보\s*\|', rows))
-    # suffix(건) 유무 모두 매칭하여 정규화된 형식으로 치환
-    md = re.sub(r'(\|\s*(?:확인된 취약점|확인됨)\s*\|\s*)\d+(?:건)?', rf'\g<1>{confirmed}건', md)
-    md = re.sub(r'(\|\s*후보[^|]*\|\s*)\d+(?:건)?', rf'\g<1>{candidate}건', md)
-    return md
+    # 총괄 요약 섹션만 추출하여 그 범위 안에서만 치환
+    dashboard_match = re.search(r'(## 총괄 요약\s*\n\s*\n(?:\|.*\n)+)', md)
+    if not dashboard_match:
+        return md
+    old_block = dashboard_match.group(1)
+    new_block = re.sub(r'(\|\s*(?:확인된 취약점|확인됨)\s*\|\s*)\d+(?:건)?', rf'\g<1>{confirmed}건', old_block)
+    new_block = re.sub(r'(\|\s*후보[^|]*\|\s*)\d+(?:건)?', rf'\g<1>{candidate}건', new_block)
+    return md.replace(old_block, new_block, 1)
 
 _md_text = _sync_dashboard(_md_text)
 
@@ -170,60 +174,7 @@ out.append(f'''<!DOCTYPE html>
   <div class="card na"><div class="num">{_na}</div><div class="label">미적용</div></div>
 </div>''')
 
-# 파서 상태
-in_code = False
-code_lang = ''
-code_buf = []
-
-in_table = False
-tbl_header = []
-tbl_rows = []
-tbl_header_done = False
-
-in_ul = False
-in_ol = False
-p_buf = []
-
-# 섹션 상태
-always_open_div = False   # 총괄요약 / 취약점요약 / 미적용 등
-scanner_results_open = False  # ## 스캐너별 실행 결과 wrapper
-vuln_open = False             # details.vuln-block
-
-vuln_counter = 0  # 전역 취약점 번호
-
-def flush_p():
-    if p_buf:
-        out.append('<p>' + ' '.join(p_buf) + '</p>')
-        p_buf.clear()
-
-def flush_ul():
-    if in_ul:
-        out.append('</ul>')
-
-def flush_ol():
-    if in_ol:
-        out.append('</ol>')
-
-def flush_table():
-    if not in_table:
-        return
-    out.append('<table>')
-    if tbl_header:
-        out.append('<thead><tr>' + ''.join(f'<th>{inline(c.strip())}</th>' for c in tbl_header) + '</tr></thead>')
-    out.append('<tbody>')
-    for row in tbl_rows:
-        out.append('<tr>' + ''.join(f'<td>{inline(c.strip())}</td>' for c in row) + '</tr>')
-    out.append('</tbody></table>')
-
-def flush_all_inline():
-    flush_p()
-    if in_ul:
-        out.append('</ul>')
-    if in_ol:
-        out.append('</ol>')
-    flush_table()
-
-# 전역 변수를 딕셔너리로 관리
+# 파서 상태를 딕셔너리로 관리
 state = {
     'in_code': False,
     'code_lang': '',
@@ -310,6 +261,14 @@ def close_chain():
         out.append('</div></details>')
         state['chain_open'] = False
 
+def open_vuln_block(num, title):
+    close_vuln()
+    state['vuln_counter'] += 1
+    out.append(f'<details class="vuln-block" id="vuln-{num}">')
+    out.append(f'<summary><h3>{esc(title)}</h3></summary>')
+    out.append('<div class="vuln-body">')
+    state['vuln_open'] = True
+
 def close_scanner_results():
     close_vuln()
     if state['scanner_results_open']:
@@ -346,15 +305,8 @@ for line in lines:
         do_flush_all()
         title = bold_vuln_match.group(2).strip().rstrip('*').strip()
         if not title:
-            # 제목이 없는 경우 전체 볼드 텍스트를 제목으로 사용
             title = re.sub(r'\*', '', line).strip()
-        close_vuln()
-        state['vuln_counter'] += 1
-        vid = f'vuln-{bold_vuln_match.group(1)}'  # 순서 카운터 대신 실제 번호 사용
-        out.append(f'<details class="vuln-block" id="{vid}">')
-        out.append(f'<summary><h3>{esc(title)}</h3></summary>')
-        out.append('<div class="vuln-body">')
-        state['vuln_open'] = True
+        open_vuln_block(bold_vuln_match.group(1), title)
         continue
 
     # 헤딩
@@ -374,13 +326,7 @@ for line in lines:
             # ## N. 제목 → 스캐너별 실행 결과 내부에 있으면 취약점 블록
             num2_match = re.match(r'^(\d+)\.', title) if state['scanner_results_open'] else None
             if num2_match:
-                close_vuln()
-                state['vuln_counter'] += 1
-                vid = f'vuln-{num2_match.group(1)}'  # 순서 카운터 대신 실제 번호 사용
-                out.append(f'<details class="vuln-block" id="{vid}">')
-                out.append(f'<summary><h3>{esc(title)}</h3></summary>')
-                out.append('<div class="vuln-body">')
-                state['vuln_open'] = True
+                open_vuln_block(num2_match.group(1), title)
                 continue
             close_scanner_results()
             close_chain()
@@ -416,13 +362,7 @@ for line in lines:
             # 스캐너 섹션 내부 + "N." 으로 시작 → 취약점 블록 (실제 번호로 id 부여)
             num3_match = re.match(r'^(\d+)\.', title) if state['scanner_results_open'] else None
             if num3_match:
-                close_vuln()
-                state['vuln_counter'] += 1
-                vid = f'vuln-{num3_match.group(1)}'  # 순서 카운터 대신 실제 번호 사용
-                out.append(f'<details class="vuln-block" id="{vid}">')
-                out.append(f'<summary><h3>{esc(title)}</h3></summary>')
-                out.append('<div class="vuln-body">')
-                state['vuln_open'] = True
+                open_vuln_block(num3_match.group(1), title)
                 continue
             # ### 이상없음 스캐너 이름 등 일반
             close_vuln()
@@ -434,13 +374,7 @@ for line in lines:
             # 숫자 없는 헤딩(원인 분석, 재현 방법 및 POC, 권장 조치 등)은 일반 h4
             num4_match = re.match(r'^(\d+)\.', title) if state['scanner_results_open'] else None
             if num4_match:
-                close_vuln()
-                state['vuln_counter'] += 1
-                vid = f'vuln-{num4_match.group(1)}'  # 순서 카운터 대신 실제 번호 사용
-                out.append(f'<details class="vuln-block" id="{vid}">')
-                out.append(f'<summary><h3>{esc(title)}</h3></summary>')
-                out.append('<div class="vuln-body">')
-                state['vuln_open'] = True
+                open_vuln_block(num4_match.group(1), title)
                 continue
             out.append(f'<h4>{inline(title)}</h4>')
             continue
@@ -540,4 +474,4 @@ with open(_html_path, 'w', encoding='utf-8') as f:
 
 poc = html_out.count('재현 방법 및 POC')
 vb = html_out.count('class="vuln-block"')
-print(f'POC: {poc}/28, vuln-block: {vb}, 파일: {len(html_out):,}bytes')
+print(f'POC: {poc}, vuln-block: {vb}, 파일: {len(html_out):,}bytes')
