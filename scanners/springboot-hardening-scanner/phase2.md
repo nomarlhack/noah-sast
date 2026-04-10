@@ -10,7 +10,7 @@ actuator endpoint 테스트 시, 반드시 아래 가드 스크립트를 먼저 
 python3 <NOAH_SAST_DIR>/tools/validate_actuator.py "<테스트URL>" && curl -sI "<테스트URL>"
 ```
 
-`validate_actuator.py`가 exit 1을 반환하면 curl이 실행되지 않는다. **`/actuator/shutdown`에 대한 HTTP 요청(GET/POST 모두)은 절대 수행하지 않는다** — 애플리케이션이 실제로 종료되어 서비스 장애를 유발한다.
+`validate_actuator.py`가 exit 1을 반환하면 curl이 실행되지 않는다. **`/actuator/shutdown`에 대한 HTTP 요청(GET/POST 모두)은 절대 수행하지 않는다.**
 
 ---
 
