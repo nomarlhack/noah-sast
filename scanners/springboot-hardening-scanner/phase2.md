@@ -83,7 +83,7 @@ curl -s https://<host>/actuator
 
 #### ACTUATOR_OVEREXPOSED
 
-actuator가 노출된 경우, 불필요한 endpoint 접근을 확인한다. **shutdown endpoint는 테스트하지 않는다.**
+actuator가 노출된 경우, 불필요한 endpoint 접근을 확인한다. **shutdown,refresh endpoint는 테스트하지 않는다.**
 
 ```bash
 python3 <NOAH_SAST_DIR>/tools/validate_actuator.py "https://<host>/actuator/env" && \
