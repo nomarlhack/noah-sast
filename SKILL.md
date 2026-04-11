@@ -1,11 +1,11 @@
 ---
 name: noah-sast
-description: "38개 취약점 스캐너 스킬을 한번에 실행하고 결과를 통합 보고서로 작성하는 스킬. XSS, SSRF, SQLi, CSRF, 비즈니스 로직 등 모든 취약점 유형을 소스코드 분석과 동적 테스트로 점검한다. 사용자가 'noah-sast', 'noah sast', 'sast', '소스코드 취약점 스캔' 등을 요청할 때 이 스킬을 사용한다."
+description: "39개 취약점 스캐너 스킬을 한번에 실행하고 결과를 통합 보고서로 작성하는 스킬. XSS, SSRF, SQLi, CSRF, 비즈니스 로직 등 모든 취약점 유형을 소스코드 분석과 동적 테스트로 점검한다. 사용자가 'noah-sast', 'noah sast', 'sast', '소스코드 취약점 스캔' 등을 요청할 때 이 스킬을 사용한다."
 ---
 
 # Noah SAST — 통합 취약점 스캐너
 
-38개 개별 취약점 스캐너를 순차적으로 실행하고, 모든 결과를 하나의 통합 보고서로 작성하는 스킬이다.
+39개 개별 취약점 스캐너를 순차적으로 실행하고, 모든 결과를 하나의 통합 보고서로 작성하는 스킬이다.
 
 > `[필수]`는 과거 위반 이력이 있어 추가 강조된 항목이다. 태그가 없는 항목도 모두 준수 의무가 있다.
 
@@ -36,7 +36,7 @@ fi
     guidelines-phase2.md            ← Phase 2 공통 지침
     grep-agent.md                   ← grep 인덱싱 에이전트 프롬프트
     phase1-group-agent.md           ← Phase 1 그룹 에이전트 프롬프트
-  scanners/                         ← 38개 취약점 스캐너
+  scanners/                         ← 39개 취약점 스캐너
     xss-scanner/
     sqli-scanner/
     ...

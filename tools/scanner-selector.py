@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""scanner-selector.py — grep 인덱스 + 프로젝트 파일 기반 38개 스캐너 자동 선별.
+"""scanner-selector.py — grep 인덱스 + 프로젝트 파일 기반 39개 스캐너 자동 선별.
 
 Usage:
     python3 scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT>
@@ -59,7 +59,7 @@ SCANNERS = [
     "sourcemap-scanner", "csv-injection-scanner", "prototype-pollution-scanner",
     "websocket-scanner", "subdomain-takeover-scanner", "idor-scanner",
     "business-logic-scanner", "security-headers-scanner",
-    "springboot-hardening-scanner"
+    "springboot-hardening-scanner", "cookie-security-scanner"
 ]
 
 pkg = read_pkg_json()
@@ -444,6 +444,8 @@ def check_exclude(scanner):
     elif scanner == "springboot-hardening-scanner":
         if not has_pom:
             return "Spring Boot 프로젝트 아님 (pom.xml/build.gradle 없음)"
+    elif scanner == "cookie-security-scanner":
+        pass  # 쿠키는 모든 웹 프로젝트에 해당
     # open-redirect, crlf, path-traversal, http-method-tampering, host-header,
     # css-injection, redos, http-smuggling, idor: 아키텍처만으로 제외하기 어려움 → 포함
     return None
@@ -491,7 +493,7 @@ BASE_GROUPS = {
     "server-request": ["ssrf-scanner", "pdf-generation-scanner"],
     "file-system": ["path-traversal-scanner", "file-upload-scanner", "zipslip-scanner"],
     "xml-serialization": ["xxe-scanner", "xslt-injection-scanner", "deserialization-scanner"],
-    "auth-protocol": ["jwt-scanner", "oauth-scanner", "saml-scanner", "csrf-scanner", "idor-scanner"],
+    "auth-protocol": ["jwt-scanner", "oauth-scanner", "saml-scanner", "csrf-scanner", "idor-scanner", "cookie-security-scanner"],
     "client-rendering": ["redos-scanner", "css-injection-scanner", "prototype-pollution-scanner"],
     "infra-config": ["http-smuggling-scanner", "sourcemap-scanner", "subdomain-takeover-scanner", "security-headers-scanner", "springboot-hardening-scanner"],
     "data-export": ["csv-injection-scanner"],
@@ -503,7 +505,7 @@ BASE_GROUPS = {
 SPLIT_HINTS = {
     "auth-protocol": [
         ["jwt-scanner", "oauth-scanner", "saml-scanner"],  # 토큰/프로토콜 인증
-        ["csrf-scanner", "idor-scanner"],                    # 요청 위조/권한
+        ["csrf-scanner", "idor-scanner", "cookie-security-scanner"],  # 요청 위조/권한/쿠키
     ],
     "infra-config": [
         ["http-smuggling-scanner", "security-headers-scanner", "springboot-hardening-scanner"],
