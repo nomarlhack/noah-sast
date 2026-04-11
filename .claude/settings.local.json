@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p sub-skills)",
+      "Bash(git mv:*)",
+      "Bash(rm -rf utils/__pycache__)",
+      "Bash(rmdir utils:*)",
+      "Bash(git status:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$TOOL_INPUT\" | grep -qiE '/actuator/(shutdown|refresh)'; then echo 'BLOCKED: 파괴적 actuator endpoint 접근 금지' >&2; exit 2; fi; if echo \"$TOOL_INPUT\" | grep -qiE '(for|while|until)\\s.*curl|seq.*curl|xargs.*curl|parallel.*curl|watch.*curl|curl.*\\[.*-.*\\]|\\b(ab|wrk|hey|siege|vegeta|bombardier|k6|locust)\\b'; then echo 'BLOCKED: 반복 요청(rate-limit 테스트) 금지' >&2; exit 2; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
