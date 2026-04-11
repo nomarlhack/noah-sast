@@ -4,12 +4,12 @@
 
 ## 임무
 
-39개 취약점 스캐너의 grep 패턴을 각 스캐너 phase1.md frontmatter에서 읽어,
+41개 취약점 스캐너의 grep 패턴을 각 스캐너 phase1.md frontmatter에서 읽어,
 프로젝트 전체를 grep한 뒤 결과를 파일로 저장한다.
 
 ## 단계 1: 스캐너별 패턴 수집 (phase1.md frontmatter)
 
-아래 39개 스캐너의 phase1.md를 각각 Read 도구로 읽는다:
+아래 41개 스캐너의 phase1.md를 각각 Read 도구로 읽는다:
 
 ```
 <NOAH_SAST_DIR>/scanners/xss-scanner/phase1.md
@@ -51,6 +51,8 @@
 <NOAH_SAST_DIR>/scanners/security-headers-scanner/phase1.md
 <NOAH_SAST_DIR>/scanners/springboot-hardening-scanner/phase1.md
 <NOAH_SAST_DIR>/scanners/cookie-security-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/tls-scanner/phase1.md
+<NOAH_SAST_DIR>/scanners/validation-logic-scanner/phase1.md
 ```
 
 각 파일의 최상단 YAML frontmatter 블록(`---` 으로 시작하고 `---` 으로 끝남)에서
@@ -129,7 +131,7 @@ mkdir -p <PATTERN_INDEX_DIR>
 예시:
 - `<PATTERN_INDEX_DIR>/xss-scanner.json`
 - `<PATTERN_INDEX_DIR>/sqli-scanner.json`
-- ... (39개 전체)
+- ... (41개 전체)
 
 각 파일의 저장 형식 (해당 스캐너의 패턴만 포함):
 ```json
@@ -143,7 +145,7 @@ mkdir -p <PATTERN_INDEX_DIR>
 저장 시 주의사항:
 - 파일경로:라인번호 형식 유지. 코드 내용 포함 금지.
 - 히트 없는 패턴도 빈 배열로 포함.
-- 39개 스캐너 전체 각각 저장. 누락 금지. (business-logic-scanner는 grep_patterns가 비어 있으므로 빈 JSON `{}` 저장)
+- 41개 스캐너 전체 각각 저장. 누락 금지. (business-logic-scanner는 grep_patterns가 비어 있으므로 빈 JSON `{}` 저장)
 
 ## 단계 4: 카운트 요약만 응답으로 반환
 
@@ -156,4 +158,4 @@ mkdir -p <PATTERN_INDEX_DIR>
 스캐너별 히트 건수 (파일경로:라인번호 기준):
 xss-scanner: N건
 dom-xss-scanner: N건
-...(39개 전체)...
+...(41개 전체)...

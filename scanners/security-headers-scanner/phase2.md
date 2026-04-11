@@ -10,7 +10,6 @@
 
 - 모든 판정은 **실제 응답 헤더**로 한다. 코드/설정 파일에서 "있을 것 같다"는 이유만으로 안전 판정하지 않는다.
 - 코드/설정에 없어도 응답에 있으면 **보고서 제외** (CDN/프록시/웹서버 계층 보강). 코드/설정에 있어도 응답에 없으면 **확인됨**.
-- HSTS는 **HTTPS 응답에서만 유효**하다. HTTP(80) 응답이나 리다이렉트 중간 응답에서 확인하지 않는다.
 - Cache-Control 검증은 반드시 **인증 세션 쿠키를 동반**한 요청으로 수행한다.
 - **각 라벨 검증은 phase1.md의 후보 path별로 반복**한다. 루트(`/`) 1회 덤프로 모든 라벨을 판정하지 않는다. SPA shell만 CSP가 붙고 그 외 라우트는 누락되는 경우가 흔하다.
 
@@ -85,18 +84,6 @@ curl -sI -X OPTIONS \
 
 **`CORS_NULL`**
 - 확인됨: `Access-Control-Allow-Origin: null` 반사 + Credentials 허용
-
-### Strict-Transport-Security
-
-**`HSTS_MISSING`**
-```
-curl -sI "https://<host>/" | grep -i '^strict-transport-security:'
-```
-- 확인됨: HTTPS 응답에 출력 없음
-
-**`HSTS_SHORT_MAXAGE`**
-- 확인됨: `max-age` 값이 `31536000`(1년) 미만
-- `includeSubDomains` 부재 / `preload` 부재는 정보 수준으로만 기재 (확인됨 아님)
 
 ### Clickjacking (X-Frame-Options / CSP frame-ancestors)
 

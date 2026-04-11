@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""scanner-selector.py — grep 인덱스 + 프로젝트 파일 기반 39개 스캐너 자동 선별.
+"""scanner-selector.py — grep 인덱스 + 프로젝트 파일 기반 41개 스캐너 자동 선별.
 
 Usage:
     python3 scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT>
@@ -59,7 +59,8 @@ SCANNERS = [
     "sourcemap-scanner", "csv-injection-scanner", "prototype-pollution-scanner",
     "websocket-scanner", "subdomain-takeover-scanner", "idor-scanner",
     "business-logic-scanner", "security-headers-scanner",
-    "springboot-hardening-scanner", "cookie-security-scanner"
+    "springboot-hardening-scanner", "cookie-security-scanner",
+    "tls-scanner", "validation-logic-scanner"
 ]
 
 pkg = read_pkg_json()
@@ -446,6 +447,10 @@ def check_exclude(scanner):
             return "Spring Boot 프로젝트 아님 (pom.xml/build.gradle 없음)"
     elif scanner == "cookie-security-scanner":
         pass  # 쿠키는 모든 웹 프로젝트에 해당
+    elif scanner == "tls-scanner":
+        pass  # TLS 설정은 모든 웹 프로젝트에 해당
+    elif scanner == "validation-logic-scanner":
+        pass  # 유효성 검사 로직은 모든 웹 프로젝트에 해당
     # open-redirect, crlf, path-traversal, http-method-tampering, host-header,
     # css-injection, redos, http-smuggling, idor: 아키텍처만으로 제외하기 어려움 → 포함
     return None
@@ -495,10 +500,10 @@ BASE_GROUPS = {
     "xml-serialization": ["xxe-scanner", "xslt-injection-scanner", "deserialization-scanner"],
     "auth-protocol": ["jwt-scanner", "oauth-scanner", "saml-scanner", "csrf-scanner", "idor-scanner", "cookie-security-scanner"],
     "client-rendering": ["redos-scanner", "css-injection-scanner", "prototype-pollution-scanner"],
-    "infra-config": ["http-smuggling-scanner", "sourcemap-scanner", "subdomain-takeover-scanner", "security-headers-scanner", "springboot-hardening-scanner"],
+    "infra-config": ["http-smuggling-scanner", "sourcemap-scanner", "subdomain-takeover-scanner", "security-headers-scanner", "springboot-hardening-scanner", "tls-scanner"],
     "data-export": ["csv-injection-scanner"],
-    "protocol-check": ["graphql-scanner", "websocket-scanner", "soapaction-spoofing-scanner", "ldap-injection-scanner"],
-    "business-logic": ["business-logic-scanner"],
+    "protocol-check": ["graphql-scanner", "websocket-scanner", "soapaction-spoofing-scanner", "ldap-injection-scanner", "xpath-injection-scanner"],
+    "business-logic": ["business-logic-scanner", "validation-logic-scanner"],
 }
 
 # 의미적 서브그룹 (과부하 그룹 분할 시 사용)
@@ -508,11 +513,11 @@ SPLIT_HINTS = {
         ["csrf-scanner", "idor-scanner", "cookie-security-scanner"],  # 요청 위조/권한/쿠키
     ],
     "infra-config": [
-        ["http-smuggling-scanner", "security-headers-scanner", "springboot-hardening-scanner"],
+        ["http-smuggling-scanner", "security-headers-scanner", "springboot-hardening-scanner", "tls-scanner"],
         ["sourcemap-scanner", "subdomain-takeover-scanner"],
     ],
     "protocol-check": [
-        ["graphql-scanner", "websocket-scanner"],
+        ["graphql-scanner", "websocket-scanner", "xpath-injection-scanner"],
         ["soapaction-spoofing-scanner", "ldap-injection-scanner"],
     ],
 }

@@ -1,11 +1,11 @@
 ---
 name: noah-sast
-description: "39개 취약점 스캐너 스킬을 한번에 실행하고 결과를 통합 보고서로 작성하는 스킬. XSS, SSRF, SQLi, CSRF, 비즈니스 로직 등 모든 취약점 유형을 소스코드 분석과 동적 테스트로 점검한다. 사용자가 'noah-sast', 'noah sast', 'sast', '소스코드 취약점 스캔' 등을 요청할 때 이 스킬을 사용한다."
+description: "41개 취약점 스캐너 스킬을 한번에 실행하고 결과를 통합 보고서로 작성하는 스킬. XSS, SSRF, SQLi, CSRF, TLS, 비즈니스 로직 등 모든 취약점 유형을 소스코드 분석과 동적 테스트로 점검한다. 사용자가 'noah-sast', 'noah sast', 'sast', '소스코드 취약점 스캔' 등을 요청할 때 이 스킬을 사용한다."
 ---
 
 # Noah SAST — 통합 취약점 스캐너
 
-39개 개별 취약점 스캐너를 순차적으로 실행하고, 모든 결과를 하나의 통합 보고서로 작성하는 스킬이다.
+41개 개별 취약점 스캐너를 순차적으로 실행하고, 모든 결과를 하나의 통합 보고서로 작성하는 스킬이다.
 
 > `[필수]`는 과거 위반 이력이 있어 추가 강조된 항목이다. 태그가 없는 항목도 모두 준수 의무가 있다.
 
@@ -36,7 +36,7 @@ fi
     guidelines-phase2.md            ← Phase 2 공통 지침
     grep-agent.md                   ← grep 인덱싱 에이전트 프롬프트
     phase1-group-agent.md           ← Phase 1 그룹 에이전트 프롬프트
-  scanners/                         ← 39개 취약점 스캐너
+  scanners/                         ← 41개 취약점 스캐너
     xss-scanner/
     sqli-scanner/
     ...
@@ -166,12 +166,12 @@ python3 <NOAH_SAST_DIR>/tools/scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_R
 | server-request | ssrf, pdf-generation |
 | file-system | path-traversal, file-upload, zipslip |
 | xml-serialization | xxe, xslt-injection, deserialization |
-| auth-protocol | jwt, oauth, saml, csrf, idor |
+| auth-protocol | jwt, oauth, saml, csrf, idor, cookie-security |
 | client-rendering | redos, css-injection, prototype-pollution |
-| infra-config | http-smuggling, sourcemap, subdomain-takeover, security-headers |
+| infra-config | http-smuggling, sourcemap, subdomain-takeover, security-headers, springboot-hardening, tls |
 | data-export | csv-injection |
-| protocol-check | graphql, websocket, soapaction-spoofing, ldap-injection |
-| business-logic | business-logic |
+| protocol-check | graphql, websocket, soapaction-spoofing, ldap-injection, xpath-injection |
+| business-logic | business-logic, validation-logic |
 
 과부하 시 분할 예시: `auth-protocol`이 분할되면 → `auth-protocol-1` (jwt, oauth, saml) + `auth-protocol-2` (csrf, idor).
 
@@ -256,8 +256,8 @@ Phase 1에서 후보가 발견된 스캐너들의 동적 테스트에 필요한 
 
 | Tier | 특성 | 해당 스캐너 | 실행 방식 |
 |------|------|------------|----------|
-| **A** | 인증 불요 (헤더/설정 검사) | security-headers, http-smuggling, host-header, http-method-tampering, crlf-injection, sourcemap, subdomain-takeover | Tier 내 **순차**, 다른 Tier와 **병렬** |
-| **B** | 공유 세션 사용 (주요 테스트) | xss, dom-xss, sqli, nosqli, ssrf, ssti, command-injection, path-traversal, file-upload, xxe, xslt-injection, deserialization, open-redirect, csrf, idor, redos, css-injection, prototype-pollution, pdf-generation, zipslip, graphql, websocket, csv-injection, xpath-injection, ldap-injection, soapaction-spoofing, business-logic | Tier 내 **순차** |
+| **A** | 인증 불요 (헤더/설정 검사) | security-headers, http-smuggling, host-header, http-method-tampering, crlf-injection, sourcemap, subdomain-takeover, tls | Tier 내 **순차**, 다른 Tier와 **병렬** |
+| **B** | 공유 세션 사용 (주요 테스트) | xss, dom-xss, sqli, nosqli, ssrf, ssti, command-injection, path-traversal, file-upload, xxe, xslt-injection, deserialization, open-redirect, csrf, idor, redos, css-injection, prototype-pollution, pdf-generation, zipslip, graphql, websocket, csv-injection, xpath-injection, ldap-injection, soapaction-spoofing, business-logic, cookie-security, springboot-hardening, validation-logic | Tier 내 **순차** |
 | **C** | 독립 인증 컨텍스트 | oauth, saml, jwt | Tier 내 **순차**, Tier B와 **병렬** |
 
 **실행 규칙:**

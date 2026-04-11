@@ -5,8 +5,6 @@ grep_patterns:
   - "CSP"
   - "X-Frame-Options"
   - "X-Content-Type-Options"
-  - "Strict-Transport-Security"
-  - "HSTS"
   - "Access-Control-Allow-Origin"
   - "cors\\s*\\("
   - "Access-Control-Allow-Credentials"
@@ -47,9 +45,9 @@ grep_patterns:
 | 웹서버 설정 | nginx `add_header`, Apache `Header set`, Caddy `header` |
 | 인프라 설정 | Terraform `custom_header`, CloudFront `response_headers_policy` |
 
-## 분석 대상: 8대 보안 헤더
+## 분석 대상: 7대 보안 헤더
 
-아래 8개 헤더 각각에 대해 설정 여부 + 설정 강도를 평가한다.
+아래 7개 헤더 각각에 대해 설정 여부 + 설정 강도를 평가한다.
 
 ### 1. Content-Security-Policy (CSP)
 
@@ -73,16 +71,7 @@ grep_patterns:
 | 정규식 기반 Origin 검증 (우회 가능성 확인) | 후보 판단 보류 → 정규식 패턴 분석 |
 | `*` 단독 (Credentials 없음) — 공개 API | 제외 (공개 API 확인 필요) |
 
-### 3. Strict-Transport-Security (HSTS)
-
-| 설정 | 판정 |
-|---|---|
-| HSTS 헤더 없음 (HTTPS 사이트) | 후보 (라벨: `HSTS_MISSING`) |
-| `max-age` < 31536000 (1년) | 후보 (라벨: `HSTS_SHORT_MAXAGE`) |
-| `includeSubDomains` 미포함 | 정보 수준 (후보 아님, 참고 사항으로 기재) |
-| `max-age=31536000; includeSubDomains` 이상 | 제외 |
-
-### 4. X-Frame-Options / frame-ancestors
+### 3. X-Frame-Options / frame-ancestors
 
 | 설정 | 판정 |
 |---|---|
@@ -90,7 +79,7 @@ grep_patterns:
 | `ALLOWFROM` (비표준, 브라우저 미지원) | 후보 (라벨: `CLICKJACK_ALLOWFROM`) |
 | `DENY` 또는 `SAMEORIGIN` 또는 CSP `frame-ancestors 'self'` | 제외 |
 
-### 5. X-Content-Type-Options
+### 4. X-Content-Type-Options
 
 | 설정 | 판정 |
 |---|---|
@@ -98,7 +87,7 @@ grep_patterns:
 | `nosniff` 미설정 + 사용자 업로드 없음 | 정보 수준 |
 | `nosniff` 설정됨 | 제외 |
 
-### 6. Referrer-Policy
+### 5. Referrer-Policy
 
 | 설정 | 판정 |
 |---|---|
@@ -106,7 +95,7 @@ grep_patterns:
 | `unsafe-url` 또는 `no-referrer-when-downgrade` | 후보 (라벨: `REFERRER_UNSAFE`) |
 | `strict-origin-when-cross-origin` 이상 | 제외 |
 
-### 7. Permissions-Policy (구 Feature-Policy)
+### 6. Permissions-Policy (구 Feature-Policy)
 
 | 설정 | 판정 |
 |---|---|
@@ -114,7 +103,7 @@ grep_patterns:
 | 민감 기능 미사용 | 제외 |
 | 적절한 Policy 설정됨 | 제외 |
 
-### 8. Cache-Control (민감 응답)
+### 7. Cache-Control (민감 응답)
 
 | 설정 | 판정 |
 |---|---|
@@ -133,8 +122,8 @@ grep_patterns:
 ## 안전 패턴 카탈로그 (FP Guard)
 
 - **helmet (Node.js)**: `app.use(helmet())` — 주요 보안 헤더를 기본값으로 설정. 개별 옵션을 확인하여 비활성화된 헤더가 있는지 체크.
-- **Spring Security headers()**: 기본 설정으로 X-Frame-Options, X-Content-Type-Options, HSTS 등 포함.
-- **Django SecurityMiddleware**: `SECURE_HSTS_SECONDS`, `SECURE_CONTENT_TYPE_NOSNIFF` 등 설정 확인.
+- **Spring Security headers()**: 기본 설정으로 X-Frame-Options, X-Content-Type-Options 등 포함.
+- **Django SecurityMiddleware**: `SECURE_CONTENT_TYPE_NOSNIFF` 등 설정 확인.
 - **Rails default_headers**: Rails 5+에서 기본 보안 헤더 포함.
 - **nginx snippet include**: 공통 보안 헤더를 별도 파일로 분리하여 include하는 패턴.
 - **CDN/프록시 계층 설정**: 코드에 없어도 인프라 계층에서 추가될 수 있음 — 판단 불가 시 "인프라 계층 확인 필요"로 기재.
