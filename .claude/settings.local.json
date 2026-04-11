@@ -1,13 +1,4 @@
 {
-  "permissions": {
-    "allow": [
-      "Bash(mkdir -p sub-skills)",
-      "Bash(git mv:*)",
-      "Bash(rm -rf utils/__pycache__)",
-      "Bash(rmdir utils:*)",
-      "Bash(git status:*)"
-    ]
-  },
   "hooks": {
     "PreToolUse": [
       {
