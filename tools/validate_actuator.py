@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 
 FORBIDDEN_PATTERNS = [
     r"/actuator/shutdown",
+    r"/actuator/refresh",
 ]
 
 

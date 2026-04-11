@@ -97,6 +97,9 @@ curl -sI https://<host>/actuator/configprops
 
 python3 <NOAH_SAST_DIR>/tools/validate_actuator.py "https://<host>/actuator/mappings" && \
 curl -sI https://<host>/actuator/mappings
+
+python3 <NOAH_SAST_DIR>/tools/validate_actuator.py "https://<host>/actuator/prometheus" && \
+curl -sI https://<host>/actuator/prometheus
 ```
 
 | 응답 | 판정 |
@@ -104,7 +107,7 @@ curl -sI https://<host>/actuator/mappings
 | 200 OK (하나라도) | 확인됨 (노출된 endpoint 목록 기재) |
 | 모두 404 또는 401/403 | 제외 |
 
-**shutdown endpoint 판정**: Phase 1에서 `management.endpoint.shutdown.enabled=true`가 확인되면 후보로 유지. 동적 테스트는 수행하지 않는다.
+**shutdown / refresh endpoint 판정**: 동적 테스트를 수행하지 않는다. Phase 1 설정 파일 분석 결과만으로 판정한다.
 
 #### H2_CONSOLE_ENABLED
 
