@@ -347,7 +347,7 @@ Phase 1에서 후보가 2건 이상 발견된 경우, `<NOAH_SAST_DIR>/sub-skill
 
 > **전제 조건**: Step 3-5(동적 분석)이 완료되었거나, 사용자가 동적 테스트를 명시적으로 거부한 경우에만 이 단계를 수행한다. 정적 분석만 완료된 상태에서 이 단계로 넘어가지 않는다.
 
-Step 3에서 수집한 모든 개별 스캐너의 결과를 **`scan-report` 스킬(`<NOAH_SAST_DIR>/sub-skills/scan-report/SKILL.md`)에 전달**하여 통합 보고서를 생성한다.
+Step 3에서 수집한 모든 개별 스캐너의 결과를 **`scan-report` 스킬(`<NOAH_SAST_DIR>/sub-skills/scan-report/SKILL.md`)에 전달**하여 통합 보고서를 생성한다. **작업 디렉토리에 여러 프로젝트가 존재하더라도 보고서는 반드시 1개(`noah-sast-report.md` + `.html`)만 생성한다. 프로젝트별로 보고서를 분리하지 않는다.**
 
 **전달하는 데이터:**
 - 후보 마스터 목록: `<PHASE1_RESULTS_DIR>/master-list.json` (각 후보의 최종 상태: 확인됨/후보/안전)
