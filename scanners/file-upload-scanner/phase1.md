@@ -8,6 +8,8 @@ grep_patterns:
   - "FileField"
   - "ImageField"
   - "request\\.files"
+  - "request\\.FILES"
+  - "FormFile\\s*\\("
   - "UploadFile"
   - "MultipartFile"
   - "move_uploaded_file"

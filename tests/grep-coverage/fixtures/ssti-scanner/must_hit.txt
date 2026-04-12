@@ -19,6 +19,9 @@ const tpl = Handlebars.compile(req.body.template)
 ''.__class__.__mro__[1].__subclasses__()[0].__import__('os').system('id')
 Velocity.evaluate(ctx, writer, "log", userTemplate)
 cfg = new freemarker.template.Configuration(FreeMarker.VERSION)
+implementation("org.springframework.boot:spring-boot-starter-thymeleaf") // Thymeleaf
+<p th:utext="${userInput}">placeholder</p>
+$twig = new \Twig\Environment($loader); // Twig
 @RequestParam String template
 @RequestBody TemplateDto dto
 const tpl = req.query.template

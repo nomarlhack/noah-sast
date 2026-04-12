@@ -15,6 +15,9 @@ grep_patterns:
   - "client\\.eval\\s*\\("
   - "mongoose"
   - "mongodb"
+  - "ioredis"
+  - "redis\\.eval"
+  - "@elastic/elasticsearch"
 ---
 
 > ## 핵심 원칙: "쿼리 로직이 변경되지 않으면 취약점이 아니다"

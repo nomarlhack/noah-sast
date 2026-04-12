@@ -22,6 +22,9 @@ InputStream is = Files.newInputStream(targetPath)
 const ws = fs.createWriteStream(outputPath)
 fs.writeFileSync(path.join(dir, name), buffer)
 res.sendFile(req.params.filename)
+f, err := os.Open(filepath)
+data, err := os.ReadFile(userPath)
+f, err := os.Create(outputPath)
 const q = searchParams.get('file')
 @RequestParam String filePath
 @PathVariable String docName

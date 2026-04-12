@@ -9,6 +9,8 @@ const fileUpload = require('express-fileupload')
 avatar = models.FileField(upload_to='avatars/')
 photo = models.ImageField(upload_to='photos/')
 file = request.files['document']
+uploaded = request.FILES['avatar']
+file, header, err := r.FormFile("upload")
 async def upload(file: UploadFile):
 @PostMapping("/upload") public String handle(@RequestParam("file") MultipartFile file)
 move_uploaded_file($_FILES['file']['tmp_name'], $target)
