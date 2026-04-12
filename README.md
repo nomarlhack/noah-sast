@@ -506,9 +506,8 @@ python3 sub-skills/scan-report/assemble_report.py
 | `normalize_vuln_headings()` | `**N번 - ID**: 제목` → `#### N. 제목` 헤딩 형식 자동 정규화 |
 | `clean_section()` | 서브에이전트가 포함한 `## 스캐너별 실행 결과` 등 의도치 않은 `##` 헤딩 제거 |
 | `build_chain_section()` | `chain_analysis` dict → `## 공격 시나리오` MD 자동 생성. 체인 테이블 + POC + 독립 후보 테이블 |
-| `build_table_from_details()` | 상세 섹션의 `#### N. 제목`, `**유형**:`, `**상태**:`, `**위치**:` 필드를 파싱하여 `## 취약점 요약 테이블`을 자동 재생성 (단일 진실 원천) + 헤딩 재���호. **멀티 프로젝트 자동 감지**: `**위치**:` 경로의 첫 세그먼트에서 프로젝트명을 추출하고, 2개 이상 프로젝트가 감지되면 요약 테이블에 `프로젝트` 컬럼을 자동 추가하고 `<!-- PROJECT_SUMMARY_HERE -->`를 프로젝트별 건수 테이블로 치환 |
-| `_extract_project()` | `**위치**:` 필드에서 프로젝트명 추출. 첫 경로 세그먼트가 `src`/`lib`/`app` 등 일반 디렉토리가 아니��� 프로젝트명으로 인식 |
-| **조립 순서** | (1) `clean_section()` 적용 후 `---`로 join (2) `<!-- SCANNER_SECTIONS_HERE -->` 플레이스홀더 치환 (3) `build_chain_section()` → `<!-- CHAIN_SECTION_HERE -->` 치환 (4) `build_table_from_details()` → 요약 테이블 + 프로젝트 감지 + 번호 재정렬 |
+| `build_table_from_details()` | 상세 섹션의 `#### N. 제목`, `**유형**:`, `**상태**:` 필드를 파싱하여 `## 취약점 요약 테이블`을 자동 재생성 (단일 진실 원천) + 헤딩 재번호 |
+| **조립 순서** | (1) `clean_section()` 적용 후 `---`로 join (2) `<!-- SCANNER_SECTIONS_HERE -->` 플레이스홀더 치환 (3) `build_chain_section()` → `<!-- CHAIN_SECTION_HERE -->` 치환 (4) `build_table_from_details()` → 요약 테이블 + 번호 재정렬 |
 
 #### `md_to_html.py`
 
