@@ -31,7 +31,6 @@ grep_patterns:
   - "bash\\s+-c"
   - "/bin/sh\\s+-c"
   - "execa\\s*\\("
-  - "execa\\("
   - "execaSync"
   - "execaCommand"
   - "shelljs"
