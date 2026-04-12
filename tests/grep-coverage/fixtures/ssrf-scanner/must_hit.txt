@@ -34,6 +34,9 @@ $req = WebRequest.Create(userUrl)
 import { request } from 'undici'
 const response = await superagent.get(targetUrl)
 req, _ := http.NewRequest("GET", userUrl, nil)
+resp, err := http.Get(targetURL)
+resp, err := http.Post(webhookURL, "application/json", body)
+http.PostForm(callbackURL, formData)
 client := resty.New()
 const q = searchParams.get('redirect')
 @RequestParam String url

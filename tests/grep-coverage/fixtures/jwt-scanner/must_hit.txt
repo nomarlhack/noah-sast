@@ -29,6 +29,10 @@ import { jwtVerify } from 'jose'
 implementation("com.nimbusds:nimbus-jose-jwt:9.37")
 implementation("org.bitbucket.b_c:jose4j:0.9.3")
 opts.secretOrKey = process.env.JWT_SECRET
+import "github.com/golang-jwt/jwt/v5"
+import "github.com/dgrijalva/jwt-go"
+token, err := jwt.Parse(tokenString, keyFunc)
+token, err := jwt.ParseWithClaims(tokenString, &claims, keyFunc)
 jwt.decode(token, options={"verify_signature": false})
 jwt.decode(token, verify=False)
 header = { alg: 'none', typ: 'JWT' }
