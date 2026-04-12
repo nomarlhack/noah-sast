@@ -109,16 +109,36 @@ def build_chain_section(ca):
     return '\n'.join(lines)
 
 
+SKIP_PROJECT_SEGMENTS = {
+    'src', 'lib', 'app', 'apps', 'packages', 'node_modules',
+    'test', 'tests', 'config', 'public', 'static', 'build', 'dist',
+}
+
+
+def _extract_project(location):
+    """위치 필드에서 프로젝트명을 추출한다. 추출 불가 시 None."""
+    loc = location.strip().strip('`').split(',')[0].strip()
+    parts = loc.split('/')
+    if len(parts) >= 2 and parts[0] not in SKIP_PROJECT_SEGMENTS:
+        return parts[0]
+    return None
+
+
 def build_table_from_details(report_text):
-    """상세 섹션을 파싱하여 취약점 요약 테이블을 자동 생성한다."""
+    """상세 섹션을 파싱하여 취약점 요약 테이블을 자동 생성한다.
+
+    멀티 프로젝트 감지 시 '프로젝트' 컬럼을 자동 추가하고,
+    <!-- PROJECT_SUMMARY_HERE --> 플레이스홀더를 프로젝트별 요약 테이블로 치환한다.
+    """
     lines = report_text.split('\n')
 
     in_scanner_section = False
     current_scanner = ''
-    vulns = []
+    vulns = []  # (title, type, scanner, status, project)
     current_vuln_title = None
     current_type = ''
     current_status = ''
+    current_location = ''
 
     for line in lines:
         if line.startswith('## 스캐너별 실행 결과'):
@@ -126,10 +146,12 @@ def build_table_from_details(report_text):
             continue
         if line.startswith('## ') and in_scanner_section:
             if current_vuln_title:
-                vulns.append((current_vuln_title, current_type, current_scanner, current_status))
+                proj = _extract_project(current_location)
+                vulns.append((current_vuln_title, current_type, current_scanner, current_status, proj))
                 current_vuln_title = None
                 current_type = ''
                 current_status = ''
+                current_location = ''
             in_scanner_section = False
             continue
 
@@ -139,10 +161,12 @@ def build_table_from_details(report_text):
         m_scanner = re.match(r'^###\s+(.+?)\s*$', line)
         if m_scanner and not re.match(r'^###\s+\d+\.', line):
             if current_vuln_title:
-                vulns.append((current_vuln_title, current_type, current_scanner, current_status))
+                proj = _extract_project(current_location)
+                vulns.append((current_vuln_title, current_type, current_scanner, current_status, proj))
                 current_vuln_title = None
                 current_type = ''
                 current_status = ''
+                current_location = ''
             scanner_name = m_scanner.group(1).strip()
             parts = [p.strip() for p in scanner_name.split('/')]
             parts = [re.sub(r'\s+', '-', p.lower()) for p in parts]
@@ -152,33 +176,41 @@ def build_table_from_details(report_text):
         m_vuln = re.match(r'^#{2,4}\s+(\d+)\.\s+(.+)$', line)
         if m_vuln:
             if current_vuln_title:
-                vulns.append((current_vuln_title, current_type, current_scanner, current_status))
+                proj = _extract_project(current_location)
+                vulns.append((current_vuln_title, current_type, current_scanner, current_status, proj))
             current_vuln_title = m_vuln.group(2).strip()
             current_type = ''
             current_status = ''
+            current_location = ''
             continue
 
-        # **유형**: ... 또는 **유형:** ...
         m_type = re.match(r'^\*\*유형:?\*\*\s*:?\s*(.+)$', line)
         if m_type and current_vuln_title:
             current_type = m_type.group(1).strip()
             continue
 
-        # **상태**: ... 또는 **상태:** ...
         m_status = re.match(r'^\*\*상태:?\*\*\s*:?\s*(.+)$', line)
         if m_status and current_vuln_title:
             raw = m_status.group(1).strip()
-            if '확인됨' in raw:
-                current_status = '확인됨'
-            else:
-                current_status = '후보'
+            current_status = '확인됨' if '확인됨' in raw else '후보'
+            continue
+
+        m_loc = re.match(r'^\*\*위치:?\*\*\s*:?\s*(.+)$', line)
+        if m_loc and current_vuln_title and not current_location:
+            current_location = m_loc.group(1).strip()
             continue
 
     if current_vuln_title:
-        vulns.append((current_vuln_title, current_type, current_scanner, current_status))
+        proj = _extract_project(current_location)
+        vulns.append((current_vuln_title, current_type, current_scanner, current_status, proj))
 
     if not vulns:
         return report_text
+
+    # 멀티 프로젝트 감지
+    projects = [v[4] for v in vulns if v[4]]
+    unique_projects = sorted(set(projects))
+    is_multi = len(unique_projects) >= 2
 
     # 헤딩 재번호
     heading_pat = re.compile(r'^(#{2,4})\s+\d+\.\s+(.+)$', re.MULTILINE)
@@ -191,12 +223,21 @@ def build_table_from_details(report_text):
         result = result[:m.start()] + f'{hashes} {actual_num}. {title}' + result[m.end():]
 
     # 요약 테이블 생성
-    table_lines = [
-        '| # | 취약점 제목 | 유형 | 스캐너 | 상태 |',
-        '|---|------------|------|--------|------|',
-    ]
-    for idx, (title, vtype, scanner, status) in enumerate(vulns, 1):
-        table_lines.append(f'| {idx} | {title} | {vtype} | {scanner} | {status} |')
+    if is_multi:
+        table_lines = [
+            '| # | 취약점 제목 | 유형 | 프로젝트 | 스캐너 | 상태 |',
+            '|---|------------|------|----------|--------|------|',
+        ]
+        for idx, (title, vtype, scanner, status, proj) in enumerate(vulns, 1):
+            proj_label = proj or '전체'
+            table_lines.append(f'| {idx} | {title} | {vtype} | {proj_label} | {scanner} | {status} |')
+    else:
+        table_lines = [
+            '| # | 취약점 제목 | 유형 | 스캐너 | 상태 |',
+            '|---|------------|------|--------|------|',
+        ]
+        for idx, (title, vtype, scanner, status, _proj) in enumerate(vulns, 1):
+            table_lines.append(f'| {idx} | {title} | {vtype} | {scanner} | {status} |')
     new_table = '\n'.join(table_lines)
 
     tbl_section = re.search(
@@ -208,6 +249,27 @@ def build_table_from_details(report_text):
     )
     if tbl_section:
         result = result[:tbl_section.start(2)] + new_table + '\n' + result[tbl_section.end(2):]
+
+    # 프로젝트별 요약 테이블 생성 (멀티 프로젝트일 때만)
+    if is_multi and '<!-- PROJECT_SUMMARY_HERE -->' in result:
+        proj_counts = {}
+        for _t, _tp, _s, status, proj in vulns:
+            key = proj or '전체/인프라'
+            if key not in proj_counts:
+                proj_counts[key] = {'확인됨': 0, '후보': 0}
+            proj_counts[key][status] += 1
+
+        plines = ['## 프로젝트별 요약', '',
+                   '| 프로젝트 | 확인됨 | 후보 | 합계 |',
+                   '|----------|--------|------|------|']
+        for pname in sorted(proj_counts.keys()):
+            c = proj_counts[pname]
+            total = c['확인됨'] + c['후보']
+            plines.append(f'| {pname} | {c["확인됨"]}건 | {c["후보"]}건 | {total}건 |')
+        plines.append('')
+        result = result.replace('<!-- PROJECT_SUMMARY_HERE -->', '\n'.join(plines))
+    else:
+        result = result.replace('<!-- PROJECT_SUMMARY_HERE -->', '')
 
     return result
 

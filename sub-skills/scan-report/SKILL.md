@@ -37,6 +37,7 @@ noah-sast에서 호출되며, `<NOAH_SAST_DIR>`은 이미 결정된 상태이다
 - 이상 없음 스캐너/미적용 스캐너: `N개` (예: `16개`, `17개`)
 
 **[필수] 스켈레톤에 아래 플레이스홀더를 반드시 포함한다. `## 미적용 스캐너 목록`은 모든 플레이스홀더 뒤에 위치해야 한다.**
+- `<!-- PROJECT_SUMMARY_HERE -->` — 프로젝트별 요약 테이블 (`## 총괄 요약` 바로 뒤에 배치. `assemble_report.py`가 멀티 프로젝트 감지 시 자동 생성, 단일 프로젝트이면 빈 문자열로 치환)
 - `<!-- CHAIN_SECTION_HERE -->` — 공격 시나리오 섹션 (assemble_report.py가 chain_analysis 데이터에서 자동 생성)
 - `<!-- SCANNER_SECTIONS_HERE -->` — 스캐너별 실행 결과 섹션
 
