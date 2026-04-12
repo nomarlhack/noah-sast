@@ -485,6 +485,22 @@ python3 tools/scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT>
 | **동작** | (1) 각 스캐너 JSON의 히트 합계를 집계 (2) `PROJECT_ROOT`에서 매니페스트 파일(`package.json`, `build.gradle`, `requirements.txt`, `Gemfile`, `pom.xml`, `go.mod` 등)을 파싱하여 라이브러리 의존성 추출 (3) 히트 0건인 스캐너에 대해 아키텍처 조건(관련 라이브러리 존재 여부)으로 제외 판정 (4) 의미적 연관성 기반 그룹 편성 후, grep 히트 합계 150건 초과 또는 5개 이상 그룹은 자동 분할 |
 | **제외 조건** | grep 0건 + 관련 라이브러리 없음 → 제외. 제외 사유를 테이블에 명시 |
 
+#### `validate_actuator.py`
+
+Actuator endpoint 동적 테스트 전 URL 안전성을 검증하는 가드 스크립트. `springboot-hardening-scanner`의 Phase 2에서 모든 curl 실행 전에 호출된다.
+
+```bash
+python3 tools/validate_actuator.py <URL>
+```
+
+| 항목 | 설명 |
+|------|------|
+| **입력** | 테스트 대상 URL |
+| **출력** | exit 0 (테스트 허용) 또는 exit 1 (테스트 금지) |
+| **차단 대상** | `/actuator/shutdown`, `/actuator/refresh` — 파괴적 endpoint에 대한 HTTP 요청을 사전 차단 |
+
+---
+
 #### `build-master-list.py`
 
 Phase 1 결과 파일을 검증하고 `master-list.json`을 생성하는 스크립트.
@@ -670,7 +686,8 @@ cp -r skills/noah-sast ~/.claude/skills/
 │
 ├── tools/                            # Python 유틸리티 스크립트
 │   ├── scanner-selector.py           # 스캐너 선별 + 그룹 리밸런싱
-│   └── build-master-list.py          # Phase 1 결과 검증 → master-list.json
+│   ├── build-master-list.py          # Phase 1 결과 검증 → master-list.json
+│   └── validate_actuator.py          # Actuator 파괴적 endpoint 테스트 사전 차단
 │
 ├── sub-skills/                       # SKILL.md 기반 서브스킬
 │   ├── scan-report/                  # 보고서 작성
