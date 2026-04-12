@@ -21,6 +21,7 @@ grep_patterns:
   - "Thymeleaf"
   - "th:utext"
   - "Twig"
+  - "text/template"
   - "@RequestParam"
   - "@RequestBody"
   - "req\\.query"

@@ -27,3 +27,4 @@ const [params] = useSearchParams()
 @PathVariable String next
 const url = req.query.redirect
 const path = req.params.next
+http.Redirect(w, r, targetURL, http.StatusFound)

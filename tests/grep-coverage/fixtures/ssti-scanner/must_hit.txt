@@ -22,6 +22,7 @@ cfg = new freemarker.template.Configuration(FreeMarker.VERSION)
 implementation("org.springframework.boot:spring-boot-starter-thymeleaf") // Thymeleaf
 <p th:utext="${userInput}">placeholder</p>
 $twig = new \Twig\Environment($loader); // Twig
+import "text/template"
 @RequestParam String template
 @RequestBody TemplateDto dto
 const tpl = req.query.template

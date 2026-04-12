@@ -40,3 +40,4 @@ const result = execaSync('nslookup', [domain])
 const out = execaCommand(`dig ${domain}`)
 const shell = require('shelljs'); shell.exec(cmd)
 const result = await $ `curl ${url}`
+cmd := exec.Command("ping", "-c", "4", userHost)

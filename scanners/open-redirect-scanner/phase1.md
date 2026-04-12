@@ -7,6 +7,7 @@ grep_patterns:
   - "redirect_to"
   - "redirect_back"
   - "header\\('Location"
+  - "http\\.Redirect\\s*\\("
   - "window\\.location\\.href\\s*="
   - "window\\.location\\.replace\\s*\\("
   - "window\\.location\\.assign\\s*\\("

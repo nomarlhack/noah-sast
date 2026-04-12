@@ -35,6 +35,7 @@ grep_patterns:
   - "execaCommand"
   - "shelljs"
   - "\\$\\s*`"
+  - "exec\\.Command\\s*\\("
   - "@RequestParam"
   - "@RequestBody"
   - "req\\.query"
