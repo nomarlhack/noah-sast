@@ -692,5 +692,5 @@ cp -r skills/noah-sast ~/.claude/skills/
 └── tests/                            # grep 패턴 커버리지 테스트
     └── grep-coverage/
         ├── run_coverage.py
-        └── fixtures/                 # 38개 스캐너별 must_hit.txt
+        └── fixtures/                 # 41개 스캐너별 must_hit.txt
 ```
