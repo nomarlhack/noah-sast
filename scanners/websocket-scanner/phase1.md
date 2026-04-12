@@ -4,7 +4,7 @@ grep_patterns:
   - "socket\\.io"
   - "WebSocket"
   - "ActionCable"
-  - "io\\.on('connection'"
+  - "io\\.on\\('connection'"
   - "io\\.of\\s*\\("
   - "verifyClient"
   - "allowedOrigins"

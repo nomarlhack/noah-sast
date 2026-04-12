@@ -64,7 +64,7 @@ fi
 
 **멀티 프로젝트가 감지된 경우:**
 
-감지된 프로젝트 목록을 `PROJECT_LIST` 변수에 보관한다 (예: `["hubrix-main", "reacto-main", "winery-main"]`). 이후 **Step 0 ~ Step 3을 각 프로젝트 단위로 반복 실행**한다.
+감지된 프로젝트 목록을 `PROJECT_LIST` 변수에 보관한다 (예: `["hubrix-main", "reacto-main", "winery-main"]`). 이후 **Step 0 ~ Step 3-1을 각 프로젝트 단위로 반복 실행**한다.
 
 ```
 for PROJECT in PROJECT_LIST:
