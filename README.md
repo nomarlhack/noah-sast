@@ -490,15 +490,15 @@ python3 tools/scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT>
 Phase 1 결과 파일을 검증하고 `master-list.json`을 생성하는 스크립트.
 
 ```bash
-python3 tools/build-master-list.py <PHASE1_RESULTS_DIR> <PATTERN_INDEX_DIR>
+python3 tools/build-master-list.py <PHASE1_RESULTS_DIR> <PHASE1_RESULTS_DIR>/master-list.json
 ```
 
 | 항목 | 설명 |
 |------|------|
-| **입력** | `PHASE1_RESULTS_DIR` (Phase 1 결과 MD 파일 디렉토리), `PATTERN_INDEX_DIR` (검증 대조용) |
-| **출력** | `<PHASE1_RESULTS_DIR>/master-list.json` — 전체 후보의 단일 진실 원천 |
-| **동작** | (1) 각 결과 MD 파일의 manifest 블록(`---MANIFEST--- ... ---END_MANIFEST---`)을 파싱 (2) 스캐너별 후보 건수 집계 (3) 패턴 인덱스와 대조하여 분석 누락 스캐너 탐지 (4) 고유 ID 부여 (예: `XSS-1`, `SSRF-2`) (5) JSON으로 저장 |
-| **검증 항목** | 적용 스캐너 전체의 결과 파일 존재 여부, manifest 블록 파싱 가능 여부, 중복 ID 없음 |
+| **입력** | `PHASE1_RESULTS_DIR` — Phase 1 결과 MD 파일 디렉토리 (`<scanner-name>.md` 파일들) |
+| **출력** | 두 번째 인자로 지정한 JSON 파일 (보통 `<PHASE1_RESULTS_DIR>/master-list.json`) |
+| **동작** | (1) 각 결과 MD 파일의 manifest 블록(`<!-- NOAH-SAST MANIFEST v1 -->`)을 파싱 (2) `declared_count`와 실제 `## <ID>:` 헤더 수 교차 검증 (3) 필수 섹션(`### Code`, `### Source→Sink Flow` 등) 존재 및 최소 길이 검사 (4) 동일 file:line 후보 그룹핑 (5) JSON으로 저장 |
+| **검증** | ERROR 시 exit 1 (해당 스캐너 재실행 필요), WARNING 시 exit 0 (품질 확인 권고) |
 
 ---
 
