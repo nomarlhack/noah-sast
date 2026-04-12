@@ -43,7 +43,6 @@ fi
   tools/                            ← Python 유틸리티 스크립트
     scanner-selector.py
     build-master-list.py
-    parse_phase1_output.py          ← 레거시 (파일 기반 인터페이스 도입 후 미사용)
   sub-skills/                       ← SKILL.md 기반 서브스킬
     scan-report/
     scan-report-review/

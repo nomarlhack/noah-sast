@@ -486,19 +486,6 @@ python3 tools/build-master-list.py <PHASE1_RESULTS_DIR> <PATTERN_INDEX_DIR>
 | **동작** | (1) 각 결과 MD 파일의 manifest 블록(`---MANIFEST--- ... ---END_MANIFEST---`)을 파싱 (2) 스캐너별 후보 건수 집계 (3) 패턴 인덱스와 대조하여 분석 누락 스캐너 탐지 (4) 고유 ID 부여 (예: `XSS-1`, `SSRF-2`) (5) JSON으로 저장 |
 | **검증 항목** | 적용 스캐너 전체의 결과 파일 존재 여부, manifest 블록 파싱 가능 여부, 중복 ID 없음 |
 
-#### `parse_phase1_output.py`
-
-그룹 에이전트의 텍스트 반환값을 구조화된 JSON으로 파싱하는 유틸리티. 파일 기반 인터페이스(`build-master-list.py`) 도입 후에도 레거시 호환용으로 유지.
-
-```bash
-echo "$AGENT_OUTPUT" | python3 tools/parse_phase1_output.py
-```
-
-| 항목 | 설명 |
-|------|------|
-| **입력** | stdin — `===SCANNER_BOUNDARY===` / `[scanner-name]` 구분자로 분리된 에이전트 출력 |
-| **출력** | stdout — JSON (`{"scanner-name": {"candidates": [...], "safe_summary": "..."}}`) |
-
 ---
 
 ### sub-skills/scan-report/
@@ -669,8 +656,7 @@ cp -r skills/noah-sast ~/.claude/skills/
 │
 ├── tools/                            # Python 유틸리티 스크립트
 │   ├── scanner-selector.py           # 스캐너 선별 + 그룹 리밸런싱
-│   ├── build-master-list.py          # Phase 1 결과 검증 → master-list.json
-│   └── parse_phase1_output.py        # 레거시 (파일 기반 인터페이스 도입 후 미사용)
+│   └── build-master-list.py          # Phase 1 결과 검증 → master-list.json
 │
 ├── sub-skills/                       # SKILL.md 기반 서브스킬
 │   ├── scan-report/                  # 보고서 작성
