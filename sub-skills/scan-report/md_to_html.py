@@ -114,6 +114,15 @@ details.chain-block[open]>summary::before{content:'▾ '}
 details.chain-block[open]>summary{border-bottom:1px solid #e2e8f0}
 details.chain-block>summary h2{display:inline;font-size:1.05em;margin:0}
 .chain-body{padding:8px 20px 20px}
+details.chain-card{background:#fff5f5;border:1px solid #fecaca;border-left:4px solid #dc2626;margin:14px 0;border-radius:8px}
+details.chain-card>summary{cursor:pointer;padding:12px 16px;list-style:none;transition:background .15s}
+details.chain-card>summary:hover{background:#fef2f2}
+details.chain-card>summary::-webkit-details-marker{display:none}
+details.chain-card>summary::before{content:'▸ ';font-size:11px;color:#dc2626;font-weight:700}
+details.chain-card[open]>summary::before{content:'▾ '}
+details.chain-card[open]>summary{border-bottom:1px solid #fecaca}
+details.chain-card>summary h3{display:inline;font-size:0.95em;margin:0;color:#991b1b}
+.chain-card-body{padding:8px 16px 16px}
 hr{border:none;border-top:1px solid #e2e8f0;margin:20px 0}
 strong{color:#1a1a2e}
 p{line-height:1.7;margin:8px 0;color:#374151}
@@ -137,6 +146,18 @@ li{margin:2px 0}
 .always-open h2{margin-top:0}
 a.vuln-link{color:#1e40af;text-decoration:none;border-bottom:1px dashed #93c5fd;transition:border-color .15s,color .15s}
 a.vuln-link:hover{color:#1d4ed8;border-bottom-color:#1d4ed8}
+.badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;letter-spacing:0.02em;white-space:nowrap}
+.badge-confirmed{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}
+.badge-candidate{background:#fff7ed;color:#ea580c;border:1px solid #fed7aa}
+@media print{
+  body{max-width:none;padding:16px;background:white;color:black;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .dashboard{gap:8px}
+  .card{box-shadow:none;border:1px solid #d1d5db;break-inside:avoid}
+  details.scanner-block,details.vuln-block,details.chain-block{box-shadow:none;border:1px solid #d1d5db;break-inside:avoid}
+  details>summary::before{display:none}
+  pre{white-space:pre-wrap;word-wrap:break-word;border:1px solid #d1d5db}
+  .report-header{background:#1e293b!important}
+}
 .report-header{background:linear-gradient(135deg,#1e293b 0%,#334155 100%);color:white;padding:32px;border-radius:14px;margin-bottom:24px;box-shadow:0 4px 12px rgba(0,0,0,.12)}
 .report-header h1{color:white;margin:0 0 16px;font-size:1.6em}
 .report-header p{color:#cbd5e1;margin:4px 0;font-size:13px;line-height:1.6}
@@ -154,6 +175,12 @@ document.addEventListener('click',function(e){
   var el=target;
   while(el){if(el.tagName==='DETAILS'&&!el.open)el.open=true;el=el.parentElement;}
   setTimeout(function(){target.scrollIntoView({behavior:'smooth'});},80);
+});
+window.addEventListener('beforeprint',function(){
+  document.querySelectorAll('details:not([open])').forEach(function(d){d.open=true;d.dataset.po='1';});
+});
+window.addEventListener('afterprint',function(){
+  document.querySelectorAll('details[data-po]').forEach(function(d){d.open=false;delete d.dataset.po;});
 });
 '''
 
@@ -252,7 +279,7 @@ def close_vuln():
 
 def close_chain_card():
     if state['chain_card_open']:
-        out.append('</div>')
+        out.append('</div></details>')
         state['chain_card_open'] = False
 
 def close_chain():
@@ -351,7 +378,7 @@ for line in lines:
             if state['chain_open'] and re.match(r'^체인\s*#', title):
                 do_flush_all()
                 close_chain_card()
-                out.append(f'<div class="chain-card"><h3>{esc(title)}</h3>')
+                out.append(f'<details class="chain-card"><summary><h3>{esc(title)}</h3></summary><div class="chain-card-body">')
                 state['chain_card_open'] = True
                 continue
             # ### [XSS] Scanner 등 스캐너 소제목
@@ -468,6 +495,10 @@ html_out = re.sub(
     html_out,
     flags=re.DOTALL
 )
+
+# 상태값을 색상 뱃지로 변환
+html_out = html_out.replace('<td>확인됨</td>', '<td><span class="badge badge-confirmed">확인됨</span></td>')
+html_out = html_out.replace('<td>후보</td>', '<td><span class="badge badge-candidate">후보</span></td>')
 
 with open(_html_path, 'w', encoding='utf-8') as f:
     f.write(html_out)
