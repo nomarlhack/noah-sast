@@ -20,3 +20,6 @@ const data = await repository.findById(id)
 @PreAuthorize("hasRole('ADMIN')")
 @Secured("ROLE_USER")
 if (!authorize(req.user, resource)) return 403;
+const id = Number(params.id);
+const { projectKey } = event.params;
+const router = useRouter(); const id = router.query.id;

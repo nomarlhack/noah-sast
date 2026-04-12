@@ -35,3 +35,8 @@ bash -c "echo ${MESSAGE}"
 @RequestBody CommandDto dto
 const host = req.query.host
 const cmd = req.body.command
+const { stdout } = await execa('ping', ['-c', '4', host])
+const result = execaSync('nslookup', [domain])
+const out = execaCommand(`dig ${domain}`)
+const shell = require('shelljs'); shell.exec(cmd)
+const result = await $ `curl ${url}`

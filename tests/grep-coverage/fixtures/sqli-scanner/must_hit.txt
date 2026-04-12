@@ -27,3 +27,7 @@ Model.raw("SELECT * FROM items WHERE tag = '" + tag + "'")
 text("SELECT 1 FROM dual WHERE x = '" + x + "'")
 query = f"SELECT * FROM users WHERE name = '{name}'"
 query = f'SELECT * FROM products WHERE id = {pid}'
+@Query("SELECT u FROM User u WHERE u.name = :name")
+EntityManager em; em.createQuery("FROM User WHERE name = '" + name + "'")
+const qb = repo.createQueryBuilder("user").where("user.name = :name", { name })
+User.where(Arel.sql("name = '#{params[:name]}'"))

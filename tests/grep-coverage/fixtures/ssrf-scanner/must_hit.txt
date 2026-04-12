@@ -31,6 +31,10 @@ const parsed = URL(endpoint)
 $ch = curl_init($url); curl_exec($ch);
 $client = new GuzzleHttp\Client(); $client->get($target)
 $req = WebRequest.Create(userUrl)
+import { request } from 'undici'
+const response = await superagent.get(targetUrl)
+req, _ := http.NewRequest("GET", userUrl, nil)
+client := resty.New()
 const q = searchParams.get('redirect')
 @RequestParam String url
 @RequestBody WebhookDto dto

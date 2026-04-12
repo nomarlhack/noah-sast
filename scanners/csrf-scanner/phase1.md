@@ -17,6 +17,9 @@ grep_patterns:
   - "@PutMapping"
   - "@DeleteMapping"
   - "WebSecurityConfigurerAdapter"
+  - "SecurityFilterChain"
+  - "HttpSecurity"
+  - "ignoringRequestMatchers"
 ---
 
 > ## 핵심 원칙: "위조된 cross-origin 요청이 처리되지 않으면 취약점이 아니다"

@@ -19,6 +19,9 @@ grep_patterns:
   - "@PreAuthorize"
   - "@Secured"
   - "authorize"
+  - "params\\.id"
+  - "event\\.params"
+  - "useRouter"
 ---
 
 > ## 핵심 원칙: "다른 사용자 리소스에 실제로 접근할 수 있어야 취약점이다"

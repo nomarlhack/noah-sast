@@ -25,6 +25,10 @@ grep_patterns:
   - "text\\s*\\("
   - "f\"\\s*SELECT"
   - "f'\\s*SELECT"
+  - "@Query"
+  - "\\.createQuery\\s*\\("
+  - "createQueryBuilder"
+  - "Arel\\.sql"
 ---
 
 > ## 핵심 원칙: "쿼리가 변경되지 않으면 취약점이 아니다"
