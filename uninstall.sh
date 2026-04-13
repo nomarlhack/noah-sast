@@ -10,7 +10,7 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-INSTALL_DIR="$HOME/.claude/skills/noah-sast"
+INSTALL_DIR="$HOME/.claude/skills/noah-8719"
 
 echo ""
 printf "${BOLD}${CYAN}Noah SAST 제거${NC}\n"
@@ -21,7 +21,7 @@ if [ ! -d "$INSTALL_DIR" ]; then
   exit 0
 fi
 
-SCANNER_COUNT=$(ls -d "$INSTALL_DIR/scanners"/*-scanner 2>/dev/null | wc -l | tr -d ' ')
+SCANNER_COUNT=$(ls -d "$INSTALL_DIR/skills/scan/scanners"/*-scanner 2>/dev/null | wc -l | tr -d ' ')
 printf "  설치 경로: ${BOLD}$INSTALL_DIR${NC}\n"
 printf "  스캐너 수: ${BOLD}${SCANNER_COUNT}개${NC}\n"
 echo ""
