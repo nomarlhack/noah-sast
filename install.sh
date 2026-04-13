@@ -18,7 +18,7 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-REPO_URL="https://github.com/nomarlhack/noah-sast.git"
+REPO_URL="https://github.com/nomarlhack/noah-claude-plugin.git"
 INSTALL_DIR="$HOME/.claude/skills/noah-8719"
 
 info()  { printf "${CYAN}[INFO]${NC}  %s\n" "$1"; }

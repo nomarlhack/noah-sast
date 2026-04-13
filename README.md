@@ -5,7 +5,7 @@
 ## 설치
 
 ```bash
-git clone https://github.com/nomarlhack/noah-sast.git noah-8719
+git clone https://github.com/nomarlhack/noah-claude-plugin.git noah-8719
 claude --plugin-dir ./noah-8719
 ```
 
@@ -656,7 +656,7 @@ flowchart TD
 ### 설치
 
 ```bash
-git clone https://github.com/nomarlhack/noah-sast.git noah-8719
+git clone https://github.com/nomarlhack/noah-claude-plugin.git noah-8719
 claude --plugin-dir ./noah-8719
 ```
 
