@@ -21,7 +21,7 @@ if [ ! -d "$INSTALL_DIR" ]; then
   exit 0
 fi
 
-SCANNER_COUNT=$(ls -d "$INSTALL_DIR/skills/scan/scanners"/*-scanner 2>/dev/null | wc -l | tr -d ' ')
+SCANNER_COUNT=$(ls -d "$INSTALL_DIR/skills/sast/scanners"/*-scanner 2>/dev/null | wc -l | tr -d ' ')
 printf "  설치 경로: ${BOLD}$INSTALL_DIR${NC}\n"
 printf "  스캐너 수: ${BOLD}${SCANNER_COUNT}개${NC}\n"
 echo ""

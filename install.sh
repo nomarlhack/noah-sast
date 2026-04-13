@@ -134,7 +134,7 @@ mkdir -p "$HOME/.claude/skills"
 
 # 이미 repo 내부에서 실행 중인지 확인 (단, 설치 대상 경로와 동일하면 git clone 사용)
 IS_LOCAL_SOURCE=false
-if [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/.claude-plugin/plugin.json" ] && [ -d "$SCRIPT_DIR/skills/scan/scanners" ]; then
+if [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/.claude-plugin/plugin.json" ] && [ -d "$SCRIPT_DIR/skills/sast/scanners" ]; then
   # 자기 자신에게 복사하는 루프 방지: SCRIPT_DIR과 INSTALL_DIR이 같으면 clone 모드로 전환
   RESOLVED_SCRIPT=$(cd "$SCRIPT_DIR" && pwd -P)
   RESOLVED_INSTALL=$(mkdir -p "$INSTALL_DIR" 2>/dev/null && cd "$INSTALL_DIR" && pwd -P 2>/dev/null || echo "$INSTALL_DIR")
@@ -175,13 +175,13 @@ fi
 
 # ─── 설치 검증 ───
 ERRORS=0
-[ -f "$INSTALL_DIR/skills/scan/SKILL.md" ] || { warn "skills/scan/SKILL.md 누락"; ERRORS=$((ERRORS+1)); }
+[ -f "$INSTALL_DIR/skills/sast/SKILL.md" ] || { warn "skills/sast/SKILL.md 누락"; ERRORS=$((ERRORS+1)); }
 [ -f "$INSTALL_DIR/.claude-plugin/plugin.json" ] || { warn ".claude-plugin/plugin.json 누락"; ERRORS=$((ERRORS+1)); }
-[ -d "$INSTALL_DIR/skills/scan/scanners" ] || { warn "skills/scan/scanners/ 누락"; ERRORS=$((ERRORS+1)); }
-[ -d "$INSTALL_DIR/skills/scan/prompts" ]  || { warn "skills/scan/prompts/ 누락"; ERRORS=$((ERRORS+1)); }
-[ -d "$INSTALL_DIR/skills/scan/tools" ]    || { warn "skills/scan/tools/ 누락"; ERRORS=$((ERRORS+1)); }
+[ -d "$INSTALL_DIR/skills/sast/scanners" ] || { warn "skills/sast/scanners/ 누락"; ERRORS=$((ERRORS+1)); }
+[ -d "$INSTALL_DIR/skills/sast/prompts" ]  || { warn "skills/sast/prompts/ 누락"; ERRORS=$((ERRORS+1)); }
+[ -d "$INSTALL_DIR/skills/sast/tools" ]    || { warn "skills/sast/tools/ 누락"; ERRORS=$((ERRORS+1)); }
 
-SCANNER_COUNT=$(ls -d "$INSTALL_DIR/skills/scan/scanners"/*-scanner 2>/dev/null | wc -l | tr -d ' ')
+SCANNER_COUNT=$(ls -d "$INSTALL_DIR/skills/sast/scanners"/*-scanner 2>/dev/null | wc -l | tr -d ' ')
 if [ "$SCANNER_COUNT" -lt 40 ]; then
   warn "스캐너가 ${SCANNER_COUNT}개뿐입니다. (기대값: 41개)"
   ERRORS=$((ERRORS+1))
@@ -205,7 +205,7 @@ info "버전:     v$VERSION"
 echo ""
 printf "${BOLD}사용법:${NC}\n"
 echo "  claude --plugin-dir $INSTALL_DIR"
-echo "  이후: /noah-8719:scan"
+echo "  이후: /noah-8719:sast"
 echo ""
 printf "${BOLD}업데이트:${NC}\n"
 echo "  $INSTALL_DIR/install.sh --update"
