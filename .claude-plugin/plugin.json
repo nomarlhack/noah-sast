@@ -6,8 +6,5 @@
     "name": "Noah"
   },
   "license": "Apache-2.0",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/nomarlhack/noah-sast.git"
-  }
+  "repository": "https://github.com/nomarlhack/noah-sast"
 }
