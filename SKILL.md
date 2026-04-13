@@ -230,6 +230,12 @@ python3 <NOAH_SAST_DIR>/tools/build-master-list.py <PHASE1_RESULTS_DIR> <PHASE1_
 **ERROR 발생 시**: 해당 스캐너의 그룹 에이전트를 재실행한다.
 **WARNING 발생 시**: 해당 후보의 결과 파일(`<PHASE1_RESULTS_DIR>/<scanner-name>.md`)을 확인하고 필요 시 보완한다.
 
+**[필수] `DUPLICATE SINK` 경고 발생 시 — Step 3-2 진입 전에 즉시 통합 여부를 결정한다:**
+
+1. 두 후보의 Phase 1 결과 파일을 Read하여 관점 차이를 확인한다.
+2. **의사 테스트**: 한 후보의 권장 조치만 적용해도 다른 후보가 해소되면 통합한다. `master-list.json`을 Edit하여 한쪽 후보를 `candidates` 배열에서 제거하고, 남은 쪽의 `scanner` 필드에 양쪽 스캐너를 모두 기록한다.
+3. 의사 테스트가 "아니오"이거나 불확실하면 분리 유지한다.
+
 생성된 `<PHASE1_RESULTS_DIR>/master-list.json`은 연계 분석(Step 3-2), 동적 분석(Step 3-5), 리포팅(Step 4) 전체에서 **단일 진실 원천(single source of truth)**으로 사용한다. **마스터 목록에 있는 후보는 동적 분석에서 "안전"으로 판정되지 않는 한, 반드시 최종 보고서에 포함되어야 한다.**
 
 #### Step 3-2: 연계 분석
@@ -365,7 +371,7 @@ Step 1에서 추출한 `SANDBOX_DOMAINS`가 있으면, 보고서 서브에이전
 
 scan-report SKILL.md를 읽고, 그 스킬이 정의하는 보고서 작성 프로세스를 수행한다. **noah-sast는 보고서를 직접 작성하지 않는다.**
 
-**[필수] scan-report의 Step 3(MD 조립) 완료 후, Step 4(HTML 변환) 이전에 `scan-report-review` 스킬을 실행하여 보고서 정확성을 검증한다.** `<NOAH_SAST_DIR>/sub-skills/scan-report-review/SKILL.md`를 읽고, 보고서 MD 파일 경로와 프로젝트 루트 경로를 전달한다. 리뷰에서 부정확한 내용이 발견되면 MD 파일이 수정된 후 HTML 변환으로 진행한다.
+**[필수] scan-report의 Step 3(MD 조립) 완료 후, Step 4(HTML 변환) 이전에 `scan-report-review` 스킬을 실행하여 보고서 정확성을 검증한다.** scan-report 에이전트 실패로 메인 에이전트가 직접 보고서를 작성한 fallback 시나리오에서도 이 단계를 건너뛰지 않는다. `<NOAH_SAST_DIR>/sub-skills/scan-report-review/SKILL.md`를 읽고, 보고서 MD 파일 경로와 프로젝트 루트 경로를 전달한다. 리뷰에서 부정확한 내용이 발견되면 MD 파일이 수정된 후 HTML 변환으로 진행한다.
 
 **[필수] scan-report-review 완료 후, HTML 변환 직전에 MD 파일에 리뷰 섹션이 잔류하지 않았는지 확인한다.** `grep "^## .*리뷰\|^## .*검증 결과" noah-sast-report.md`를 실행하여 매칭이 있으면 Edit 도구로 해당 섹션을 제거한다. (`md_to_html.py`가 방어적 제거를 수행하지만, MD 원본도 깨끗하게 유지해야 한다.)
 
