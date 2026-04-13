@@ -1,7 +1,16 @@
 # Noah SAST
 
-> Claude Code 스킬 기반의 자동화된 소스코드 취약점 분석 시스템.
+> Claude Code 플러그인 기반의 자동화된 소스코드 취약점 분석 시스템.
 > 41개 개별 스캐너를 오케스트레이션하여 정적 분석 → 연계 분석 → 동적 테스트 → 보고서 생성까지 수행합니다.
+
+## 설치
+
+```
+/plugin marketplace add nomarlhack/noah-sast
+/plugin install noah-sast
+```
+
+설치 후 `/noah-sast:scan`으로 실행합니다. 자세한 설치 옵션은 [사용법 > 설치](#설치) 참조.
 
 ---
 
