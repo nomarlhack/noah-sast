@@ -5,12 +5,12 @@
 
 ## 설치
 
-```
-/plugin marketplace add nomarlhack/noah-sast
-/plugin install noah-sast
+```bash
+git clone https://github.com/nomarlhack/noah-sast.git
+claude --plugin-dir ./noah-sast
 ```
 
-설치 후 `/noah-sast:scan`으로 실행합니다. 자세한 설치 옵션은 [사용법 > 설치](#설치) 참조.
+실행: `/noah-sast:scan`
 
 ---
 
@@ -652,62 +652,25 @@ flowchart TD
 
 ### 설치
 
-#### 방법 1: Marketplace (권장)
-
-Claude Code에서 직접 설치합니다:
-
-```
-/plugin marketplace add nomarlhack/noah-sast
-/plugin install noah-sast
-```
-
-설치 후 `/noah-sast:scan`으로 실행합니다.
-
-#### 방법 2: --plugin-dir (개발/테스트)
-
 ```bash
 git clone https://github.com/nomarlhack/noah-sast.git
 claude --plugin-dir ./noah-sast
 ```
 
-#### 방법 3: 스크립트 설치
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/nomarlhack/noah-sast/main/install.sh | bash
-```
-
-또는:
-
-```bash
-git clone https://github.com/nomarlhack/noah-sast.git ~/.claude/skills/noah-sast
-```
+Claude Code 실행 시 `--plugin-dir` 플래그로 플러그인 경로를 지정합니다. 이후 `/noah-sast:scan`으로 실행합니다.
 
 #### 요구사항
 
 | 항목 | 조건 |
 |------|------|
-| Claude Code | 최신 버전 (`/plugin` 명령 지원) |
-| Git | 클론 설치 시 필요 |
+| Claude Code | 최신 버전 |
+| Git | 클론 시 필요 |
 | Python 3 | 보고서 생성/검증 기능에 필요 |
 
 #### 업데이트
 
 ```bash
-# Marketplace 설치의 경우
-/plugin update noah-sast
-
-# 스크립트 설치의 경우
-~/.claude/skills/noah-sast/install.sh --update
-```
-
-#### 제거
-
-```bash
-# Marketplace 설치의 경우
-/plugin uninstall noah-sast
-
-# 스크립트 설치의 경우
-~/.claude/skills/noah-sast/uninstall.sh
+cd noah-sast && git pull
 ```
 
 ---
