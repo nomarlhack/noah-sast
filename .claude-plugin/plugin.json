@@ -5,6 +5,7 @@
   "author": {
     "name": "Noah"
   },
+  "hooks": "./skills/sast/hooks/hooks.json",
   "license": "Apache-2.0",
   "repository": "https://github.com/nomarlhack/noah-claude-plugin"
 }
