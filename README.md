@@ -245,7 +245,14 @@ Phase 1 정적 분석 완료 후, 구조화된 스캐너(grep 패턴 기반)가 
 3. Source→Sink 추적 + 검증 로직 확인 (Phase 1 중복 경로 자동 제외)
 4. `===AI_DISCOVERY===` 형식으로 후보 반환
 
-**결과 수집:** 중복 제거 후 `AI-1`, `AI-2`, ... ID를 부여하고 `master-list.json`에 추가합니다. 후보 0건도 정상입니다.
+**결과 수집 및 마스터 목록 갱신:**
+
+1. 각 에이전트가 반환한 `===AI_DISCOVERY===` ~ `===AI_DISCOVERY_END===` 블록에서 후보를 수집
+2. Phase 1 마스터 목록에 이미 존재하는 **동일 Source→Sink 경로**의 후보는 중복으로 제거
+3. 중복 제거 후 남은 후보에 `AI-1`, `AI-2`, ... 형식의 고유 ID를 부여
+4. `master-list.json`을 Edit하여 AI 발견 후보를 `candidates` 배열에 추가 (`scanner: "ai-discovery"`)
+
+이후 동적 분석(Step 3-5) 시점에는 **Phase 1 후보 + AI 발견 후보가 합쳐진 마스터 목록**을 기반으로 진행됩니다. 후보 0건도 정상입니다.
 
 #### Step 3-3: 동적 분석 정보 요청
 
