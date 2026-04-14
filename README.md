@@ -70,7 +70,7 @@ flowchart TB
     S3 -->|병렬 실행| P1["Phase 1 정적 분석\n(그룹 에이전트 → 파일 저장)"]
     P1 -->|파일 검증| BML["build-master-list.py\n→ master-list.json"]
     BML --> AI["AI 자율 취약점 탐색\n(SendMessage 순차)"]
-    AI -->|"ai-discovery.md 저장\n+ 중복 제거 + AI-N ID 부여"| MLUpdate["master-list.json\n갱신"]
+    AI -->|"ai-discovery.md 저장\n+ AI-N ID 부여"| MLUpdate["master-list.json\n갱신"]
     MLUpdate --> P2["Phase 2 동적 분석\n(순차 실행)"]
     P2 -->|후보 2건+| Chain["연계 분석\n에이전트"]
     Chain --> S4
@@ -252,7 +252,7 @@ Phase 1 정적 분석 완료 후, 구조화된 스캐너(grep 패턴 기반)가 
 에이전트가 `ai-discovery.md`에 결과를 저장한 후:
 
 1. `AI-PENDING-N`을 `AI-1`, `AI-2`, ... 형식의 고유 ID로 재번호 (`ai-discovery.md`의 헤더/manifest도 갱신)
-2. `master-list.json`을 Edit하여 AI 발견 후보를 `candidates` 배열에 추가 (`scanner: "ai-discovery"`)
+2. `build-master-list.py`를 재실행하여 AI 결과를 포함한 전체 마스터 목록을 재생성하고 구조 검증
 
 **Phase 1과의 중복 제거를 수행하지 않습니다.** AI와 Phase 1이 같은 취약점을 찾으면 이중 검증으로 간주합니다. 보고서에서 AI 자율 탐색 결과는 별도 섹션(`## AI 자율 탐색 결과`)으로 분리되므로 중복이 혼란을 주지 않습니다. 후보 0건도 정상입니다.
 
@@ -670,7 +670,7 @@ flowchart TD
     S2 --> S3["Step 3-1: Phase 1 정적 분석\n(그룹 병렬 → 파일 저장)"]
     S3 --> BML2["build-master-list.py\n결과 검증 + master-list.json"]
     BML2 --> AI["Step 3-2: AI 자율 취약점 탐색\n(SendMessage 순차)"]
-    AI -->|"ai-discovery.md 저장\n+ 중복 제거 + AI-N ID 부여"| MLUpdate2["master-list.json 갱신\n(Phase 1 + AI 후보 통합)"]
+    AI -->|"ai-discovery.md 저장\n+ AI-N ID 부여"| MLUpdate2["master-list.json 갱신\n(Phase 1 + AI 후보 통합)"]
     MLUpdate2 --> Check{후보 발견?}
     Check -->|0건| S4["Step 4: 보고서 생성"]
     Check -->|1건+| Ask["Step 3-3: 동적 테스트 정보 요청"]
