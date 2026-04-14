@@ -245,36 +245,36 @@ python3 <NOAH_SAST_DIR>/tools/build-master-list.py <PHASE1_RESULTS_DIR> <PHASE1_
 
 #### Step 3-2: AI 자율 취약점 탐색
 
-Phase 1 정적 분석 완료 후, 구조화된 스캐너가 놓칠 수 있는 취약점을 AI가 자율적으로 탐색한다. SKILL.md에 정의된 기본 프롬프트를 사용하여 프롬프트당 1개 에이전트를 생성하고 병렬 실행한다.
+Phase 1 정적 분석 완료 후, 구조화된 스캐너가 놓칠 수 있는 취약점을 AI가 자율적으로 탐색한다. **단일 에이전트**가 아래 프롬프트를 순차적으로 실행하며, 이전 프롬프트에서 읽은 코드와 발견한 인사이트가 컨텍스트에 누적되어 점점 더 깊은 탐색이 가능하다.
 
-**기본 프롬프트:**
+**기본 프롬프트 (1개 에이전트가 순차 실행):**
 
-| # | 프롬프트 | 설명 |
-|---|---------|------|
+| 순서 | 프롬프트 | 설명 |
+|------|---------|------|
 | 1 | "이 프로젝트의 소스코드를 분석하여 보안 취약점을 찾아줘" | 스캐너 카테고리에 구속되지 않는 자유 탐색 |
 | 2 | "정적 분석 결과를 참고하여, 발견된 취약점과 관련된 다른 취약점을 찾아줘" | Phase 1 결과를 단서로 추가 취약점 발굴 |
-| 3 | "살펴보지 않은 다른 포인트에서 취약점을 찾아줘" | Phase 1 스캐너와 프롬프트 1·2가 탐색하지 않은 영역 보완 |
-
-**[필수] 모든 프롬프트의 에이전트를 단일 메시지 안에서 Agent 도구로 동시 호출하여 병렬 실행한다.**
+| 3 | "살펴보지 않은 다른 포인트에서 취약점을 찾아줘" | 프롬프트 1·2에서 탐색하지 않은 영역 보완 |
 
 **[필수] 메인 에이전트는 AI 자율 탐색 에이전트 프롬프트 본문을 인라인으로 복사하지 않는다.** 대신 아래 형식의 짧은 프롬프트를 사용하되, `<NOAH_SAST_DIR>`/`<PATTERN_INDEX_DIR>` 변수를 resolve된 실제 경로 문자열로 치환한다.
 
 ```
 <NOAH_SAST_DIR>/prompts/ai-discovery-agent.md를 Read 도구로 읽고 그 안의 지시를 정확히 따르세요.
 변수: NOAH_SAST_DIR=<NOAH_SAST_DIR>, PATTERN_INDEX_DIR=<PATTERN_INDEX_DIR>
-프롬프트: <PROMPT_TEXT>
 후보 마스터 목록 요약: <MASTER_LIST_SUMMARY>
 프로젝트 컨텍스트: <PROJECT_CONTEXT>
 ```
 
-`<MASTER_LIST_SUMMARY>`에는 `<PHASE1_RESULTS_DIR>/master-list.json`에서 각 후보의 ID, 유형, 위치(file:line), Source→Sink 경로를 간략히 나열한다. 프롬프트 2번("정적 분석 결과를 참고하여...")에는 후보 상세 정보를 더 풍부하게 포함하여, 에이전트가 기존 발견 내역을 단서로 활용할 수 있게 한다.
+`<MASTER_LIST_SUMMARY>`에는 `<PHASE1_RESULTS_DIR>/master-list.json`에서 각 후보의 ID, 유형, 위치(file:line), Source→Sink 경로를 간략히 나열한다.
+
+에이전트는 `ai-discovery-agent.md`의 지시에 따라 프롬프트 1 → 2 → 3을 순차 실행한다. 각 프롬프트의 탐색 결과가 컨텍스트에 남아 있으므로, 프롬프트 2는 프롬프트 1에서 읽은 코드를 활용하고, 프롬프트 3은 프롬프트 1·2에서 이미 살펴본 영역을 파악하여 미탐색 영역을 집중 탐색한다.
 
 **결과 수집 및 마스터 목록 갱신:**
 
-1. 각 에이전트가 반환한 `===AI_DISCOVERY===` ~ `===AI_DISCOVERY_END===` 블록에서 후보를 수집한다.
-2. Phase 1 마스터 목록에 이미 존재하는 동일 Source→Sink 경로의 후보는 중복으로 제거한다.
-3. 중복 제거 후 남은 후보에 `AI-1`, `AI-2`, ... 형식의 고유 ID를 부여한다.
-4. `<PHASE1_RESULTS_DIR>/master-list.json`을 Edit하여 AI 발견 후보를 `candidates` 배열에 추가한다. `scanner` 필드는 `"ai-discovery"`로 기록한다.
+에이전트가 모든 프롬프트를 완료한 후 반환한 최종 `===AI_DISCOVERY===` ~ `===AI_DISCOVERY_END===` 블록에서 후보를 수집한다.
+
+1. Phase 1 마스터 목록에 이미 존재하는 동일 Source→Sink 경로의 후보는 중복으로 제거한다.
+2. 중복 제거 후 남은 후보에 `AI-1`, `AI-2`, ... 형식의 고유 ID를 부여한다.
+3. `<PHASE1_RESULTS_DIR>/master-list.json`을 Edit하여 AI 발견 후보를 `candidates` 배열에 추가한다. `scanner` 필드는 `"ai-discovery"`로 기록한다.
 
 AI 자율 탐색에서 후보가 0건이어도 정상이다. 스캐너가 이미 충분히 커버한 경우이며, "AI 자율 탐색: 추가 후보 없음"으로 기록하고 다음 단계로 진행한다.
 
