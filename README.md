@@ -70,7 +70,7 @@ flowchart TB
     S3 -->|병렬 실행| P1["Phase 1 정적 분석\n(그룹 에이전트 → 파일 저장)"]
     P1 -->|파일 검증| BML["build-master-list.py\n→ master-list.json"]
     BML --> AI["AI 자율 취약점 탐색\n(프롬프트 3개 순차)"]
-    AI -->|"중복 제거 + AI-N ID 부여"| MLUpdate["master-list.json\n갱신"]
+    AI -->|"ai-discovery.md 저장\n+ 중복 제거 + AI-N ID 부여"| MLUpdate["master-list.json\n갱신"]
     MLUpdate --> P2["Phase 2 동적 분석\n(순차 실행)"]
     P2 -->|후보 2건+| Chain["연계 분석\n에이전트"]
     Chain --> S4
@@ -246,16 +246,18 @@ Phase 1 정적 분석 완료 후, 구조화된 스캐너(grep 패턴 기반)가 
 2. **프롬프트 1**: 라우트/컨트롤러, 미들웨어 등 핵심 코드 자유 탐색
 3. **프롬프트 2**: 프롬프트 1에서 읽은 코드 컨텍스트를 활용하여 Phase 1 발견 주변 확장 탐색
 4. **프롬프트 3**: 프롬프트 1·2에서 미탐색 영역을 파악하고 집중 탐색
-5. 3개 프롬프트의 발견을 통합하여 `===AI_DISCOVERY===` 형식으로 반환
+5. 3개 프롬프트의 발견을 통합하여 `<PHASE1_RESULTS_DIR>/ai-discovery.md`에 Phase 1 호환 형식으로 저장 (후보별 5개 필수 섹션 + manifest)
+6. 후보 건수 요약만 반환
 
-**결과 수집 및 마스터 목록 갱신:**
+**결과 파일 저장 및 마스터 목록 갱신:**
 
-1. 에이전트가 반환한 `===AI_DISCOVERY===` ~ `===AI_DISCOVERY_END===` 블록에서 후보를 수집
-2. Phase 1 마스터 목록에 이미 존재하는 **동일 Source→Sink 경로**의 후보는 중복으로 제거
-3. 중복 제거 후 남은 후보에 `AI-1`, `AI-2`, ... 형식의 고유 ID를 부여
-4. `master-list.json`을 Edit하여 AI 발견 후보를 `candidates` 배열에 추가 (`scanner: "ai-discovery"`)
+에이전트가 `ai-discovery.md`에 결과를 저장한 후:
 
-이후 동적 분석(Step 3-5) 시점에는 **Phase 1 후보 + AI 발견 후보가 합쳐진 마스터 목록**을 기반으로 진행됩니다. 후보 0건도 정상입니다.
+1. Phase 1 마스터 목록에 이미 존재하는 **동일 Source→Sink 경로**의 후보는 중복으로 제거 (`ai-discovery.md`에서도 제거)
+2. 중복 제거 후 남은 후보에 `AI-1`, `AI-2`, ... 형식의 고유 ID를 부여 (`ai-discovery.md`의 헤더/manifest도 갱신)
+3. `master-list.json`을 Edit하여 AI 발견 후보를 `candidates` 배열에 추가 (`scanner: "ai-discovery"`)
+
+`ai-discovery.md`는 Phase 1 스캐너 결과 파일과 동일한 구조이므로, 하류의 동적 분석·연계 분석·보고서 생성이 기존 파이프라인 그대로 이 파일을 참조합니다. 후보 0건도 정상입니다.
 
 #### Step 3-3: 동적 분석 정보 요청
 
@@ -671,7 +673,7 @@ flowchart TD
     S2 --> S3["Step 3-1: Phase 1 정적 분석\n(그룹 병렬 → 파일 저장)"]
     S3 --> BML2["build-master-list.py\n결과 검증 + master-list.json"]
     BML2 --> AI["Step 3-2: AI 자율 취약점 탐색\n(프롬프트 3개 순차)"]
-    AI -->|"중복 제거 + AI-N ID 부여"| MLUpdate2["master-list.json 갱신\n(Phase 1 + AI 후보 통합)"]
+    AI -->|"ai-discovery.md 저장\n+ 중복 제거 + AI-N ID 부여"| MLUpdate2["master-list.json 갱신\n(Phase 1 + AI 후보 통합)"]
     MLUpdate2 --> Check{후보 발견?}
     Check -->|0건| S4["Step 4: 보고서 생성"]
     Check -->|1건+| Ask["Step 3-3: 동적 테스트 정보 요청"]
