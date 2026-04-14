@@ -250,11 +250,10 @@ Phase 1 정적 분석 완료 후, 구조화된 스캐너(grep 패턴 기반)가 
 
 에이전트가 `ai-discovery.md`에 결과를 저장한 후:
 
-1. Phase 1 마스터 목록에 이미 존재하는 **동일 취약점(같은 위치·같은 유형)**의 후보는 중복으로 제거 (`ai-discovery.md`에서도 제거)
-2. 중복 제거 후 남은 후보에 `AI-1`, `AI-2`, ... 형식의 고유 ID를 부여 (`ai-discovery.md`의 헤더/manifest도 갱신)
-3. `master-list.json`을 Edit하여 AI 발견 후보를 `candidates` 배열에 추가 (`scanner: "ai-discovery"`)
+1. `AI-PENDING-N`을 `AI-1`, `AI-2`, ... 형식의 고유 ID로 재번호 (`ai-discovery.md`의 헤더/manifest도 갱신)
+2. `master-list.json`을 Edit하여 AI 발견 후보를 `candidates` 배열에 추가 (`scanner: "ai-discovery"`)
 
-`ai-discovery.md`는 Phase 1 스캐너 결과 파일과 동일한 구조이므로, 하류의 동적 분석·연계 분석·보고서 생성이 기존 파이프라인 그대로 이 파일을 참조합니다. 후보 0건도 정상입니다.
+**Phase 1과의 중복 제거를 수행하지 않습니다.** AI와 Phase 1이 같은 취약점을 찾으면 이중 검증으로 간주합니다. 보고서에서 AI 자율 탐색 결과는 별도 섹션(`## AI 자율 탐색 결과`)으로 분리되므로 중복이 혼란을 주지 않습니다. 후보 0건도 정상입니다.
 
 #### Step 3-3: 동적 분석 정보 요청
 

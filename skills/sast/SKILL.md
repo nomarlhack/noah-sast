@@ -296,9 +296,10 @@ Agent 도구로 AI 자율 탐색 에이전트를 생성한다. `<NOAH_SAST_DIR>`
 에이전트 응답을 확인한 후:
 
 1. `<PHASE1_RESULTS_DIR>/ai-discovery.md`를 Read하여 manifest의 후보를 확인한다.
-2. Phase 1 마스터 목록에 이미 존재하는 동일 취약점(같은 위치·같은 유형)의 후보는 중복으로 제거한다. 중복 후보는 `ai-discovery.md`에서도 Edit으로 제거하고 manifest의 `declared_count`를 갱신한다.
-3. 중복 제거 후 남은 후보에 `AI-1`, `AI-2`, ... 형식의 고유 ID를 부여한다. `ai-discovery.md`의 `## AI-PENDING-N:` 헤더와 manifest ID도 함께 갱신한다.
-4. `<PHASE1_RESULTS_DIR>/master-list.json`을 Edit하여 AI 발견 후보를 `candidates` 배열에 추가한다. `scanner` 필드는 `"ai-discovery"`로 기록한다.
+2. `AI-PENDING-N`을 `AI-1`, `AI-2`, ... 형식의 고유 ID로 재번호한다. `ai-discovery.md`의 `## AI-PENDING-N:` 헤더와 manifest ID도 함께 갱신한다.
+3. `<PHASE1_RESULTS_DIR>/master-list.json`을 Edit하여 AI 발견 후보를 `candidates` 배열에 추가한다. `scanner` 필드는 `"ai-discovery"`로 기록한다.
+
+**Phase 1과의 중복 제거를 수행하지 않는다.** AI 자율 탐색과 Phase 1 스캐너가 같은 취약점을 발견하면 이중 검증으로 간주한다. 보고서에서 AI 자율 탐색 결과는 별도 섹션(`## AI 자율 탐색 결과`)으로 분리되므로 중복이 혼란을 주지 않는다.
 
 AI 자율 탐색에서 후보가 0건이어도 정상이다. 스캐너가 이미 충분히 커버한 경우이며, "AI 자율 탐색: 추가 후보 없음"으로 기록하고 다음 단계로 진행한다.
 

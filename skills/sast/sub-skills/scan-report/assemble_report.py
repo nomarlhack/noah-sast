@@ -37,6 +37,7 @@ report_name = "noah-sast-report"  # 또는 "{scanner-type}-scan-report"
 #   ]
 # }
 chain_analysis = None  # None이면 연계 분석 미수행, dict이면 수행됨
+ai_discovery_results = ""  # AI 자율 탐색 서브에이전트 반환 텍스트 (없으면 빈 문자열)
 # -----------------------------------
 
 
@@ -121,7 +122,7 @@ def build_table_from_details(report_text):
     current_status = ''
 
     for line in lines:
-        if line.startswith('## 스캐너별 실행 결과'):
+        if line.startswith('## 스캐너별 실행 결과') or line.startswith('## AI 자율 탐색 결과'):
             in_scanner_section = True
             continue
         if line.startswith('## ') and in_scanner_section:
@@ -219,6 +220,13 @@ if __name__ == '__main__':
     # 공격 시나리오 섹션 자동 생성
     chain_md = build_chain_section(chain_analysis)
     full_report = full_report.replace('<!-- CHAIN_SECTION_HERE -->', chain_md)
+
+    # AI 자율 탐색 결과 섹션
+    if ai_discovery_results.strip():
+        ai_section = clean_section(ai_discovery_results)
+    else:
+        ai_section = ""
+    full_report = full_report.replace('<!-- AI_DISCOVERY_SECTION_HERE -->', ai_section)
 
     # 상세 섹션에서 요약 테이블 자동 생성 + 헤딩 재번호
     full_report = build_table_from_details(full_report)
