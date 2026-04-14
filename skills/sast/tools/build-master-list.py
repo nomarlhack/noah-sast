@@ -29,7 +29,7 @@ CANDIDATE_HEADER_RE = re.compile(r"^## ([A-Z]{2,}[A-Z0-9]*-\d+):\s*", re.M)
 
 REQUIRED_SECTIONS = [
     ("### Code", 20),
-    ("### Source→Sink Flow", 50),
+    ("### Source→Sink Flow|### Vulnerability Flow", 50),
     ("### Validation Logic", 80),
     ("### Trigger Conditions", 80),
     ("### Decision", 40),
@@ -105,15 +105,18 @@ for md in md_files:
 
         # 필수 섹션 품질 검증
         for sub_name, min_len in REQUIRED_SECTIONS:
+            # 복수 헤더 허용 ("|"로 구분)
+            sub_headers = sub_name.split("|")
+            sub_header_pattern = "|".join(re.escape(h) for h in sub_headers)
             sub_re = re.compile(
-                rf"^{re.escape(sub_name)}\s*\n(.*?)(?=^### |\Z)", re.M | re.S
+                rf"^(?:{sub_header_pattern})\s*\n(.*?)(?=^### |\Z)", re.M | re.S
             )
             sm = sub_re.search(section)
             if not sm:
-                warnings.append(f"{scanner}/{cid}: MISSING_SECTION:{sub_name}")
+                warnings.append(f"{scanner}/{cid}: MISSING_SECTION:{sub_headers[0]}")
             elif len(sm.group(1).strip()) < min_len:
                 warnings.append(
-                    f"{scanner}/{cid}: SHORT_SECTION:{sub_name} ({len(sm.group(1).strip())} chars < {min_len})"
+                    f"{scanner}/{cid}: SHORT_SECTION:{sub_headers[0]} ({len(sm.group(1).strip())} chars < {min_len})"
                 )
 
         candidates.append(
