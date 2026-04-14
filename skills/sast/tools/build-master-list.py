@@ -27,6 +27,16 @@ MANIFEST_RE = re.compile(
 )
 CANDIDATE_HEADER_RE = re.compile(r"^## ([A-Z]{2,}[A-Z0-9]*-\d+):\s*", re.M)
 
+# Source→Sink Flow / Vulnerability Flow 섹션이 선택적인 스캐너 (설정/구성 기반)
+FLOW_OPTIONAL_SCANNERS = {
+    "business-logic-scanner",
+    "validation-logic-scanner",
+    "security-headers-scanner",
+    "cookie-security-scanner",
+    "springboot-hardening-scanner",
+    "tls-scanner",
+}
+
 REQUIRED_SECTIONS = [
     ("### Code", 20),
     ("### Source→Sink Flow|### Vulnerability Flow", 50),
@@ -113,7 +123,12 @@ for md in md_files:
             )
             sm = sub_re.search(section)
             if not sm:
-                warnings.append(f"{scanner}/{cid}: MISSING_SECTION:{sub_headers[0]}")
+                # 설정 기반 스캐너에서 Source→Sink Flow/Vulnerability Flow 누락은 정상
+                is_flow_section = "Source→Sink Flow" in sub_name or "Vulnerability Flow" in sub_name
+                if is_flow_section and scanner in FLOW_OPTIONAL_SCANNERS:
+                    pass  # 경고 생략
+                else:
+                    warnings.append(f"{scanner}/{cid}: MISSING_SECTION:{sub_headers[0]}")
             elif len(sm.group(1).strip()) < min_len:
                 warnings.append(
                     f"{scanner}/{cid}: SHORT_SECTION:{sub_headers[0]} ({len(sm.group(1).strip())} chars < {min_len})"
