@@ -69,8 +69,9 @@ flowchart TB
 
     S3 -->|병렬 실행| P1["Phase 1 정적 분석\n(그룹 에이전트 → 파일 저장)"]
     P1 -->|파일 검증| BML["build-master-list.py\n→ master-list.json"]
-    BML --> AI["AI 자율 취약점 탐색\n(프롬프트별 병렬)"]
-    AI --> P2["Phase 2 동적 분석\n(순차 실행)"]
+    BML --> AI["AI 자율 취약점 탐색\n(프롬프트 3개 병렬)"]
+    AI -->|"중복 제거 + AI-N ID 부여"| MLUpdate["master-list.json\n갱신"]
+    MLUpdate --> P2["Phase 2 동적 분석\n(순차 실행)"]
     P2 -->|후보 2건+| Chain["연계 분석\n에이전트"]
     Chain --> S4
 
@@ -84,6 +85,7 @@ flowchart TB
     style P1 fill:#16213e,stroke:#0f3460,color:#eee
     style BML fill:#0f3460,stroke:#533483,color:#eee
     style AI fill:#e94560,stroke:#e94560,color:#fff
+    style MLUpdate fill:#0f3460,stroke:#e94560,color:#eee
     style Chain fill:#533483,stroke:#533483,color:#fff
     style P2 fill:#16213e,stroke:#0f3460,color:#eee
     style Report fill:#1a1a2e,stroke:#533483,color:#eee
@@ -667,8 +669,9 @@ flowchart TD
     S1 --> S2["Step 2: 스캐너 선별\n(다국어 의존성 + AI 검토)"]
     S2 --> S3["Step 3-1: Phase 1 정적 분석\n(그룹 병렬 → 파일 저장)"]
     S3 --> BML2["build-master-list.py\n결과 검증 + master-list.json"]
-    BML2 --> AI["Step 3-2: AI 자율 취약점 탐색\n(프롬프트별 병렬)"]
-    AI --> Check{후보 발견?}
+    BML2 --> AI["Step 3-2: AI 자율 취약점 탐색\n(프롬프트 3개 병렬)"]
+    AI -->|"중복 제거 + AI-N ID 부여"| MLUpdate2["master-list.json 갱신\n(Phase 1 + AI 후보 통합)"]
+    MLUpdate2 --> Check{후보 발견?}
     Check -->|0건| S4["Step 4: 보고서 생성"]
     Check -->|1건+| Ask["Step 3-3: 동적 테스트 정보 요청"]
     Ask --> UserReply{사용자 응답}
@@ -684,6 +687,7 @@ flowchart TD
 
     style User fill:#e94560,stroke:#e94560,color:#fff
     style AI fill:#e94560,stroke:#e94560,color:#fff
+    style MLUpdate2 fill:#0f3460,stroke:#e94560,color:#eee
     style Chain fill:#533483,stroke:#533483,color:#fff
     style Open fill:#e94560,stroke:#e94560,color:#fff
     style Check fill:#533483,stroke:#533483,color:#fff
