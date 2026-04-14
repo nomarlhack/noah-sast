@@ -304,7 +304,13 @@ Agent 도구로 AI 자율 탐색 에이전트를 생성한다. `<NOAH_SAST_DIR>`
 
 1. `<PHASE1_RESULTS_DIR>/ai-discovery.md`를 Read하여 manifest의 후보를 확인한다.
 2. `AI-PENDING-N`을 `AI-1`, `AI-2`, ... 형식의 고유 ID로 재번호한다. `ai-discovery.md`의 `## AI-PENDING-N:` 헤더와 manifest ID도 함께 갱신한다.
-3. `<PHASE1_RESULTS_DIR>/master-list.json`을 Edit하여 AI 발견 후보를 `candidates` 배열에 추가한다. `scanner` 필드는 `"ai-discovery"`로 기록한다.
+3. `build-master-list.py`를 재실행하여 AI 결과를 포함한 전체 마스터 목록을 재생성하고 구조 검증한다:
+
+```bash
+python3 <NOAH_SAST_DIR>/tools/build-master-list.py <PHASE1_RESULTS_DIR> <PHASE1_RESULTS_DIR>/master-list.json
+```
+
+`ai-discovery.md`가 `<PHASE1_RESULTS_DIR>/` 디렉토리에 있으므로 스크립트가 자동 수집한다. ERROR 발생 시 `ai-discovery.md`의 해당 부분을 수정하고 재실행한다.
 
 **Phase 1과의 중복 제거를 수행하지 않는다.** AI 자율 탐색과 Phase 1 스캐너가 같은 취약점을 발견하면 이중 검증으로 간주한다. 보고서에서 AI 자율 탐색 결과는 별도 섹션(`## AI 자율 탐색 결과`)으로 분리되므로 중복이 혼란을 주지 않는다.
 
