@@ -106,7 +106,6 @@ noah-8719/                                    # 플러그인 루트
 ## 목차
 
 - [개요](#개요)
-- [아키텍처](#아키텍처)
 - [실행 프로세스](#실행-프로세스)
 - [스캐너 목록](#스캐너-목록)
 - [개별 스캐너 구조](#개별-스캐너-구조)
@@ -129,55 +128,6 @@ Noah SAST는 Claude Code의 **스킬(Skill)** 시스템 위에 구축된 통합 
 | **다국어 지원** | Node.js, Python, Ruby, Java 매니페스트에서 의존성을 파싱하여 정확한 스캐너 선별 |
 
 **지원 범위:** Kotlin, Java, TypeScript, JavaScript, Python, Go, Ruby, PHP, C# 등 80+ 확장자. Spring Boot, React, Vue, Django, Express 등 주요 프레임워크의 보안 패턴 인식.
-
----
-
-## 아키텍처
-
-### 전체 흐름
-
-```mermaid
-flowchart TB
-    subgraph Orchestrator["메인 에이전트 (Orchestrator)"]
-        S0["Step 0\n패턴 인덱싱"]
-        S1["Step 1\n스택 파악"]
-        S2["Step 2\n스캐너 선별"]
-        S3["Step 3\n분석 실행"]
-        S4["Step 4\n보고서 생성"]
-        S0 --> S1 --> S2 --> S3 --> S4
-    end
-
-    S0 -->|위임| GrepAgent["grep 인덱싱\n에이전트"]
-    GrepAgent -->|저장| IndexDir[("패턴 인덱스\n(스캐너별 JSON)")]
-
-    S2 -->|실행| Selector["tools/scanner-selector.py\n(다국어 의존성 파싱 + 그룹 리밸런싱)"]
-
-    S3 -->|병렬 실행| P1["Phase 1 정적 분석\n(그룹 에이전트 → 파일 저장)"]
-    P1 -->|파일 검증| BML["build-master-list.py\n→ master-list.json"]
-    BML --> AI["AI 자율 취약점 탐색\n(SendMessage 순차)"]
-    AI -->|"ai-discovery.md 저장\n+ AI-N ID 부여"| MLUpdate["master-list.json\n갱신"]
-    MLUpdate --> P2["Phase 2 동적 분석\n(순차 실행)"]
-    P2 -->|후보 2건+| Chain["연계 분석\n에이전트"]
-    Chain --> S4
-
-    S4 -->|위임| Report["scan-report\n스킬"]
-    Report --> Review["scan-report-review\n정확성 검증"]
-    Review --> HTML["HTML 변환\n+ 검증"]
-
-    style Orchestrator fill:#1a1a2e,stroke:#e94560,color:#eee
-    style GrepAgent fill:#16213e,stroke:#0f3460,color:#eee
-    style IndexDir fill:#0f3460,stroke:#533483,color:#eee
-    style P1 fill:#16213e,stroke:#0f3460,color:#eee
-    style BML fill:#0f3460,stroke:#533483,color:#eee
-    style AI fill:#e94560,stroke:#e94560,color:#fff
-    style MLUpdate fill:#0f3460,stroke:#e94560,color:#eee
-    style Chain fill:#533483,stroke:#533483,color:#fff
-    style P2 fill:#16213e,stroke:#0f3460,color:#eee
-    style Report fill:#1a1a2e,stroke:#533483,color:#eee
-    style Review fill:#1a1a2e,stroke:#533483,color:#eee
-    style HTML fill:#1a1a2e,stroke:#533483,color:#eee
-    style Selector fill:#0f3460,stroke:#533483,color:#eee
-```
 
 ---
 
