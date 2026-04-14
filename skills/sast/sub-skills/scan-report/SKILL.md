@@ -8,6 +8,7 @@ noah-sast에서 호출되며, `<NOAH_SAST_DIR>`은 이미 결정된 상태이다
 
 **입력:**
 - 스캐너별 분석 결과 (확인됨/후보/안전 판정, Source→Sink 경로, 코드 스니펫)
+- AI 자율 탐색 결과 (`<PHASE1_RESULTS_DIR>/ai-discovery.md`)
 - 동적 테스트 결과 (curl 요청/응답 증거)
 - 이상 없음 스캐너의 점검 항목 요약
 - 미적용 스캐너 목록 및 제외 사유
@@ -70,7 +71,20 @@ noah-sast에서 호출되며, `<NOAH_SAST_DIR>`은 이미 결정된 상태이다
 
 **AI 자율 탐색 결과 섹션:**
 
-AI 자율 탐색에서 후보가 발견된 경우, 별도 서브에이전트로 AI 자율 탐색 상세 섹션을 작성한다. `<PHASE1_RESULTS_DIR>/ai-discovery.md` 파일 경로를 전달하고 서브에이전트가 Read하도록 지시한다. 반환하는 MD 텍스트의 첫 줄은 `### AI 자율 탐색`으로 시작한다. 이 결과는 `assemble_report.py`의 `ai_discovery_results` 변수에 설정하여 `<!-- AI_DISCOVERY_SECTION_HERE -->` 위치에 삽입된다.
+AI 자율 탐색에서 후보가 발견된 경우, 별도 서브에이전트로 AI 자율 탐색 상세 섹션을 작성한다. 서브에이전트 프롬프트에 다음을 포함한다:
+
+1. `<PHASE1_RESULTS_DIR>/ai-discovery.md` 파일 경로 전달 (서브에이전트가 Read하도록 지시)
+2. 다음 한 줄 지시: **"`<NOAH_SAST_DIR>/sub-skills/scan-report/vuln-format.md`를 Read 도구로 읽고, 그 안의 '후보 형식' 템플릿을 그대로 따라 MD 텍스트를 작성하라."**
+3. 스캐너 서브에이전트와 동일한 필수 준수 사항:
+
+> **필수 준수 사항:**
+> - 보고서 파일(.md, .html)을 직접 생성하지 않는다. MD 텍스트를 반환만 한다.
+> - 모든 취약점에 "재현 방법 및 POC" 섹션을 포함한다. Step 1~3 구조 + curl 명령어 필수.
+> - "후보" 항목: 소스코드에서 파악한 엔드포인트, HTTP 메서드, 파라미터명, 페이로드를 구체적 curl 명령어로 기재한다. 직접 획득 불가한 값(세션 쿠키 등)만 플레이스홀더 허용.
+> - 심각도(HIGH/MEDIUM/LOW)를 표시하지 않는다. 상태는 "후보"만 사용한다.
+> - 반환하는 MD 텍스트의 첫 줄은 `### AI 자율 탐색`으로 시작한다. 각 취약점 헤딩은 `#### N. 제목` 형식을 사용한다.
+
+이 결과는 `assemble_report.py`의 `ai_discovery_results` 변수에 설정하여 `<!-- AI_DISCOVERY_SECTION_HERE -->` 위치에 삽입된다.
 
 **서브에이전트 에러 핸들링:**
 
@@ -82,7 +96,7 @@ AI 자율 탐색에서 후보가 발견된 경우, 별도 서브에이전트로 
 
 **[필수] Write 도구를 직접 사용하지 않는다.** 보고서 전체를 한 번에 Write하면 32K 토큰 한도를 초과할 수 있다. 반드시 아래 Python 스크립트로 조립한다.
 
-**조립 스크립트:** `<NOAH_SAST_DIR>/sub-skills/scan-report/assemble_report.py`를 참조한다. 스크립트 내의 `skeleton`, `subagent_results`, `chain_analysis`, `report_name` 변수를 설정한 후 Bash로 실행한다.
+**조립 스크립트:** `<NOAH_SAST_DIR>/sub-skills/scan-report/assemble_report.py`를 참조한다. 스크립트 내의 `skeleton`, `subagent_results`, `chain_analysis`, `report_name`, `ai_discovery_results` 변수를 설정한 후 Bash로 실행한다.
 
 **`chain_analysis` 변수 설정:**
 
@@ -151,6 +165,8 @@ python3 <NOAH_SAST_DIR>/sub-skills/scan-report/validate_links.py noah-sast-repor
 ```bash
 python3 <NOAH_SAST_DIR>/sub-skills/scan-report/validate_report.py [확인됨+후보 건수]
 ```
+
+`[확인됨+후보 건수]`는 Phase 1 스캐너 후보와 AI 자율 탐색 후보를 합산한 총 취약점 건수다 (보고서 `### 요약` 표의 `확인됨 + 후보` 합계와 일치해야 함).
 
 **동작:**
 - PASS → Step 6 진행

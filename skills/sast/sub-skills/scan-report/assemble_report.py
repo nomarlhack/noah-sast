@@ -224,9 +224,14 @@ if __name__ == '__main__':
     # AI 자율 탐색 결과 섹션
     if ai_discovery_results.strip():
         ai_section = clean_section(ai_discovery_results)
+        full_report = full_report.replace('<!-- AI_DISCOVERY_SECTION_HERE -->', ai_section)
     else:
-        ai_section = ""
-    full_report = full_report.replace('<!-- AI_DISCOVERY_SECTION_HERE -->', ai_section)
+        # 후보 0건 생략 시: 섹션 헤딩과 플레이스홀더를 함께 제거
+        full_report = re.sub(
+            r'\n## AI 자율 탐색 결과\s*\n+<!-- AI_DISCOVERY_SECTION_HERE -->',
+            '',
+            full_report
+        )
 
     # 상세 섹션에서 요약 테이블 자동 생성 + 헤딩 재번호
     full_report = build_table_from_details(full_report)
