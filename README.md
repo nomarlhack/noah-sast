@@ -69,7 +69,7 @@ flowchart TB
 
     S3 -->|병렬 실행| P1["Phase 1 정적 분석\n(그룹 에이전트 → 파일 저장)"]
     P1 -->|파일 검증| BML["build-master-list.py\n→ master-list.json"]
-    BML --> AI["AI 자율 취약점 탐색\n(SendMessage 3회 순차)"]
+    BML --> AI["AI 자율 취약점 탐색\n(SendMessage 순차)"]
     AI -->|"ai-discovery.md 저장\n+ 중복 제거 + AI-N ID 부여"| MLUpdate["master-list.json\n갱신"]
     MLUpdate --> P2["Phase 2 동적 분석\n(순차 실행)"]
     P2 -->|후보 2건+| Chain["연계 분석\n에이전트"]
@@ -244,7 +244,8 @@ Phase 1 정적 분석 완료 후, 구조화된 스캐너(grep 패턴 기반)가 
 
 1. **Agent 생성 + 프롬프트 1**: 에이전트 생성, `ai-discovery-agent.md` Read 지시 + 프로젝트 컨텍스트 + 마스터 목록 요약 전달. 자유 탐색 수행.
 2. **SendMessage + 프롬프트 2**: 프롬프트 1에서 읽은 코드 컨텍스트가 남아 있는 상태에서, Phase 1 발견 주변 확장 탐색.
-3. **SendMessage + 프롬프트 3 + 파일 저장 지시**: 미탐색 영역 집중 탐색 후, 모든 발견을 통합하여 `<PHASE1_RESULTS_DIR>/ai-discovery.md`에 저장 (후보별 5개 필수 섹션 + manifest). 후보 건수 요약 반환.
+3. **SendMessage + 프롬프트 3**: 미탐색 영역 집중 탐색.
+4. **SendMessage + 파일 저장 지시**: 모든 발견을 통합하여 `<PHASE1_RESULTS_DIR>/ai-discovery.md`에 저장 (후보별 5개 필수 섹션 + manifest). 후보 건수 요약 반환.
 
 **결과 파일 저장 및 마스터 목록 갱신:**
 
@@ -668,7 +669,7 @@ flowchart TD
     S1 --> S2["Step 2: 스캐너 선별\n(다국어 의존성 + AI 검토)"]
     S2 --> S3["Step 3-1: Phase 1 정적 분석\n(그룹 병렬 → 파일 저장)"]
     S3 --> BML2["build-master-list.py\n결과 검증 + master-list.json"]
-    BML2 --> AI["Step 3-2: AI 자율 취약점 탐색\n(SendMessage 3회 순차)"]
+    BML2 --> AI["Step 3-2: AI 자율 취약점 탐색\n(SendMessage 순차)"]
     AI -->|"ai-discovery.md 저장\n+ 중복 제거 + AI-N ID 부여"| MLUpdate2["master-list.json 갱신\n(Phase 1 + AI 후보 통합)"]
     MLUpdate2 --> Check{후보 발견?}
     Check -->|0건| S4["Step 4: 보고서 생성"]
