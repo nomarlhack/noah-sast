@@ -74,6 +74,13 @@
 
 **이상 없음(후보 0건)인 경우에도 파일을 생성**하고, 이상 없음 1줄 요약 + `{"declared_count": 0, "candidates": []}` manifest를 포함한다.
 
+### 자기 검증 (Write 전 필수)
+
+Write 도구로 파일을 저장하기 **전에** 다음을 검증한다:
+
+1. **헤더-manifest 일치**: `## AI-PENDING-N:` 헤더 수와 manifest의 `declared_count` 및 `candidates` 배열 길이가 모두 일치하는지 확인한다. 프롬프트 1·2·3에서 발견한 후보가 하나도 빠지지 않았는지 대조한다.
+2. **필수 섹션 완전성**: 모든 후보에 5개 필수 섹션(Code, Vulnerability Flow, Validation Logic, Trigger Conditions, Decision)이 존재하고 각각 최소 길이를 충족하는지 확인한다. 후보가 많더라도 뒷부분 후보의 섹션을 축약하지 않는다.
+
 ### ID 규칙
 
 `AI-PENDING-N` 형식을 사용한다. 최종 ID(`AI-1`, `AI-2`, ...)는 메인 에이전트가 부여한다.

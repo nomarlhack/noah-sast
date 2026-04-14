@@ -294,6 +294,7 @@ Agent 도구로 AI 자율 탐색 에이전트를 생성한다. `<NOAH_SAST_DIR>`
 
 ```
 탐색을 완료한다. 지금까지 발견한 모든 후보를 통합하여 ai-discovery-agent.md의 "결과 파일 형식"에 따라 <PHASE1_RESULTS_DIR>/ai-discovery.md에 저장하라.
+저장 전에 반드시 "자기 검증" 절차를 수행하라: (1) ## 헤더 수와 manifest declared_count/candidates 배열 길이가 일치하는지, (2) 모든 후보의 5개 필수 섹션이 최소 길이를 충족하는지 확인한 후 Write하라.
 ```
 
 **결과 파일 저장 및 마스터 목록 갱신:**
