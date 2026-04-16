@@ -55,7 +55,7 @@ candidates = []
 clean_scanners = []
 skipped_scanners = []
 
-md_files = sorted(phase1_dir.glob("*.md"))
+md_files = sorted(f for f in phase1_dir.glob("*.md") if not f.stem.endswith("-phase2"))
 if not md_files:
     print(f"ERROR: No .md files found in {phase1_dir}")
     sys.exit(1)

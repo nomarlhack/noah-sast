@@ -72,14 +72,14 @@ for f in phase2_files:
         cid = result.get("id")
         status = result.get("status")
         if cid and status and cid in candidates:
-            candidates[cid]["phase2_status"] = status
+            candidates[cid]["status"] = status
             if status == "confirmed":
-                candidates[cid]["phase2_evidence"] = result.get("evidence", "")
+                candidates[cid]["evidence"] = result.get("evidence", "")
             elif status == "safe":
-                candidates[cid]["phase2_defense_layer"] = result.get("defense_layer", "")
-                candidates[cid]["phase2_defense_detail"] = result.get("defense_detail", "")
+                candidates[cid]["defense_layer"] = result.get("defense_layer", "")
+                candidates[cid]["defense_detail"] = result.get("defense_detail", "")
             elif status == "candidate":
-                candidates[cid]["phase2_reason"] = result.get("reason", "")
+                candidates[cid]["reason"] = result.get("reason", "")
             updated += 1
 
 # 4. 갱신된 master-list.json 저장

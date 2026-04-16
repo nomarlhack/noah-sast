@@ -93,9 +93,9 @@ class TestUpdatePhase2Status(unittest.TestCase):
         with open(mp, encoding="utf-8") as f:
             data = json.load(f)
         by_id = {c["id"]: c for c in data["candidates"]}
-        self.assertEqual(by_id["XSS-1"]["phase2_status"], "confirmed")
-        self.assertEqual(by_id["XSS-2"]["phase2_status"], "safe")
-        self.assertNotIn("phase2_status", by_id["SSRF-1"])
+        self.assertEqual(by_id["XSS-1"]["status"], "confirmed")
+        self.assertEqual(by_id["XSS-2"]["status"], "safe")
+        self.assertNotIn("status", by_id["SSRF-1"])
 
     def test_no_phase2_files(self):
         """Phase 2 파일 없음 → 갱신 없이 exit 0"""
