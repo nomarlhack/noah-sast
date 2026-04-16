@@ -11,7 +11,7 @@
 1. 해당 스캐너의 phase2.md를 Read
 2. Phase 1 결과 파일(`<PHASE1_RESULTS_DIR>/<scanner-name>.md`)을 Read하여 테스트할 후보 목록 확인
 3. guidelines-phase2.md와 phase2.md의 지침을 그대로 따라 동적 테스트 수행
-4. 결과를 guidelines-phase2.md 지침 3의 형식으로 반환
+4. guidelines-phase2.md 지침 1 및 지침 3에 따라 결과 파일을 `<PHASE1_RESULTS_DIR>/<scanner-name>-phase2.md`에 저장하고 요약을 반환
 
 이미 읽은 파일은 다시 읽지 마세요.
 
