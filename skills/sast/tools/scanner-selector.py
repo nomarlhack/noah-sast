@@ -27,8 +27,11 @@ def has_file(*patterns):
 def read_pkg_json():
     pkg_path = os.path.join(PROJECT_ROOT, "package.json")
     if os.path.exists(pkg_path):
-        with open(pkg_path, encoding="utf-8") as f:
-            return json.load(f)
+        try:
+            with open(pkg_path, encoding="utf-8") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            print(f"WARNING: package.json 파싱 실패 ({e}), 건너뜁니다", file=sys.stderr)
     return {}
 
 def has_dependency(pkg, *names):
@@ -40,8 +43,12 @@ def read_index(scanner_name):
     path = os.path.join(INDEX_DIR, f"{scanner_name}.json")
     if not os.path.exists(path):
         return {}, 0
-    with open(path, encoding="utf-8") as f:
-        data = json.load(f)
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        print(f"WARNING: {scanner_name}.json 파싱 실패 ({e}), 건너뜁니다", file=sys.stderr)
+        return {}, 0
     total = sum(len(v) for v in data.values())
     return data, total
 

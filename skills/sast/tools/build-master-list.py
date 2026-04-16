@@ -18,6 +18,10 @@ import sys
 from pathlib import Path
 from datetime import datetime, timezone
 
+if len(sys.argv) < 3:
+    print("Usage: python3 build-master-list.py <PHASE1_RESULTS_DIR> <OUTPUT_JSON>", file=sys.stderr)
+    sys.exit(1)
+
 phase1_dir = Path(sys.argv[1])
 out_path = Path(sys.argv[2])
 
@@ -57,7 +61,11 @@ if not md_files:
     sys.exit(1)
 
 for md in md_files:
-    text = md.read_text(encoding="utf-8")
+    try:
+        text = md.read_text(encoding="utf-8")
+    except (UnicodeDecodeError, OSError) as e:
+        errors.append(f"[{md.stem}] 파일 읽기 실패: {e}")
+        continue
     scanner = md.stem
 
     # 1. Manifest 추출

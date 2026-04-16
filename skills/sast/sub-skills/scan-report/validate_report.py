@@ -16,7 +16,11 @@ if len(args) < 1:
     print("Usage: python3 validate_report.py [확인됨+후보 건수] [보고서명] [--chain-analysis]")
     sys.exit(1)
 
-expected = int(args[0])
+try:
+    expected = int(args[0])
+except ValueError:
+    print(f"ERROR: 첫 번째 인자는 정수여야 합니다 (입력: {args[0]!r})", file=sys.stderr)
+    sys.exit(1)
 report_name = args[1] if len(args) > 1 else "noah-sast-report"
 check_chain = '--chain-analysis' in flags
 

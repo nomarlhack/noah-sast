@@ -8,7 +8,12 @@ Usage:
 import re, sys
 
 html_path = sys.argv[1] if len(sys.argv) > 1 else "noah-sast-report.html"
-html = open(html_path, encoding='utf-8').read()
+try:
+    with open(html_path, encoding='utf-8') as f:
+        html = f.read()
+except FileNotFoundError:
+    print(f"LINK FAIL — 파일 없음: {html_path}", file=sys.stderr)
+    sys.exit(1)
 
 # 요약 테이블의 href="#vuln-N" 링크 추출
 hrefs = set(re.findall(r'href="#(vuln-\d+)"', html))
