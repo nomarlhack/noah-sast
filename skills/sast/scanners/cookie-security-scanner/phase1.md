@@ -157,6 +157,22 @@ SameSite=None이면 cross-site 요청에 쿠키가 전송된다.
 
 ---
 
+## 후보 판정 의사결정
+
+| 조건 | 판정 |
+|---|---|
+| 민감 쿠키에 `Secure` 플래그 없음 | 후보 (라벨: `COOKIE_NO_SECURE`) |
+| 민감 쿠키에 `HttpOnly` 플래그 없음 | 후보 (라벨: `COOKIE_NO_HTTPONLY`) |
+| 민감 쿠키에 `SameSite=None` 또는 미설정 + HTTPS | 후보 (라벨: `COOKIE_SAMESITE_NONE`) |
+| 세션/인증 쿠키에 장기 `Max-Age`/`Expires` 설정 (24시간 초과) | 후보 (라벨: `COOKIE_PERSISTENT`) |
+| 민감 쿠키 `Path`/`Domain`이 과도하게 넓음 | 후보 (라벨: `COOKIE_LOOSE_SCOPE`) |
+| `__Secure-`/`__Host-` 접두사에 필수 속성 불일치 | 후보 (라벨: `COOKIE_PREFIX_MISUSE`) |
+| 프레임워크 기본값이 안전 (Spring Boot `HttpOnly=true` 등) | 제외 |
+| 비민감 쿠키 (`theme`, `lang`, `_ga` 등) 속성 누락 | 제외 |
+| CSRF Double Submit 패턴용 HttpOnly 해제 (세션 쿠키 아님) | 제외 |
+| 프록시 레벨에서 Secure 플래그 추가 확인 | 제외 |
+| 환경 분기로 production에서만 Secure 설정 확인 | 제외 |
+
 ## 안전 패턴 카탈로그 (FP Guard)
 
 - **프레임워크 기본 보안**: Spring Boot 2.x+ `HttpOnly=true` 기본, Django `SESSION_COOKIE_HTTPONLY=True` 기본, Rails 세션 쿠키 `HttpOnly=true` 기본
