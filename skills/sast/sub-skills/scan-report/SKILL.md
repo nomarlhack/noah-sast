@@ -1,3 +1,8 @@
+---
+name: scan-report
+description: "noah-sast 분석 결과와 동적 테스트 증거를 취합해 통합 및 단일 스캐너 보고서를 작성하는 서브스킬."
+---
+
 # Scan Report — 취약점 스캔 보고서 작성
 
 noah-sast에서 호출되며, `<NOAH_SAST_DIR>`은 이미 결정된 상태이다. 취합된 분석 결과 데이터를 입력받아 보고서를 작성한다.
