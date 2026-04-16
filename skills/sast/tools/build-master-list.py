@@ -27,7 +27,7 @@ MANIFEST_RE = re.compile(
 )
 CANDIDATE_HEADER_RE = re.compile(r"^## ([A-Z]{2,}[A-Z0-9]*-\d+):\s*", re.M)
 
-# Source→Sink Flow 섹션이 선택적인 스캐너 (설정/구성 기반)
+# Source→Sink Flow / Vulnerability Flow 섹션이 선택적인 스캐너 (설정/구성 기반)
 FLOW_OPTIONAL_SCANNERS = {
     "business-logic-scanner",
     "validation-logic-scanner",
@@ -39,7 +39,7 @@ FLOW_OPTIONAL_SCANNERS = {
 
 REQUIRED_SECTIONS = [
     ("### Code", 20),
-    ("### Source→Sink Flow", 50),
+    ("### Source→Sink Flow|### Vulnerability Flow", 50),
     ("### Validation Logic", 80),
     ("### Trigger Conditions", 80),
     ("### Decision", 40),
@@ -124,7 +124,7 @@ for md in md_files:
             sm = sub_re.search(section)
             if not sm:
                 # 설정 기반 스캐너에서 Source→Sink Flow/Vulnerability Flow 누락은 정상
-                is_flow_section = "Source→Sink Flow" in sub_name
+                is_flow_section = "Source→Sink Flow" in sub_name or "Vulnerability Flow" in sub_name
                 if is_flow_section and scanner in FLOW_OPTIONAL_SCANNERS:
                     pass  # 경고 생략
                 else:
