@@ -113,8 +113,19 @@ def read_python_deps():
         try:
             with open(pyproject, encoding="utf-8") as f:
                 content = f.read()
-            for m in re.finditer(r'"([a-zA-Z0-9_-]+)', content):
-                deps.add(m.group(1).lower())
+            # PEP 621 dependencies + optional-dependencies 섹션만 파싱
+            in_deps = False
+            for line in content.split("\n"):
+                stripped = line.strip()
+                if re.match(r"^(dependencies|optional-dependencies)\s*=", stripped) or re.match(r"^\[project\.optional-dependencies", stripped):
+                    in_deps = True
+                    continue
+                if stripped.startswith("[") and "dependencies" not in stripped.lower():
+                    in_deps = False
+                    continue
+                if in_deps:
+                    for m in re.finditer(r'"([a-zA-Z0-9_-]+)', stripped):
+                        deps.add(m.group(1).lower())
         except (OSError, UnicodeDecodeError):
             pass
     return deps
