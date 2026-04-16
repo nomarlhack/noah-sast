@@ -41,6 +41,7 @@ ${CLAUDE_PLUGIN_ROOT}/skills/sast
     grep-agent.md                  ← grep 인덱싱 에이전트 프롬프트
     phase1-group-agent.md          ← Phase 1 그룹 에이전트 프롬프트
     ai-discovery-agent.md          ← AI 자율 취약점 탐색 에이전트 프롬프트
+    phase2-agent.md                ← Phase 2 동적 테스트 에이전트 프롬프트
   scanners/                        ← 41개 취약점 스캐너
     xss-scanner/
     sqli-scanner/
@@ -48,6 +49,8 @@ ${CLAUDE_PLUGIN_ROOT}/skills/sast
   tools/                           ← Python 유틸리티 스크립트
     scanner-selector.py
     build-master-list.py
+    update-phase2-status.py
+    validate_actuator.py
   sub-skills/                      ← 내부 서브스킬
     scan-report/
     scan-report-review/
