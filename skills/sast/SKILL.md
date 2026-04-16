@@ -357,6 +357,8 @@ sandbox 도메인: <SANDBOX_DOMAIN>
 
 사용자가 동적 테스트를 명시적으로 거부한 경우("동적 테스트 안 해도 돼", "소스코드 분석만 해줘" 등)에만 동적 분석을 건너뛰고 Step 3-6(연계 분석)으로 진행한다.
 
+**[필수] master-list.json 상태 갱신:** Step 3-7 체크리스트에서 각 후보의 최종 상태(확인됨/후보/안전)가 확정되면, `<PHASE1_RESULTS_DIR>/master-list.json`을 Edit 도구로 읽어 각 후보의 `"status"` 필드를 `"confirmed"`, `"candidate"`, `"safe"` 중 하나로 갱신한다. 연계 분석 에이전트가 master-list.json에서 최종 상태를 직접 읽으므로, 이 갱신이 Step 3-6 진입 전에 완료되어야 한다.
+
 #### Step 3-6: 연계 분석
 
 동적 분석 완료 후, "안전" 판정을 제외하고 후보가 2건 이상 남아 있는 경우 `<NOAH_SAST_DIR>/sub-skills/chain-analysis/SKILL.md`에 정의된 프로세스에 따라 **연계 분석 에이전트**를 실행한다. 2건 미만이면 이 단계를 건너뛴다.
@@ -425,7 +427,7 @@ Step 1에서 추출한 `SANDBOX_DOMAINS`가 있으면, 보고서 서브에이전
 - 후보 마스터 목록: `<PHASE1_RESULTS_DIR>/master-list.json` (각 후보의 최종 상태: 확인됨/후보/안전)
 - 스캐너별 Phase 1 소스코드 분석 결과: `<PHASE1_RESULTS_DIR>/<scanner-name>.md` 파일들
 - AI 자율 탐색 결과: `<PHASE1_RESULTS_DIR>/ai-discovery.md` (후보 0건이면 생략 가능)
-- 스캐너별 동적 분석 결과 (curl 요청/응답 또는 Playwright 실행 결과 증거)
+- 스캐너별 동적 분석 결과: 각 Phase 2 에이전트의 반환 텍스트(재현 방법 및 POC + 동적 테스트 실행 결과 파트)를 scan-report Step 2 서브에이전트 프롬프트에 해당 스캐너 데이터로 포함한다
 - 연계 분석 결과 (전제조건 매트릭스, 연계 매트릭스, 공격 체인 또는 "체인 없음" 판정 사유, 독립 후보 정리, 위험도 재평가)
 - **SANDBOX_DOMAINS**: 확인된 sandbox 도메인 매핑 (확인받은 경우)
 - 이상 없음 스캐너의 점검 항목 요약
