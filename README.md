@@ -33,7 +33,7 @@ Claude Code에서 다음 중 하나를 입력합니다:
 
 > `sast`, `소스코드 취약점 스캔` 등으로도 트리거됩니다.
 
-### 실행 흐름
+## 실행 흐름
 
 ```mermaid
 flowchart TD
@@ -68,53 +68,6 @@ flowchart TD
     style UserReply fill:#533483,stroke:#533483,color:#fff
 ```
 
-## 디렉토리 구조
-
-```
-noah-8719/                                    # 플러그인 루트
-├── .claude-plugin/
-│   └── plugin.json                           # 플러그인 매니페스트 (name: noah-8719)
-│
-├── hooks/
-│   └── hooks.json                            # 보안 후크
-│
-├── skills/
-│   └── sast/                                 # SAST 스킬 (/noah-8719:sast)
-│       ├── SKILL.md                          # 오케스트레이터
-│       ├── scanners/                         # 41개 취약점 스캐너
-│       │   ├── xss-scanner/
-│       │   ├── sqli-scanner/
-│       │   └── ... (41개)
-│       ├── prompts/                          # 서브 에이전트 지시 문서
-│       ├── tools/                            # Python 유틸리티
-│       ├── sub-skills/                       # 내부 서브스킬
-│       │   ├── scan-report/
-│       │   ├── scan-report-review/
-│       │   ├── chain-analysis/
-│       │   (webapp-testing/ 제거됨)
-│       └── tests/                            # grep 커버리지 테스트
-│
-├── install.sh
-├── uninstall.sh
-├── VERSION
-├── LICENSE
-└── README.md
-```
-
----
-
-## 목차
-
-- [개요](#개요)
-- [실행 프로세스](#실행-프로세스)
-- [스캐너 목록](#스캐너-목록)
-- [개별 스캐너 구조](#개별-스캐너-구조)
-- [분석 방법론](#분석-방법론)
-- [보고서 파이프라인](#보고서-파이프라인)
-- [스크립트 참조](#스크립트-참조)
-
----
-
 ## 개요
 
 Noah SAST는 Claude Code의 **스킬(Skill)** 시스템 위에 구축된 통합 취약점 분석 프레임워크입니다.
@@ -123,274 +76,13 @@ Noah SAST는 Claude Code의 **스킬(Skill)** 시스템 위에 구축된 통합 
 |-----------|------|
 | **중복 탐색 방지** | Step 0에서 모든 grep 패턴을 사전 인덱싱하여 개별 스캐너가 코드베이스를 중복 탐색하지 않음 |
 | **병렬 실행** | 스캐너 그룹을 Agent 도구로 동시 실행 (grep 히트 수 기반 동적 리밸런싱) |
-| **단일 진실 원천** | `master-list.json` 파일이 전체 프로세스의 유일한 상태 저장소 (파일 기반, 컨텍스트 압축에 안전) |
+| **단일 진실 원천** | `master-list.json` 파일이 전체 프로세스의 유일한 상태 저장소 |
 | **오탐 방지** | Sink-first + Source-first 병행 분석, 보고서 작성 후 소스코드 대조 검증 |
-| **다국어 지원** | Node.js, Python, Ruby, Java 매니페스트에서 의존성을 파싱하여 정확한 스캐너 선별 |
+| **다국어 지원** | Node.js, Python, Ruby, Java, Go 매니페스트에서 의존성을 파싱하여 스캐너 선별 |
 
 **지원 범위:** Kotlin, Java, TypeScript, JavaScript, Python, Go, Ruby, PHP, C# 등 80+ 확장자. Spring Boot, React, Vue, Django, Express 등 주요 프레임워크의 보안 패턴 인식.
 
----
-
-## 실행 프로세스
-
-### Step 0: 패턴 사전 인덱싱
-
-개별 스캐너가 코드베이스를 중복 탐색하는 것을 방지하기 위해, 41개 스캐너의 grep 패턴을 일괄 실행하여 인덱스를 생성합니다.
-
-```mermaid
-flowchart LR
-    Agent["grep 인덱싱 에이전트\n(prompts/grep-agent.md)"]
-    Agent -->|"41개 phase1.md\nfrontmatter 파싱"| Grep["grep -rn 일괄 실행\n80+ 확장자 화이트리스트"]
-    Grep -->|스캐너별 JSON 저장| Dir[("패턴 인덱스\nxss-scanner.json\nssrf-scanner.json\n...")]
-
-    style Agent fill:#16213e,stroke:#0f3460,color:#eee
-    style Grep fill:#0f3460,stroke:#533483,color:#eee
-    style Dir fill:#1a1a2e,stroke:#e94560,color:#eee
-```
-
-#### Step 0-1: grep 인덱싱 에이전트 실행
-
-메인 에이전트가 `PATTERN_INDEX_DIR`(grep 인덱스)과 `PHASE1_RESULTS_DIR`(Phase 1 결과) 경로를 생성하고, `prompts/grep-agent.md`의 지시를 따르는 서브 에이전트를 생성합니다. 이 에이전트가 수행하는 작업:
-
-1. 41개 스캐너의 `phase1.md` frontmatter에서 `grep_patterns:` 추출
-2. 80+ 확장자 화이트리스트로 프로젝트 전체 grep 실행
-3. 스캐너별 JSON 파일로 결과 저장
-
-**패턴 인덱스 파일 형식:**
-
-```json
-{
-  "innerHTML": ["src/components/Comment.tsx:18", "src/components/Post.tsx:55"],
-  "dangerouslySetInnerHTML": ["src/components/Comment.tsx:42"],
-  "html_safe": []
-}
-```
-
-- `파일경로:라인번호` 형식 (코드 내용 미포함)
-- 히트 없는 패턴도 빈 배열로 포함
-- 개별 스캐너 에이전트는 자신의 JSON 파일만 읽어 분석 시작
-
-#### Step 0-2: 카운트 요약 수신
-
-grep 에이전트가 반환한 스캐너별 히트 건수를 보관합니다.
-
----
-
-### Step 1: 프로젝트 스택 파악
-
-모든 스캐너에 공통으로 필요한 프로젝트 정보를 파악합니다:
-
-| 파악 항목 | 확인 대상 |
-|-----------|----------|
-| 프레임워크/언어 | `package.json`, `build.gradle.kts`, `requirements.txt`, `Gemfile`, `pom.xml` 등 |
-| DB 종류 | MySQL, PostgreSQL, MongoDB, Redis, LDAP 등 |
-| 인증 방식 | 세션 기반, JWT, OAuth, SAML 등 |
-| 인프라 구조 | 프록시, CDN, 로드밸런서, 마이크로서비스 여부 |
-
-이 정보는 모든 그룹 에이전트 프롬프트에 공통 컨텍스트로 전달됩니다.
-
----
-
-### Step 2: 스캐너 선별
-
-#### Step 2-1: 자동 선별 (scanner-selector.py)
-
-`tools/scanner-selector.py`가 grep 인덱스 + 프로젝트 의존성을 기반으로 자동 선별합니다.
-
-```bash
-python3 tools/scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT>
-```
-
-| 조건 | 판정 |
-|------|------|
-| grep 히트 1건 이상 | **반드시 포함** |
-| grep 히트 0건 + 관련 라이브러리 존재 | 포함 |
-| grep 히트 0건 + 관련 라이브러리 없음 | 제외 (사유 명시) |
-
-**다국어 의존성 파싱:** `package.json`(Node.js)뿐 아니라 `requirements.txt`/`Pipfile`/`pyproject.toml`(Python), `Gemfile`(Ruby), `pom.xml`/`build.gradle`(Java)에서도 실제 패키지명을 파싱합니다.
-
-스크립트 출력:
-- 적용/제외 판정 테이블 (grep 히트 건수 + 사유)
-- 적용 스캐너 목록
-- **그룹 편성** (grep 히트 수 기반 동적 리밸런싱)
-
-#### Step 2-2: AI 검토
-
-스크립트는 라이브러리 의존성 + grep 히트 수만으로 판단하므로, 메인 에이전트가 제외된 스캐너를 추가 검토합니다:
-
-- 표준 라이브러리로 직접 구현한 경우 (예: `fetch()`로 SSRF, `xml.etree`로 XXE)
-- 프레임워크 내장 기능 (예: Spring `RestTemplate`, Django ORM `raw()`)
-- 멀티 언어 프로젝트에서 다른 서브프로젝트의 의존성
-
-> **기본 원칙: 포함이 기본이고, 제외에는 근거가 필요합니다.**
-
----
-
-### Step 3: 분석 실행
-
-#### Step 3-1: Phase 1 정적 분석 (병렬)
-
-선별된 스캐너를 의미적 연관성 기반 그룹으로 묶어 **단일 응답에서 모든 그룹의 Agent를 동시 호출**합니다. 과부하 그룹(grep 히트 합계 150건 초과 또는 5개 이상)은 자동 분할됩니다.
-
-**기본 그룹 (과부하 시 자동 분할):**
-
-| 그룹 | 스캐너 |
-|------|--------|
-| url-navigation | xss, dom-xss, open-redirect |
-| response-header | crlf-injection, host-header, http-method-tampering |
-| db-query | sqli, nosqli |
-| process-execution | command-injection, ssti |
-| server-request | ssrf, pdf-generation |
-| file-system | path-traversal, file-upload, zipslip |
-| xml-serialization | xxe, xslt-injection, deserialization |
-| auth-protocol | jwt, oauth, saml, csrf, idor, cookie-security |
-| client-rendering | redos, css-injection, prototype-pollution |
-| infra-config | http-smuggling, sourcemap, subdomain-takeover, security-headers, springboot-hardening, tls |
-| data-export | csv-injection |
-| protocol-check | graphql, websocket, soapaction-spoofing, ldap-injection, xpath-injection |
-| business-logic | business-logic, validation-logic |
-
-각 그룹 에이전트(`prompts/phase1-group-agent.md`)의 분석 흐름:
-
-1. `prompts/guidelines-phase1.md` (공통 지침) 읽기
-2. 그룹 내 각 스캐너의 `phase1.md` 읽기 → Sink 의미론, 안전 패턴 카탈로그 파악
-3. 패턴 인덱스 JSON 읽기 → 분석 대상 파일 확정
-4. **Sink-first 분석**: 패턴 인덱스의 모든 파일을 전수 분석 (하한선)
-5. **Source-first 분석**: 사용자 입력 Source에서 위험 함수까지 추적
-6. **래퍼 함수 재귀 추적**: 유틸리티 파일의 Sink를 호출하는 코드까지 최대 3단계 추적
-7. 분석 결과를 Write 도구로 `<PHASE1_RESULTS_DIR>/<scanner-name>.md`에 저장 (manifest 블록 포함)
-8. 스캐너별 후보 건수 요약만 반환
-
-**결과 검증:** 모든 그룹 에이전트 완료 후 `build-master-list.py`를 실행하여 결과를 검증하고 `master-list.json`을 생성합니다. 이 파일이 이후 모든 단계의 단일 진실 원천입니다.
-
-#### Step 3-2: AI 자율 취약점 탐색
-
-Phase 1 정적 분석 완료 후, 구조화된 스캐너(grep 패턴 기반)가 놓칠 수 있는 취약점을 AI가 코드를 직접 읽으며 자율적으로 탐색합니다. 메인 에이전트가 **단일 프롬프트에 3단계 탐색 지시를 포함**하여 전달하고, 에이전트가 내부적으로 순차 수행합니다.
-
-**3단계 탐색:**
-
-| 단계 | 탐색 방향 | 설명 |
-|------|---------|------|
-| 1 | 자유 탐색 | 스캐너 카테고리에 구속되지 않는 전방위 소스코드 분석 |
-| 2 | Phase 1 공백 집중 | master-list.json 커버리지 기반으로 비즈니스 로직, 인증·인가, Race Condition, Mass Assignment 등 집중 |
-| 3 | 잔여 영역 | 탐색하지 않은 파일과 코드 영역 마무리 |
-
-에이전트(`prompts/ai-discovery-agent.md`)의 실행 흐름:
-
-1. **Agent 생성**: 단일 프롬프트에 `ai-discovery-agent.md` Read 지시 + 3단계 탐색 지시 + 프로젝트 컨텍스트 + master-list.json 경로 전달.
-2. **내부 3단계 순차 수행**: 에이전트가 각 단계에서 읽은 코드와 발견을 컨텍스트에 누적하며 점진적으로 심화 탐색.
-3. **필터링 + 저장**: "후보 등록 제외 기준" 7개 항목 적용 후 `<PHASE1_RESULTS_DIR>/ai-discovery.md`에 저장 (후보별 5개 필수 섹션 + manifest + 탐색 커버리지). 후보 건수 요약 반환.
-
-**결과 파일 저장 및 마스터 목록 갱신:**
-
-에이전트가 `ai-discovery.md`에 결과를 저장한 후:
-
-1. `AI-PENDING-N`을 `AI-1`, `AI-2`, ... 형식의 고유 ID로 재번호 (`ai-discovery.md`의 헤더/manifest도 갱신)
-2. `build-master-list.py`를 재실행하여 AI 결과를 포함한 전체 마스터 목록을 재생성하고 구조 검증
-
-**Phase 1과의 중복 제거를 수행하지 않습니다.** AI와 Phase 1이 같은 취약점을 찾으면 이중 검증으로 간주합니다. 보고서에서 AI 자율 탐색 결과는 별도 섹션(`## AI 자율 탐색 결과`)으로 분리되므로 중복이 혼란을 주지 않습니다. 후보 0건도 정상입니다.
-
-#### Step 3-3: 동적 분석 정보 요청
-
-Phase 1 및 AI 자율 탐색에서 후보가 발견되면, 동적 테스트에 필요한 정보를 한번에 사용자에게 요청합니다:
-
-```
-## 동적 테스트 진행을 위해 필요한 정보
-
-1. **테스트 환경 URL**: https://sandbox-...
-2. **세션 쿠키/인증 토큰**: (로그인 후 쿠키 값)
-3. **[XSS 후보 2건]**: 추가 정보 불필요
-4. **[SSRF 후보 1건]**: 외부 콜백 서비스 URL (webhook.site 등)
-5. **[OAuth 후보 1건]**: OAuth 인가 코드 (수동 획득 필요)
-```
-
-이 시점에서 사용자의 응답을 기다립니다. 사용자가 명시적으로 거부한 경우에만 동적 분석을 건너뜁니다.
-
-#### Step 3-4: 도구 권한 사전 확인
-
-동적 테스트에 필요한 도구(`curl`, `node`, `npx`, `python3`) 권한이 Claude Code `settings.json`의 `permissions.allow`에 포함되어 있는지 확인합니다. 누락 시 사용자에게 추가 여부를 묻습니다.
-
-#### Step 3-5: Phase 2 동적 분석 (Tier 기반 병렬화)
-
-후보가 발견된 모든 스캐너에 대해 동적 테스트를 수행합니다. 인증 컨텍스트에 따라 3개 Tier로 분류하여, Tier 간 병렬 실행합니다.
-
-| Tier | 특성 | 해당 스캐너 | 실행 방식 |
-|------|------|------------|----------|
-| **A** | 인증 불요 | security-headers, http-smuggling, host-header, http-method-tampering, crlf-injection, sourcemap, subdomain-takeover, tls | Tier 내 순차, 다른 Tier와 **병렬** |
-| **B** | 공유 세션 | xss, sqli, ssrf 등 대부분의 스캐너 | Tier 내 **순차** |
-| **C** | 독립 인증 | oauth, saml, jwt | Tier 내 순차, Tier B와 **병렬** |
-
-각 스캐너 에이전트는:
-1. `prompts/guidelines-phase2.md` (공통 지침) 읽기
-2. 해당 스캐너의 `phase2.md` 읽기
-3. Phase 1 결과 파일(`<PHASE1_RESULTS_DIR>/<scanner-name>.md`) 읽기 → 테스트할 후보 확인
-4. **도메인 분류** (sandbox만 허용, prod/cbt/staging 차단)
-5. 모든 후보에 대해 curl/Playwright로 테스트 실행
-6. 결과를 `확인됨`/`후보`/`안전`으로 판정
-
-**도메인 안전 규칙:** sandbox/dev 키워드가 있는 도메인만 테스트 허용. prod, cbt, staging 도메인에서는 동적 테스트를 절대 수행하지 않습니다.
-
-#### Step 3-6: 연계 분석
-
-동적 분석 완료 후, "안전" 판정을 제외하고 후보가 2건 이상 남아 있으면 `sub-skills/chain-analysis/SKILL.md`에 따라 연계 분석 에이전트를 실행합니다. 동적 분석 결과(확인됨/후보/안전)를 반영하여 더 정확한 공격 체인을 구성합니다.
-
-```mermaid
-flowchart LR
-    P["전제조건\n매트릭스"] --> M["연계\n매트릭스"]
-    M --> R["R1~R5\n규칙 검사"]
-    R -->|통과| C["공격 체인\n구성"]
-    R -->|폐기| I["독립 후보\n정리"]
-
-    style P fill:#16213e,stroke:#0f3460,color:#eee
-    style M fill:#16213e,stroke:#0f3460,color:#eee
-    style R fill:#533483,stroke:#533483,color:#fff
-    style C fill:#e94560,stroke:#e94560,color:#fff
-    style I fill:#0f3460,stroke:#0f3460,color:#eee
-```
-
-| 단계 | 설명 |
-|------|------|
-| 전제조건 매트릭스 | 각 후보의 트리거 전제조건을 `[권한]`/`[데이터]`/`[네트워크]`/`[환경]`으로 분류 |
-| 연계 매트릭스 | "후보 A의 출력이 후보 B의 입력 sink에 코드 경로로 도달하는가?" (파일:라인 2개 이상 필수) |
-| 체인 구성 규칙 검사 | R1~R5 — 1개라도 해당 시 폐기 |
-| 공격 체인 구성 | 규칙 검사 통과한 것만 "완전 체인" 또는 "부분 체인"으로 작성 |
-| 독립 후보 정리 | 체인에 미포함된 후보별 사유 테이블 |
-| 체인 신뢰도 분류 | 모든 단계 "확인됨" → 고신뢰 / 일부 "후보" 포함 → 중신뢰 |
-
-> 체인 0건은 정상 결과입니다. 억지 체인 1건보다 무체인 결론이 우월합니다.
-
-#### Step 3-7: 결과 검증
-
-모든 동적 분석 및 연계 분석 완료 후, **보고서 작성 전에** 체크리스트를 출력합니다:
-
-```
-| ID | 후보 제목 | 테스트 수행 | 결과 | 미수행 사유 |
-|----|----------|------------|------|------------|
-| XSS-1 | Comment innerHTML | ✓ | 확인됨 | — |
-| SSRF-2 | Webhook URL fetch | ✗ | — | [환경 제한] |
-```
-
-미수행 항목에 대한 즉시 조치:
-
-| 사유 태그 | 조치 |
-|-----------|------|
-| `[도구 한계]` | 메인 에이전트가 직접 해당 테스트를 재실행 |
-| `[정보 부족]` | 사용자에게 추가 정보 요청 |
-| `[환경 제한]` | "후보"로 보고서에 포함 (사유 명시) |
-
-**최종 점검:** 모든 항목에 상태가 부여되고, 모든 후보에 실제 URL 경로가 확정된 후에만 Step 4로 진행합니다.
-
----
-
-### Step 4: 보고서 생성
-
-`sub-skills/scan-report/SKILL.md`에 따라 통합 보고서를 생성합니다. 상세 흐름은 [보고서 파이프라인](#보고서-파이프라인) 참조.
-
----
-
 ## 스캐너 목록
-
-### 41개 취약점 스캐너
 
 | # | 스캐너 | 취약점 유형 | 그룹 |
 |---|--------|-----------|------|
@@ -433,317 +125,44 @@ flowchart LR
 | 37 | business-logic-scanner | Business Logic Vulnerabilities | business-logic |
 | 38 | springboot-hardening-scanner | Spring Boot Hardening (설정 보안) | infra-config |
 | 39 | cookie-security-scanner | Cookie Security (Secure, HttpOnly, Persistent 등) | auth-protocol |
-| 40 | tls-scanner | TLS/SSL Misconfiguration (Heartbleed, Padding Oracle, Weak Cipher 등) | infra-config |
-| 41 | validation-logic-scanner | Validation Logic Mismatch (Type Confusion, Null Safety, Schema Defect) | business-logic |
+| 40 | tls-scanner | TLS/SSL Misconfiguration | infra-config |
+| 41 | validation-logic-scanner | Validation Logic Mismatch | business-logic |
 
----
-
-## 개별 스캐너 구조
-
-각 스캐너는 동일한 디렉토리 구조를 따릅니다:
+## 디렉토리 구조
 
 ```
-noah-sast/scanners/{scanner-name}/
-├── phase1.md      # 정적 분석 지침 (frontmatter grep_patterns + Sink 의미·판정·안전 패턴)
-└── phase2.md      # 동적 테스트 지침 (테스트 절차, 도구, 스캐너별 확인됨 조건)
+noah-8719/
+├── .claude-plugin/
+│   └── plugin.json                # 플러그인 매니페스트
+├── hooks/
+│   └── hooks.json                 # 보안 후크
+├── skills/
+│   └── sast/
+│       ├── SKILL.md               # 오케스트레이터 (실행 프로세스 상세)
+│       ├── scanners/              # 41개 취약점 스캐너 (각 phase1.md + phase2.md)
+│       ├── prompts/               # 서브 에이전트 지시 문서
+│       ├── tools/                 # Python 유틸리티 스크립트
+│       ├── sub-skills/            # 내부 서브스킬
+│       │   ├── scan-report/       # 보고서 생성
+│       │   ├── scan-report-review/# 보고서 정확성 검증
+│       │   └── chain-analysis/    # 공격 체인 연계 분석
+│       └── tests/
+├── install.sh
+├── uninstall.sh
+├── VERSION
+├── LICENSE
+└── README.md
 ```
 
-> grep 패턴은 각 스캐너의 `phase1.md` 최상단 YAML frontmatter (`grep_patterns:`)에 정의되어 있다. Step 0 grep 인덱싱 에이전트가 41개 phase1.md frontmatter를 직접 파싱하여 사용한다. 별도 통합 yml 파일은 없다.
+## 상세 문서
 
-### phase1.md 핵심 구조
-
-```markdown
----
-grep_patterns:
-  - "innerHTML"
-  - "dangerouslySetInnerHTML"
-  - "\\.html\\s*\\("
-  # ...
----
-
-> ## 핵심 원칙: "..."
-
-## Sink 의미론
-## Source-first 추가 패턴
-## 자주 놓치는 패턴 (Frequently Missed)
-## 안전 패턴 카탈로그 (FP Guard)
-## 후보 판정 의사결정
-## 후보 판정 제한
-```
-
----
-
-## 분석 방법론
-
-### Sink-first + Source-first 병행
-
-```mermaid
-flowchart TB
-    subgraph SinkFirst["Sink-first (패턴 인덱스 기반)"]
-        SI1["패턴 인덱스에서\nSink 위치 확인"]
-        SI2["Sink 코드를\nRead로 확인"]
-        SI3["Source(사용자 입력)까지\n역방향 추적"]
-    end
-
-    subgraph SourceFirst["Source-first (입력값 추적)"]
-        SO1["@RequestParam, req.query 등\n입력 지점에서 출발"]
-        SO2["입력값이 위험 함수에\n도달하는지 추적"]
-        SO3["패턴 인덱스에 없는\nSink도 발견 가능"]
-    end
-
-    SI1 --> SI2 --> SI3
-    SO1 --> SO2 --> SO3
-    SI3 --> Result["후보 판정"]
-    SO3 --> Result
-
-    style SinkFirst fill:#16213e,stroke:#e94560,color:#eee
-    style SourceFirst fill:#16213e,stroke:#533483,color:#eee
-    style Result fill:#e94560,stroke:#e94560,color:#fff
-```
-
-### 판정 기준
-
-| 판정 | 조건 |
-|------|------|
-| **후보** | Source→Sink 경로가 존재하고 중간에 검증/살균이 없음 |
-| **안전** | 프레임워크 내장 방어, 명시적 sanitize, 타입 제약 등으로 방어됨 |
-| **확인됨** | 동적 테스트에서 실제 트리거 확인 (코드 경로별 개별 증거 필요) |
-
----
-
-## 보고서 파이프라인
-
-보고서 생성은 `scan-report` 스킬이 담당하며, 5단계 파이프라인으로 구성됩니다.
-
-| 단계 | 처리 | 담당 |
+| 문서 | 경로 | 내용 |
 |------|------|------|
-| Step 1 | 스켈레톤 작성 (헤더, 요약, 플레이스홀더) | 메인 에이전트 |
-| Step 2 | 스캐너별 상세 섹션 병렬 작성 | 서브에이전트 |
-| Step 3 | `assemble_report.py`로 MD 조립 + 요약 테이블 자동 생성 | Python 스크립트 |
-| Step 4 | `scan-report-review`로 소스코드 대조 검증 → `md_to_html.py` HTML 변환 | 검증 에이전트 + 스크립트 |
-| Step 5 | `validate_links.py` + `validate_report.py` 정량 검증 | Python 스크립트 |
-
-### 보고서 출력물
-
-| 파일 | 설명 |
-|------|------|
-| `noah-sast-report.md` | 마크다운 원본 |
-| `noah-sast-report.html` | 브라우저용 HTML (단일 파일, 외부 의존성 없음) |
-
----
-
-## 스크립트 참조
-
-### tools/
-
-#### `scanner-selector.py`
-
-스캐너 자동 선별 + 그룹 리밸런싱을 수행하는 CLI 스크립트.
-
-```bash
-python3 tools/scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT>
-```
-
-| 항목 | 설명 |
-|------|------|
-| **입력** | `PATTERN_INDEX_DIR` (Step 0에서 생성된 스캐너별 JSON 인덱스), `PROJECT_ROOT` (프로젝트 루트) |
-| **출력** | stdout — 적용/제외 판정 테이블, 적용 스캐너 목록, 그룹 편성 |
-| **동작** | (1) 각 스캐너 JSON의 히트 합계를 집계 (2) `PROJECT_ROOT`에서 매니페스트 파일(`package.json`, `build.gradle`, `requirements.txt`, `Gemfile`, `pom.xml`, `go.mod` 등)을 파싱하여 라이브러리 의존성 추출 (3) 히트 0건인 스캐너에 대해 아키텍처 조건(관련 라이브러리 존재 여부)으로 제외 판정 (4) 의미적 연관성 기반 그룹 편성 후, grep 히트 합계 150건 초과 또는 5개 이상 그룹은 자동 분할 |
-| **제외 조건** | grep 0건 + 관련 라이브러리 없음 → 제외. 제외 사유를 테이블에 명시 |
-
-#### `validate_actuator.py`
-
-Actuator endpoint 동적 테스트 전 URL 안전성을 검증하는 가드 스크립트. `springboot-hardening-scanner`의 Phase 2에서 모든 curl 실행 전에 호출된다.
-
-```bash
-python3 tools/validate_actuator.py <URL>
-```
-
-| 항목 | 설명 |
-|------|------|
-| **입력** | 테스트 대상 URL |
-| **출력** | exit 0 (테스트 허용) 또는 exit 1 (테스트 금지) |
-| **차단 대상** | `/actuator/shutdown`, `/actuator/refresh` — 파괴적 endpoint에 대한 HTTP 요청을 사전 차단 |
-
----
-
-#### `build-master-list.py`
-
-Phase 1 결과 파일을 검증하고 `master-list.json`을 생성하는 스크립트.
-
-```bash
-python3 tools/build-master-list.py <PHASE1_RESULTS_DIR> <PHASE1_RESULTS_DIR>/master-list.json
-```
-
-| 항목 | 설명 |
-|------|------|
-| **입력** | `PHASE1_RESULTS_DIR` — Phase 1 결과 MD 파일 디렉토리 (`<scanner-name>.md` 파일들) |
-| **출력** | 두 번째 인자로 지정한 JSON 파일 (보통 `<PHASE1_RESULTS_DIR>/master-list.json`) |
-| **동작** | (1) 각 결과 MD 파일의 manifest 블록(`<!-- NOAH-SAST MANIFEST v1 -->`)을 파싱 (2) `declared_count`와 실제 `## <ID>:` 헤더 수 교차 검증 (3) 필수 섹션(`### Code`, `### Source→Sink Flow` 등) 존재 및 최소 길이 검사 (4) 동일 file:line 후보 그룹핑 (5) JSON으로 저장 |
-| **검증** | ERROR 시 exit 1 (해당 스캐너 재실행 필요), WARNING 시 exit 0 (품질 확인 권고) |
-
----
-
-### sub-skills/scan-report/
-
-#### `assemble_report.py`
-
-스켈레톤과 서브에이전트 결과를 조립하여 MD 보고서를 생성하는 핵심 조립 스크립트.
-
-```bash
-python3 sub-skills/scan-report/assemble_report.py
-```
-
-| 항목 | 설명 |
-|------|------|
-| **입력** | 스크립트 내부 변수: `skeleton`(보고서 뼈대), `subagent_results`(스캐너별 상세 MD 목록), `chain_analysis`(연계 분석 데이터 dict/JSON), `ai_discovery_results`(AI 자율 탐색 상세 MD), `report_name`(출력 파일명) |
-| **출력** | `{report_name}.md` — 완성된 마크다운 보고서 |
-| **내부 함수** | |
-| `normalize_vuln_headings()` | `**N번 - ID**: 제목` → `#### N. 제목` 헤딩 형식 자동 정규화 |
-| `clean_section()` | 서브에이전트가 포함한 `## 스캐너별 실행 결과` 등 의도치 않은 `##` 헤딩 제거 |
-| `build_chain_section()` | `chain_analysis` dict → `## 공격 시나리오` MD 자동 생성. 체인 테이블 + POC + 독립 후보 테이블 |
-| `build_table_from_details()` | 상세 섹션의 `#### N. 제목`, `**유형**:`, `**상태**:` 필드를 파싱하여 `## 취약점 요약 테이블`을 자동 재생성 (단일 진실 원천) + 헤딩 재번호 |
-| **조립 순서** | (1) `clean_section()` 적용 후 `---`로 join (2) `<!-- SCANNER_SECTIONS_HERE -->` 플레이스홀더 치환 (3) `build_chain_section()` → `<!-- CHAIN_SECTION_HERE -->` 치환 (4) AI 섹션 → `<!-- AI_DISCOVERY_SECTION_HERE -->` 치환 (5) `build_table_from_details()` → 요약 테이블 + 번호 재정렬 |
-
-#### `md_to_html.py`
-
-마크다운 보고서를 단일 파일 HTML로 변환하는 스크립트. 외부 CDN 의존성 없이 인라인 CSS + JS로 동작.
-
-```bash
-python3 sub-skills/scan-report/md_to_html.py [보고서명]
-```
-
-| 항목 | 설명 |
-|------|------|
-| **입력** | `{report_name}.md` (기본: `noah-sast-report.md`) |
-| **출력** | `{report_name}.html` — 단일 파일 HTML 보고서 |
-| **기능** | (1) 총괄 대시보드 카드 (확인됨/후보/이상 없음/미적용 건수) — `N건`/`N개` 접미사로 파싱 (2) `## 스캐너별 실행 결과` 및 `## AI 자율 탐색 결과`를 collapsible `<details>` 섹션으로 변환 (3) `#### N. 제목`에 `id="vuln-N"` 앵커 부여 (4) 코드 블록 구문 하이라이팅 스타일 (5) `<details>` 내부 앵커로의 스크롤을 위한 JS 삽입 |
-
-#### `validate_links.py`
-
-HTML 보고서의 앵커 링크 유효성을 검증하는 스크립트.
-
-```bash
-python3 sub-skills/scan-report/validate_links.py <html_file>
-```
-
-| 항목 | 설명 |
-|------|------|
-| **입력** | HTML 보고서 파일 경로 |
-| **출력** | `LINK OK — N개 앵커 전부 연결됨` 또는 `LINK FAIL` + 끊어진 링크 목록 |
-| **동작** | 요약 테이블의 `href="#vuln-N"` 링크가 HTML 내 `id="vuln-N"` 요소와 1:1 대응하는지 검증 |
-
-#### `validate_report.py`
-
-보고서의 정량적 완전성을 검증하는 스크립트. **FAIL 시 보고서 파일을 자동 삭제**하여 불완전한 보고서 배포를 방지.
-
-```bash
-python3 sub-skills/scan-report/validate_report.py <기대_POC_건수> [보고서명] [--chain-analysis]
-```
-
-| 항목 | 설명 |
-|------|------|
-| **입력** | 기대 POC 건수 (Phase 1 스캐너 후보 + AI 자율 탐색 후보 합산), 보고서명 (기본: `noah-sast-report`), `--chain-analysis` 플래그 |
-| **출력** | `PASS` 또는 `FAIL` + 오류 상세 |
-| **검증 항목** | (1) MD/HTML의 `재현 방법 및 POC` 문자열 카운트 = 기대 건수 (2) 심각도 표시(HIGH/MEDIUM/LOW/CRITICAL) 금지 위반 탐지 (3) `--chain-analysis` 시 `## 공격 시나리오` 섹션 존재 여부 |
-| **FAIL 동작** | `noah-sast-report.md` + `.html` 자동 삭제 → 재생성 강제 |
-
-#### `vuln-format.md`
-
-보고서 서브에이전트가 참조하는 취약점 상세 형식 템플릿. 확인됨/후보/이상 없음 3가지 형식과 통합 보고서 구조, HTML 앵커 스크립트 사양을 정의.
-
----
-
-### sub-skills/scan-report-review/
-
-#### `SKILL.md` + `checklist.md`
-
-MD 보고서 작성 후 HTML 변환 전에 실행되는 정확성 검증 에이전트. `checklist.md`의 체크리스트에 따라 보고서의 각 취약점을 소스코드와 대조하여 부정확한 기술을 식별하고 MD 파일을 직접 수정합니다.
-
-**리뷰 프로세스:**
-
-```mermaid
-flowchart TD
-    S1["Step 1: 보고서 파싱\n후보/확인됨, 이상 없음, 공격 체인 추출"]
-    S2["Step 2: 검증 커버리지 정의\nM_candidates + M_chains + M_safe"]
-    S3["Step 3: 병렬 서브에이전트 검증\n(그룹당 최대 5개)"]
-    S4["Step 4: 서브에이전트가\nchecklist.md 4-1/4-2/4-3 적용"]
-    S45["Step 4.5: Source 도달성 반환 검증\n+ 정확성 Spot-check"]
-    S5["Step 5: MD 파일 수정\n(재분류, 코드 수정, POC 수정)"]
-    S55["Step 5.5: 승격 후보 보완 검증"]
-    S6["Step 6: 리뷰 결과 요약 출력"]
-
-    S1 --> S2 --> S3 --> S4 --> S45 --> S5 --> S55 --> S6
-
-    style S45 fill:#e94560,stroke:#e94560,color:#fff
-    style S55 fill:#e94560,stroke:#e94560,color:#fff
-```
-
-| 단계 | 처리 | 핵심 게이트 |
-|------|------|------------|
-| Step 1 | 보고서에서 후보/확인됨, 이상 없음, 공격 체인 추출 | — |
-| Step 2 | 검증 대상 건수 계산 (M_candidates, M_chains, M_safe) | N == M 아니면 반환 거부 |
-| Step 3 | 항목을 그룹핑하여 서브에이전트 병렬 디스패치 | 그룹당 최대 5개 |
-| Step 4 | 서브에이전트가 checklist.md 지침 적용 | — |
-| Step 4.5 | Source 도달성 라인 존재/근거 검증 + ✓ 유지 항목 Spot-check | 누락 시 재디스패치, 허위 증거 시 전체 재검증 |
-| Step 5 | 판정/Source 도달성 기반 MD 수정 | 폐기 항목은 판정과 무관하게 수집 |
-| Step 5.5 | 이상 없음 → 후보 승격 항목의 Source 도달성 보완 검증 | 폐기 시 승격 취소 |
-| Step 6 | 결과 요약 텍스트 출력 (MD 파일 수정 금지) | M_candidates_final 기반 수량 게이트 |
-
-**검증 체크리스트 (서브에이전트가 각 항목마다 수행):**
-
-| # | 체크리스트 항목 | 설명 |
-|---|----------------|------|
-| 1 | 파일 존재 확인 | 보고서가 참조하는 파일 경로가 실제로 존재하는가 |
-| 2 | 코드 스니펫 정확성 | 인용 코드가 해당 라인에 실제 존재하는가 (±5줄 허용) |
-| 3 | 데이터 흐름 정확성 | Source→Sink 설명이 실제 호출 관계와 일치하는가 |
-| 4 | 부재 주장 검증 | "검증 없음" 주장이 사실인가 (±30줄 + 호출자 체인 + 프레임워크 방어 확인) |
-| 5 | 검증 로직 누락 | 보고서가 언급하지 않은 검증 로직이 존재하는가 |
-| 6 | 이상 없음 판정 검증 | "안전" 근거가 타당하고 놓친 취약 경로가 없는가 |
-| 7 | 복수 요소 커버리지 | 동일 결함의 모든 요소가 보고서에 반영되었는가 |
-| 8 | 다층 관점 통합 | 같은 file:line을 다른 스캐너가 지적한 경우 통합/분리 판정 |
-| 9 | Source 도달성 | Sink 인자가 사용자 제어 가능한 Source에서 유도되는가 |
-
-**Source 도달성 3종 판정 (근거 필수):**
-
-| 판정 | 형식 | 조건 |
-|------|------|------|
-| ✗ 폐기 | `✗ 폐기 (인자 X가 상수 "abc", line 42)` | 최초 대입 지점이 외부 행위자와 인과적으로 분리된 결정론적 값 |
-| ✓ 유지 | `✓ 유지 (source: request.getParameter("url"), File.java:42)` | 최초 대입 지점이 외부 행위자에 의해 직접/간접 제어 가능 |
-| ? 불명확 | `? 불명확 (역추적 3단계 내 확정 불가: IoC 주입)` | 외부 제어 배제 불가, 확정 불가, 판정 불확실 중 하나 이상 해당 |
-
-혼합 케이스(Sink에 여러 호출 경로가 있고 판정이 다른 경우)는 `Source 도달성 [혼합]:` 형식으로 경로별 개별 판정을 나열합니다.
-
-**수정 유형:**
-
-| 유형 | 조치 |
-|------|------|
-| 코드 스니펫/라인 번호 오류 | 해당 부분만 수정 |
-| Source→Sink 흐름 오류 | 해당 섹션 전체 수정 |
-| 부재 주장이 거짓 | 후보→이상 없음 재분류, 또는 검증 로직 추가 기술 |
-| Source 도달성 실패 | 후보→이상 없음 재분류 (총괄 요약, 테이블, 스캐너 섹션 모두 갱신) |
-| 이상 없음이 실은 취약 | 후보로 승격, 상세 섹션 신규 작성 → Step 5.5에서 Source 도달성 보완 검증 |
-| POC 경로/파라미터 오류 | curl 명령어 수정 |
-
-**Spot-check 메커니즘 (Step 4.5):** 메인 에이전트가 각 서브에이전트의 `✓ 유지` 항목 중 최대 2개를 샘플링하여, 반환된 source 지점(`<파일>:<라인>`)을 Read 도구로 직접 교차 검증합니다. 해당 위치에 표현식이 없거나 의미가 다르면 허위 증거로 간주하고, 해당 서브에이전트의 모든 ✓ 유지 항목을 재검증합니다.
-
----
-
-### sub-skills/chain-analysis/
-
-#### `SKILL.md` + `chain-construction-rules.md`
-
-연계 분석 에이전트가 따르는 프로세스. 5단계(전제조건 매트릭스 → 연계 매트릭스 → R1~R5 규칙 검사 → 공격 체인 구성 → 독립 후보 정리)를 수행. `chain-construction-rules.md`에 폐기 규칙(R1: 포함 관계, R2: 정찰 결함, R3: 동일 권한 잉여, R4: 데이터 흐름 부재, R5: Narrative 의존)이 정의되어 있음.
-
----
-
-### prompts/
-
-| 파일 | 역할 |
-|------|------|
-| `grep-agent.md` | Step 0 grep 인덱싱 에이전트 프롬프트. 41개 phase1.md frontmatter에서 패턴 추출 → 80+ 확장자 화이트리스트로 grep 실행 → 스캐너별 JSON 저장. INCLUDE/EXCLUDE 화이트리스트, JSON 형식, 카운트 요약 반환 절차 포함 |
-| `phase1-group-agent.md` | Phase 1 그룹 에이전트 프롬프트. 그룹 내 스캐너를 순차 실행하며 각 스캐너의 phase1.md + 패턴 인덱스를 읽고 분석. 결과를 `<PHASE1_RESULTS_DIR>/<scanner-name>.md`에 Write 도구로 저장하고 후보 건수 요약만 반환 |
-| `ai-discovery-agent.md` | AI 자율 취약점 탐색 에이전트 지침. 단일 프롬프트에 3단계 탐색 지시를 포함하여 에이전트가 내부 순차 수행. `ai-discovery.md`에 결과 저장 (탐색 커버리지 manifest 포함) |
-| `phase2-agent.md` | Phase 2 동적 테스트 에이전트 프롬프트. phase1-group-agent.md와 대칭 구조. 자기 체크리스트 5항목, HTTP 에러 대응, 도메인 안전 검증, 비카테고리 AI 후보 처리 포함 |
-| `guidelines-phase1.md` | Phase 1 공통 지침. Sink-first + Source-first 병행(지침 6), 래퍼 함수 재귀 추적(6-E), 호출부 추적(6-C), 후보 판정 제외 기준(지침 8), 부재 주장의 정확성(지침 9), 트리거 조건 현실성(지침 10) |
-| `guidelines-phase2.md` | Phase 2 공통 지침. 도메인 분류(지침 11: sandbox만 허용), 세션 관리, 도구 선택(curl/Playwright), 인코딩 전략, 상태 머신 테스트 등 동적 분석 에이전트 전체에 적용되는 규칙 |
+| 오케스트레이터 | `skills/sast/SKILL.md` | 전체 실행 프로세스 (Step 0~4), 스캐너 그룹 편성, 동적 분석 Tier, 결과 검증 |
+| Phase 1 공통 지침 | `skills/sast/prompts/guidelines-phase1.md` | Sink-first + Source-first 분석, 래퍼 추적, 의미 기반 판정, Source 도달성 |
+| Phase 2 공통 지침 | `skills/sast/prompts/guidelines-phase2.md` | 동적 테스트 절차, 에러 핸들링, 차단 응답 처리, 도메인 안전 규칙 |
+| AI 자율 탐색 | `skills/sast/prompts/ai-discovery-agent.md` | 3단계 자율 탐색, 7개 제외 필터, Phase 1 충돌 해소 |
+| 보고서 생성 | `skills/sast/sub-skills/scan-report/SKILL.md` | 스켈레톤 → 병렬 작성 → 조립 → HTML 변환 → 검증 |
+| 보고서 리뷰 | `skills/sast/sub-skills/scan-report-review/SKILL.md` | 9항목 체크리스트, Source 도달성 검증, Spot-check, 이중 게이트 |
+| 연계 분석 | `skills/sast/sub-skills/chain-analysis/SKILL.md` | R1~R5 체인 구성 규칙, 전제조건/연계 매트릭스 |
+| 개별 스캐너 | `skills/sast/scanners/{name}/phase1.md` | Sink 의미론, 안전 패턴, 판정 의사결정, 자주 놓치는 패턴 |
