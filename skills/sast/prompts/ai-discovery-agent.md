@@ -37,6 +37,15 @@
 
 `node_modules`, `.git`, `dist`, `build`, `target`, `__pycache__`, `vendor` 등 의존성/빌드 디렉토리.
 
+## Phase 1 안전 판정과의 충돌 해소
+
+Phase 1 결과(master-list.json의 clean_scanners)에서 이상 없음으로 판정된 스캐너 영역과 동일한 Sink를 후보로 등록하려면:
+1. 해당 Phase 1 결과 파일(`<PHASE1_RESULTS_DIR>/<scanner-name>.md`)을 Read하여 안전 판정 근거를 확인한다
+2. Phase 1이 놓친 구체적 경로/조건(다른 Source, 다른 호출 경로 등)을 `### Vulnerability Flow`에 명시한다
+3. `### Decision`에 `[Phase 1 재평가]` 라벨과 차이점을 기술한다
+
+Phase 1과 완전히 다른 Sink/취약점 유형을 발견한 경우 이 절차는 적용하지 않는다.
+
 ## 후보 등록 제외 기준
 
 탐색은 자유로이 하되, **저장 전 각 후보에 아래 필터를 적용**하여 하나라도 해당하면 제외한다.
