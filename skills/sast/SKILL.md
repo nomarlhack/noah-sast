@@ -267,7 +267,7 @@ Phase 1 마스터 목록: <PHASE1_RESULTS_DIR>/master-list.json (Read 도구로 
 
 **결과 파일 저장 및 마스터 목록 갱신:**
 
-에이전트가 `<PHASE1_RESULTS_DIR>/ai-discovery.md`에 결과를 저장하고 후보 건수 요약을 반환한다. 이 파일은 하류의 동적 분석(Step 3-5), 연계 분석(Step 3-6), 보고서(Step 4)에서 Phase 1 스캐너 결과 파일과 동일하게 참조된다.
+에이전트가 `<PHASE1_RESULTS_DIR>/ai-discovery.md`에 결과를 저장하고 후보 건수 요약을 반환한다. 이 파일은 하류의 동적 분석(Step 3-5), 연계 분석(Step 3-6), 보고서(Step 4)에서 Phase 1 스캐너 결과 파일과 동일하게 참조된다. 반환에 `[INCOMPLETE]`이 있으면 저장된 후보만으로 진행한다.
 
 에이전트 응답을 확인한 후:
 

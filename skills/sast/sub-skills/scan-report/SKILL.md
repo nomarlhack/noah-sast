@@ -94,7 +94,7 @@ AI 자율 탐색에서 후보가 발견된 경우, 별도 서브에이전트로 
 
 ### Step 3: MD 보고서 조립
 
-**[필수] Write 도구를 직접 사용하지 않는다.** 보고서 전체를 한 번에 Write하면 32K 토큰 한도를 초과할 수 있다. 반드시 아래 Python 스크립트로 조립한다.
+**[필수] Write 도구를 직접 사용하지 않는다.** 보고서 전체를 한 번에 Write하면 32K 토큰 한도를 초과할 수 있다. 반드시 아래 Python 스크립트로 조립한다. **스크립트 실행 실패 시:** 서브에이전트 결과를 `\n\n---\n\n`로 연결하여 Write 도구로 직접 저장하는 fallback을 수행한다.
 
 **조립 스크립트:** `<NOAH_SAST_DIR>/sub-skills/scan-report/assemble_report.py`를 참조한다. 스크립트 내의 `skeleton`, `subagent_results`, `chain_analysis`, `report_name`, `ai_discovery_results` 변수를 설정한 후 Bash로 실행한다.
 
