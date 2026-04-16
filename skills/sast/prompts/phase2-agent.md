@@ -39,6 +39,20 @@
 
 **guidelines-phase2.md Read 실패 시:** 위의 에러 대응 요약, 도메인 안전 검증, 자기 체크리스트만으로 테스트를 수행하되, 반환에 `[FALLBACK: guidelines 미참조]`를 표기한다.
 
+## 상태 요약 블록 (반환 끝 필수)
+
+반환 텍스트 끝에 아래 형식의 구조화된 상태 요약을 포함한다. 메인 에이전트가 이 블록을 파싱하여 master-list.json을 갱신한다.
+
+```
+<!-- PHASE2-STATUS -->
+```json
+{"results": [{"id": "XSS-1", "status": "confirmed"}, {"id": "SQLI-1", "status": "safe"}]}
+```
+<!-- /PHASE2-STATUS -->
+```
+
+status 값: `"confirmed"` (확인됨), `"candidate"` (후보), `"safe"` (안전)
+
 ## 비카테고리 AI 후보 처리
 
 프롬프트에 AI 자율 탐색 후보(AI-N)가 포함된 경우, 해당 후보의 취약점 유형에 맞는 일반적 동적 테스트(curl 기반 엔드포인트 호출 + 응답 분석)를 수행한다. 전용 phase2.md가 없으므로 guidelines-phase2.md의 공통 절차만 따른다.

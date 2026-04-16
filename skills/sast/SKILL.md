@@ -357,7 +357,7 @@ sandbox 도메인: <SANDBOX_DOMAIN>
 
 사용자가 동적 테스트를 명시적으로 거부한 경우("동적 테스트 안 해도 돼", "소스코드 분석만 해줘" 등)에만 동적 분석을 건너뛰고 Step 3-6(연계 분석)으로 진행한다.
 
-**[필수] master-list.json 상태 갱신:** Step 3-7 체크리스트에서 각 후보의 최종 상태(확인됨/후보/안전)가 확정되면, `<PHASE1_RESULTS_DIR>/master-list.json`을 Edit 도구로 읽어 각 후보의 `"status"` 필드를 갱신한다. **매핑: "확인됨"→`"confirmed"`, "후보"→`"candidate"`, "안전"→`"safe"`.** 연계 분석 에이전트가 master-list.json에서 최종 상태를 직접 읽으므로, 이 갱신이 Step 3-6 진입 전에 완료되어야 한다.
+**[필수] master-list.json 상태 갱신:** 각 Phase 2 에이전트의 반환 끝에 포함된 `<!-- PHASE2-STATUS -->` JSON 블록을 파싱하여, `<PHASE1_RESULTS_DIR>/master-list.json`의 각 후보 `"status"` 필드를 `"confirmed"`, `"candidate"`, `"safe"` 중 하나로 갱신한다. 연계 분석 에이전트가 master-list.json에서 최종 상태를 직접 읽으므로, 이 갱신이 Step 3-6 진입 전에 완료되어야 한다.
 
 #### Step 3-6: 연계 분석
 
@@ -366,7 +366,7 @@ sandbox 도메인: <SANDBOX_DOMAIN>
 에이전트 프롬프트에는 chain-analysis SKILL.md 경로, 후보 마스터 목록(`<PHASE1_RESULTS_DIR>/master-list.json` — 각 후보의 동적 분석 최종 상태 포함), Phase 1 결과 디렉토리(`<PHASE1_RESULTS_DIR>`), 프로젝트 컨텍스트, 이상 없음 요약을 포함한다.
 
 **연계 분석 결과 활용:**
-- **Step 4 (보고서)**: 메인 에이전트가 연계 분석 에이전트의 반환 텍스트를 `scan-report/SKILL.md`에 정의된 `chain_analysis` dict 형식(`{"chains":[{"title":..., "attacker":..., "impact":..., "steps":[{"vuln":..., "desc":...}], "poc":...}], "independent":[{"id":..., "reason":...}]}`)으로 구조화하여 `assemble_report.py`에 전달한다.
+- **Step 4 (보고서)**: 연계 분석 에이전트 반환 끝의 `<!-- CHAIN-ANALYSIS -->` JSON 블록을 파싱하여 `assemble_report.py`의 `chain_analysis` 변수에 전달한다.
 
 #### Step 3-7: 결과 검증 (보고서 작성 전 필수)
 
