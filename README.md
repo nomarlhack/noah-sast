@@ -42,7 +42,7 @@ flowchart TD
     S1 --> S2["Step 2: 스캐너 선별\n(다국어 의존성 + AI 검토)"]
     S2 --> S3["Step 3-1: Phase 1 정적 분석\n(그룹 병렬 → 파일 저장)"]
     S3 --> BML2["build-master-list.py\n결과 검증 + master-list.json"]
-    BML2 --> AI["Step 3-2: AI 자율 취약점 탐색\n(SendMessage 순차)"]
+    BML2 --> AI["Step 3-2: AI 자율 취약점 탐색\n(단일 프롬프트, 내부 3단계)"]
     AI -->|"ai-discovery.md 저장\n+ AI-N ID 부여"| MLUpdate2["master-list.json 갱신\n(Phase 1 + AI 후보 통합)"]
     MLUpdate2 --> Check{후보 발견?}
     Check -->|0건| S4["Step 4: 보고서 생성"]
@@ -91,7 +91,7 @@ noah-8719/                                    # 플러그인 루트
 │       │   ├── scan-report/
 │       │   ├── scan-report-review/
 │       │   ├── chain-analysis/
-│       │   └── webapp-testing/
+│       │   (webapp-testing/ 제거됨)
 │       └── tests/                            # grep 커버리지 테스트
 │
 ├── install.sh
@@ -265,22 +265,21 @@ python3 tools/scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT>
 
 #### Step 3-2: AI 자율 취약점 탐색
 
-Phase 1 정적 분석 완료 후, 구조화된 스캐너(grep 패턴 기반)가 놓칠 수 있는 취약점을 AI가 코드를 직접 읽으며 자율적으로 탐색합니다. 메인 에이전트가 **SendMessage로 프롬프트를 1개씩 순차 전달**하여, 이전 프롬프트에서 읽은 코드와 인사이트가 에이전트 컨텍스트에 실제로 누적됩니다.
+Phase 1 정적 분석 완료 후, 구조화된 스캐너(grep 패턴 기반)가 놓칠 수 있는 취약점을 AI가 코드를 직접 읽으며 자율적으로 탐색합니다. 메인 에이전트가 **단일 프롬프트에 3단계 탐색 지시를 포함**하여 전달하고, 에이전트가 내부적으로 순차 수행합니다.
 
-**프롬프트 (SendMessage로 1개씩 순차 전달):**
+**3단계 탐색:**
 
-| 순서 | 프롬프트 | 설명 |
+| 단계 | 탐색 방향 | 설명 |
 |------|---------|------|
-| 1 | "이 프로젝트의 소스코드를 분석하여 보안 취약점을 찾아줘" | 스캐너 카테고리에 구속되지 않는 자유 탐색 |
-| 2 | "master-list.json에서 파악한 Phase 1 커버리지(취약점 유형, 파일, 라인)를 바탕으로, Phase 1이 다루지 않은 영역을 집중 탐색해줘. 특히 비즈니스 로직 결함, 인증·인가 흐름 전체 경로, Race Condition, Mass Assignment처럼 grep 패턴으로는 잡기 어려운 취약점에 집중해줘" | Phase 1 공백 영역 집중 탐색 |
-| 3 | "지금까지 탐색하지 않은 파일과 코드 영역을 중심으로 취약점을 찾아줘" | 잔여 영역 마무리 |
+| 1 | 자유 탐색 | 스캐너 카테고리에 구속되지 않는 전방위 소스코드 분석 |
+| 2 | Phase 1 공백 집중 | master-list.json 커버리지 기반으로 비즈니스 로직, 인증·인가, Race Condition, Mass Assignment 등 집중 |
+| 3 | 잔여 영역 | 탐색하지 않은 파일과 코드 영역 마무리 |
 
 에이전트(`prompts/ai-discovery-agent.md`)의 실행 흐름:
 
-1. **Agent 생성 + 프롬프트 1**: 에이전트 생성, `ai-discovery-agent.md` Read 지시 + 프로젝트 컨텍스트 + master-list.json 경로 전달 (에이전트가 직접 Read하여 Phase 1 커버리지 파악). 자유 탐색 수행.
-2. **SendMessage + 프롬프트 2**: master-list.json에서 파악한 Phase 1 커버리지를 바탕으로, grep 방식으로 놓치기 쉬운 비즈니스 로직·인가·Race Condition 영역 집중 탐색.
-3. **SendMessage + 프롬프트 3**: 지금까지 탐색하지 않은 파일과 코드 영역 마무리 탐색.
-4. **SendMessage + 파일 저장 지시**: 모든 발견을 통합하여 `<PHASE1_RESULTS_DIR>/ai-discovery.md`에 저장 (후보별 5개 필수 섹션 + manifest). 후보 건수 요약 반환.
+1. **Agent 생성**: 단일 프롬프트에 `ai-discovery-agent.md` Read 지시 + 3단계 탐색 지시 + 프로젝트 컨텍스트 + master-list.json 경로 전달.
+2. **내부 3단계 순차 수행**: 에이전트가 각 단계에서 읽은 코드와 발견을 컨텍스트에 누적하며 점진적으로 심화 탐색.
+3. **필터링 + 저장**: "후보 등록 제외 기준" 7개 항목 적용 후 `<PHASE1_RESULTS_DIR>/ai-discovery.md`에 저장 (후보별 5개 필수 섹션 + manifest + 탐색 커버리지). 후보 건수 요약 반환.
 
 **결과 파일 저장 및 마스터 목록 갱신:**
 
@@ -744,6 +743,7 @@ flowchart TD
 |------|------|
 | `grep-agent.md` | Step 0 grep 인덱싱 에이전트 프롬프트. 41개 phase1.md frontmatter에서 패턴 추출 → 80+ 확장자 화이트리스트로 grep 실행 → 스캐너별 JSON 저장. INCLUDE/EXCLUDE 화이트리스트, JSON 형식, 카운트 요약 반환 절차 포함 |
 | `phase1-group-agent.md` | Phase 1 그룹 에이전트 프롬프트. 그룹 내 스캐너를 순차 실행하며 각 스캐너의 phase1.md + 패턴 인덱스를 읽고 분석. 결과를 `<PHASE1_RESULTS_DIR>/<scanner-name>.md`에 Write 도구로 저장하고 후보 건수 요약만 반환 |
-| `ai-discovery-agent.md` | AI 자율 취약점 탐색 에이전트 지침. 메인 에이전트가 SendMessage로 프롬프트를 1개씩 순차 전달하여 컨텍스트 누적 심화 탐색. 마지막 프롬프트에서 `ai-discovery.md`에 결과 저장 |
+| `ai-discovery-agent.md` | AI 자율 취약점 탐색 에이전트 지침. 단일 프롬프트에 3단계 탐색 지시를 포함하여 에이전트가 내부 순차 수행. `ai-discovery.md`에 결과 저장 (탐색 커버리지 manifest 포함) |
+| `phase2-agent.md` | Phase 2 동적 테스트 에이전트 프롬프트. phase1-group-agent.md와 대칭 구조. 자기 체크리스트 5항목, HTTP 에러 대응, 도메인 안전 검증, 비카테고리 AI 후보 처리 포함 |
 | `guidelines-phase1.md` | Phase 1 공통 지침. Sink-first + Source-first 병행(지침 6), 래퍼 함수 재귀 추적(6-E), 호출부 추적(6-C), 후보 판정 제외 기준(지침 8), 부재 주장의 정확성(지침 9), 트리거 조건 현실성(지침 10) |
 | `guidelines-phase2.md` | Phase 2 공통 지침. 도메인 분류(지침 11: sandbox만 허용), 세션 관리, 도구 선택(curl/Playwright), 인코딩 전략, 상태 머신 테스트 등 동적 분석 에이전트 전체에 적용되는 규칙 |
