@@ -368,6 +368,16 @@ sandbox 도메인: <SANDBOX_DOMAIN>
 
 **[필수] master-list.json 상태 갱신:** 각 Phase 2 에이전트의 반환 끝에 포함된 `<!-- PHASE2-STATUS -->` JSON 블록을 파싱하여, `<PHASE1_RESULTS_DIR>/master-list.json`의 각 후보 `"status"` 필드를 `"confirmed"`, `"candidate"`, `"safe"` 중 하나로 갱신한다. 연계 분석 에이전트가 master-list.json에서 최종 상태를 직접 읽으므로, 이 갱신이 Step 3-6 진입 전에 완료되어야 한다.
 
+**Phase 2 결과 수집 및 마스터 목록 갱신:**
+
+모든 동적 분석 에이전트가 완료되면, `update-phase2-status.py`를 실행하여 Phase 2 결과 파일의 manifest를 파싱하고 master-list.json의 status를 갱신한다:
+
+```bash
+python3 <NOAH_SAST_DIR>/tools/update-phase2-status.py <PHASE1_RESULTS_DIR> <PHASE1_RESULTS_DIR>/master-list.json
+```
+
+이 스크립트가 `*-phase2.md` 파일의 `PHASE2 MANIFEST` 블록에서 각 후보의 상태(confirmed/safe/candidate)를 추출하여 master-list.json에 `phase2_status` 필드를 추가한다. 에이전트 반환 텍스트의 테이블은 체크리스트 출력용으로만 사용하고, **상태 갱신의 진실 원천은 결과 파일의 manifest**이다.
+
 #### Step 3-6: 연계 분석
 
 동적 분석 완료 후, "안전" 판정을 제외하고 후보가 2건 이상 남아 있는 경우 `<NOAH_SAST_DIR>/sub-skills/chain-analysis/SKILL.md`에 정의된 프로세스에 따라 **연계 분석 에이전트**를 실행한다. 2건 미만이면 이 단계를 건너뛴다.
