@@ -267,7 +267,14 @@ Phase 1 마스터 목록: <PHASE1_RESULTS_DIR>/master-list.json (Read 도구로 
 
 **결과 파일 저장 및 마스터 목록 갱신:**
 
-에이전트가 `<PHASE1_RESULTS_DIR>/ai-discovery.md`에 결과를 저장하고 후보 건수 요약을 반환한다. 이 파일은 하류의 동적 분석(Step 3-5), 연계 분석(Step 3-6), 보고서(Step 4)에서 Phase 1 스캐너 결과 파일과 동일하게 참조된다. 반환에 `[INCOMPLETE]`이 있으면 저장된 후보만으로 진행한다.
+에이전트가 `<PHASE1_RESULTS_DIR>/ai-discovery.md`에 결과를 저장하고 후보 건수 요약을 반환한다. 이 파일은 하류의 동적 분석(Step 3-5), 연계 분석(Step 3-6), 보고서(Step 4)에서 Phase 1 스캐너 결과 파일과 동일하게 참조된다.
+
+**`[INCOMPLETE]` 후속 탐색**: 반환에 `[INCOMPLETE]`이 포함된 경우, 탐색이 컨텍스트 한계로 중단된 것이다. 메인 에이전트는 반환의 "미탐색 영역" 정보를 활용하여 후속 탐색 에이전트를 디스패치한다. 후속 에이전트 프롬프트에는:
+- 동일한 `ai-discovery-agent.md` Read 지시
+- 이전 에이전트가 저장한 `ai-discovery.md`를 Read하여 이미 발견된 후보와 탐색 범위를 파악하라는 지시
+- "미탐색 영역을 중심으로 자율 탐색하되, 이전 에이전트가 발견한 후보와 중복되지 않는 새로운 발견에 집중하라"는 안내
+
+후속 에이전트의 결과는 `ai-discovery-continued.md`에 저장하고, 메인 에이전트가 두 파일의 후보를 `ai-discovery.md`로 통합한다. 후속 에이전트도 `[INCOMPLETE]`를 반환하면 저장된 후보만으로 진행한다 (무한 재시도 방지).
 
 에이전트 응답을 확인한 후:
 
