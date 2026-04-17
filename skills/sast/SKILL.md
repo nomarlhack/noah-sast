@@ -386,7 +386,7 @@ python3 <NOAH_SAST_DIR>/tools/update-phase2-status.py <PHASE1_RESULTS_DIR> <PHAS
 에이전트 프롬프트에는 chain-analysis SKILL.md 경로, 후보 마스터 목록(`<PHASE1_RESULTS_DIR>/master-list.json` — 각 후보의 동적 분석 최종 상태 포함), Phase 1 결과 디렉토리(`<PHASE1_RESULTS_DIR>`), 프로젝트 컨텍스트, 이상 없음 요약을 포함한다.
 
 **연계 분석 결과 활용:**
-- **Step 4 (보고서)**: 연계 분석 에이전트 반환 끝의 `<!-- CHAIN-ANALYSIS -->` JSON 블록을 파싱하여 `assemble_report.py`의 `chain_analysis` 변수에 전달한다.
+- **Step 4 (보고서)**: 연계 분석 에이전트 반환 끝의 `<!-- CHAIN-ANALYSIS -->` JSON 블록을 파싱하여 JSON 파일로 저장하고, `assemble_report.py`의 `--chain` 인자로 전달한다.
 
 #### Step 3-7: 결과 검증 (보고서 작성 전 필수)
 
