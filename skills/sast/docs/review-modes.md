@@ -50,7 +50,7 @@ flowchart TD
 Phase 1이 생산한 후보 목록과 prose 분석의 **품질**을 독립 재판정한다. 판정 결과가 DISCARD면 Phase 2를 건너뛴다.
 
 ### 입력
-- `PHASE1_RESULTS_DIR/<scanner>.md` — Phase 1 원본 (직접 참조는 C1 lint로 제한)
+- `PHASE1_RESULTS_DIR/<scanner>.md` — Phase 1 원본. **`evaluate_phase1`만 이 파일을 읽는다.** 이후 단계(`evaluate`·`review`·보고서 조립)는 원본 대신 `evaluation/<scanner>-eval.md`(평가본)를 참조해야 한다. 원본을 직접 읽는 경로가 감시 도구(`assert_phase1_validated.py`)에 걸리면 exit 5로 차단된다.
 - `PHASE1_RESULTS_DIR/master-list.json` — 후보 메타데이터
 
 ### blind eval 절차
@@ -153,7 +153,7 @@ Phase 1에서 `phase1_discarded_reason != null`로 설정된 후보는 `mode=eva
 | `2` | human_review_block | Yes | `--accept-human-review=ID1,ID2` 명시 승인 필요 |
 | `3` | rederivation_warn 등 비차단 경고 | No | 기록·모니터링만 |
 | `4` | reopen_pending | Yes | `phase1_eval_state.reopen=true` 후보 존재 → `evaluate_phase1` 재호출 |
-| `5` | lint 위반 (C1: Phase 1 원본 직접 참조) | Yes | `evaluation/*-eval.md`로 참조 전환 |
+| `5` | lint 위반 — 하위 모드·스크립트가 Phase 1 원본(`<scanner>.md` / `ai-discovery.md`)을 직접 참조함 | Yes | `evaluation/<scanner>-eval.md`(평가본)로 참조 전환 |
 | `6` | missing_placeholder | Yes | 스켈레톤에 `<!-- SAFE_SECTION_HERE -->` 등 필수 플레이스홀더 누락 |
 | `7` | safe_bucket_unclassified | Yes | safe 후보에 `safe_category` enum 누락. evaluate/evaluate_phase1이 기록해야 함 |
 
@@ -169,7 +169,7 @@ AI 자율 탐색이 발견한 후보(`AI-N` ID, `scanner=ai-discovery`)는 Phase
 | `evaluate` | 기존 스캐너 카테고리에 속하면 해당 Phase 2 결과 파일, 비카테고리(Race Condition·Mass Assignment 등)면 `ai-discovery-phase2.md`의 evidence로 status 할당 |
 | `review` | 보고서의 `## AI 자율 탐색 결과` 섹션을 §1~§9 축으로 동일하게 검증 |
 
-C1 lint(Phase 1 원본 직접 참조 금지)도 `ai-discovery.md`를 감시 대상에 포함한다. 다운스트림 소비자는 `evaluation/ai-discovery-eval.md`를 참조한다.
+원본 직접 참조 감시 규칙이 `ai-discovery.md`에도 동일하게 적용된다. `evaluate`·`review`·보고서 조립은 `evaluation/ai-discovery-eval.md`(평가본)를 읽는다.
 
 ## 참고
 
