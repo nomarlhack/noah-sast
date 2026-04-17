@@ -24,6 +24,22 @@
 - 각 테스트에 사용한 페이로드가 해당 취약점 유형에 적합한가? (예: XSS에 SQL 페이로드 사용은 부적합)
 - Phase 2 테스트 결과 요약 테이블이 포함되어 있는가?
 
+## Write 후 재검증 (필수)
+
+Write 도구로 `<PHASE1_RESULTS_DIR>/<scanner-name>-phase2.md` 저장 완료 후, **같은 파일을 Read 도구로 다시 읽어** 파일 끝의 manifest 블록이 다음을 모두 만족하는지 확인한다:
+
+- 여는 마커 `<!-- NOAH-SAST PHASE2 MANIFEST v1 -->` 존재
+- 내부 ```json ... ``` 코드 펜스 쌍 존재
+- 닫는 마커 `<!-- /NOAH-SAST PHASE2 MANIFEST -->` 존재
+- JSON 문법 유효성:
+  - 모든 `{`가 `}`로, `[`가 `]`로 닫힘
+  - 배열/객체 마지막 요소 뒤 쉼표 없음 (trailing comma 금지)
+  - 큰따옴표 `"` 사용 (스마트 따옴표 `"`/`"` 금지)
+  - 문자열 내부 `"`는 `\"`로 이스케이프
+- 필수 필드 존재: `scanner` (문자열), `results` (배열)
+
+하나라도 실패하면 manifest 블록만 수정하여 Write를 재실행한다.
+
 ## 에러 처리
 
 **HTTP 에러 대응 (guidelines-phase2.md 지침 8 요약):**

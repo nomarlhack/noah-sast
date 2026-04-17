@@ -39,3 +39,17 @@ open-redirect-scanner: 후보 1건
 **컨텍스트 예산:** 그룹 내 스캐너 처리 중 응답이 길어져 완료가 불확실하면, 완료된 스캐너 결과를 먼저 파일로 저장하고 미완료 스캐너 목록을 반환 요약에 `[INCOMPLETE: scanner-name]`으로 표기한다.
 
 **자기 검증:** 각 스캐너의 결과 파일 Write 직후, manifest의 `declared_count`와 `## <ID>:` 헤더 수가 일치하는지 확인한다. 불일치 시 해당 스캐너를 반환 요약에 `[WARNING: manifest 불일치 — scanner-name]`으로 표기한다.
+
+**Write 후 재검증 (필수):** 각 스캐너의 결과 파일 Write 완료 후, **같은 파일을 Read 도구로 다시 읽어** 파일 끝의 manifest 블록이 다음을 모두 만족하는지 확인한다:
+
+- 여는 마커 `<!-- NOAH-SAST MANIFEST v1 -->` 존재
+- 내부 ```json ... ``` 코드 펜스 쌍 존재
+- 닫는 마커 `<!-- /NOAH-SAST MANIFEST -->` 존재
+- JSON 문법 유효성:
+  - 모든 `{`가 `}`로, `[`가 `]`로 닫힘
+  - 배열/객체 마지막 요소 뒤 쉼표 없음 (trailing comma 금지)
+  - 큰따옴표 `"` 사용 (스마트 따옴표 `"`/`"` 금지)
+  - 문자열 내부 `"`는 `\"`로 이스케이프
+- 필수 필드 존재: `declared_count` (정수), `candidates` (배열)
+
+하나라도 실패하면 manifest 블록만 수정하여 Write를 재실행한다.
