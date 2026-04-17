@@ -64,7 +64,7 @@ for md in md_files:
     try:
         text = md.read_text(encoding="utf-8")
     except (UnicodeDecodeError, OSError) as e:
-        errors.append(f"[{md.stem}] 파일 읽기 실패: {e}")
+        errors.append(f"{md.stem}: READ_FAIL — {e}")
         continue
     scanner = md.stem
 
