@@ -103,7 +103,7 @@ if master_list_path and os.path.exists(master_list_path):
         with open(master_list_path, encoding='utf-8') as f:
             _ml = _json.load(f)
         _safe_count = sum(1 for c in _ml.get('candidates', []) if c.get('status') == 'safe')
-        # #30: safe 후보 0건이면 '## 안전 판정 항목' 섹션 부재 허용
+        # safe 후보 0건이면 '## 안전 판정 항목' 섹션 부재 허용
         # (build_safe_section이 빈 문자열 반환하여 플레이스홀더가 빈 값으로 치환된 정상 동작)
         if _safe_count > 0:
             if md_content and "## 안전 판정 항목" not in md_content:

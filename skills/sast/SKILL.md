@@ -429,7 +429,7 @@ Exit code별 조치 (checklist.md §13 통일 테이블):
 - `3`: rederivation 비율 경고. 로그만 남기고 진행
 - `4`: `phase1_eval_state.reopen=true` 후보 존재. **evaluate_phase1 재호출 필요** (아래 "reopen 재호출 원자성" 참조)
 
-**reopen 재호출 원자성 (#10 해결)**:
+**reopen 재호출 원자성**:
 
 assert가 exit 4를 반환하면 메인 에이전트는 다음 3단계를 **원자적으로** 수행한다:
 

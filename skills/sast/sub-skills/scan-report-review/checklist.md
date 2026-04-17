@@ -264,7 +264,7 @@ evidence.commands 또는 evidence.responses 존재?
 - 메인 오케스트레이터는 Read만 수행한다.
 - Phase 2 에이전트는 `*-phase2.md`에 evidence만 기록하고 master-list.json을 직접 쓰지 않는다.
 
-### DISCARD 보호 가드 (#3)
+### DISCARD 보호 가드
 
 `mode=evaluate`는 아래 후보를 발견하면 **status·evidence 필드를 변경하지 않는다**:
 - `phase1_discarded_reason != null` 이고 `status == "safe"` 인 후보
@@ -273,23 +273,13 @@ evaluate 서브에이전트 프롬프트에도 이 규칙을 명시한다. Phase
 
 단, `phase1_eval_state.reopen == true` 인 경우는 예외로, §10-A 교차 검증 재호출 경로에 해당하므로 DISCARD 철회 가능성을 열어둔다 (evaluate_phase1 재호출 시 재판정).
 
-### DISCARD 경로 safe_category 면제 규칙
+### DISCARD 경로 정합성 검증 면제
 
-`phase1_discarded_reason != null`인 후보는 **`validate_safe_consistency`의 defense_verified↔verified_defense 상호 검증에서 제외**된다.
+`phase1_discarded_reason != null`인 safe 후보는 `validate_safe_consistency`의 `defense_verified`↔`verified_defense` 상호 검증에서 면제된다. `safe_category`는 기록 필수.
 
-- DISCARD 경로는 `safe_category` 기록 의무 없음 (§12-C §9 참조)
-- `assemble_report.py:_classify_safe()`가 키워드 휴리스틱으로 자동 분류
-- 분류 실패 시 exit 7 (safe_bucket_unclassified)로 경고 — `phase1_discarded_reason` 키워드 보완 요구
+### evaluate safe 판정 시
 
-**의도**: Phase 1 DISCARD는 Phase 2 evidence 없이 구조적 이유로 판정되므로 `verified_defense` 필드가 존재할 수 없다. 강제하면 모든 DISCARD safe가 FAIL 처리되어 기존 정상 흐름을 블로킹한다.
-
-### evaluate safe 판정 시 safe_category 필수 기록
-
-`mode=evaluate`가 `status: safe` 할당 시 (동적 방어 입증 경로) **`safe_category: "defense_verified"`를 반드시 기록**하고 `verified_defense` 객체에 `{file, lines, content_hash}`를 함께 채운다.
-
-- 이 경로는 DISCARD가 아니므로 면제 규칙 대상 아님
-- `validate_safe_consistency`가 `defense_verified ↔ verified_defense` 정합성 검증 수행
-- 불일치 시 exit 1 (incomplete/invalid state)
+`mode=evaluate`가 `status: safe` 할당 시 `safe_category: "defense_verified"`를 기록하고 `verified_defense` 객체에 `{file, lines, content_hash}`를 채운다. `validate_safe_consistency`가 `defense_verified`↔`verified_defense` 정합성 검증 수행. 불일치 시 exit 1.
 
 ### 갱신 후 각 후보 필드
 
@@ -324,7 +314,7 @@ evaluate 서브에이전트 프롬프트에도 이 규칙을 명시한다. Phase
 - `mode=review`: 보고서 MD 검증자 (mode=evaluate 결과를 읽기만 함, status 건드리지 않음)
 - 두 모드가 같은 세션에서 호출되어도 **서로의 산출물을 직접 수정하지 않는** 계약
 
-### §10 커버리지 규약 (#1 해결)
+### §10 커버리지 규약
 
 `mode=evaluate`의 커버리지는 master-list.json의 모든 후보가 아니라 아래 조건을 만족하는 후보에 **한정**한다:
 
@@ -374,17 +364,14 @@ Phase 1 에이전트가 **Sink 패턴 매칭**으로 후보를 수집했다면, 
 - 프레임워크 내장 방어(Spring Security, React 자동 이스케이프, OWASP ESAPI 등) 확인
 - 설정 파일(SecurityConfig, WebMvcConfig 등)의 전역 필터 확인
 
-### §12-B. blind eval 메커니즘 (확증 편향 완화)
+### §12-B. blind eval 메커니즘
 
-**목표**: blind eval의 목적은 "**완전 독립 재판정**"이 아니라 "**확증 편향 완화**"이다. 판정 근거가 Phase 1 서술에 녹아 있는 자연어 누설은 원리적으로 완전 차단 불가능하나, 구조적 단서(Decision 필드) 제거로 판단 과정의 초기 고정을 늦춘다.
-
-**절차**:
 1. Phase 1 MD를 `tools/blind_read_phase1_md.py`로 로드. 헬퍼가 다음 섹션을 `<MASKED until independent judgment>`로 대체한 뷰 반환:
    - `### Decision`
    - `### Confidence`
    - `### 판정 요약`
 2. 평가자는 마스킹된 뷰만 보고 §12-C의 4개 필수 축을 독립 적용
-3. 독립 판정 완료 후 마스킹 해제 → Phase 1 결론과 대조 → `CONFIRM` / `OVERRIDE` / `DISCARD` 기록
+3. 마스킹 해제 → Phase 1 결론과 대조 → `CONFIRM` / `OVERRIDE` / `DISCARD` 기록
 
 ### §12-C. 필수 적용 축 (4개)
 
@@ -401,8 +388,7 @@ Phase 1 에이전트가 **Sink 패턴 매칭**으로 후보를 수집했다면, 
   - `✗ 폐기` 판정 시: master-list.json의 해당 후보를 `status: safe` + `tag: "Source 도달성 폐기"`로 **즉시 할당** (Phase 2 낭비 방지)
     - **[필수] `phase1_validated: true` 함께 설정** — 평가 자체는 완료된 상태임을 표시 (DISCARD도 "평가 pass 여부"가 아니라 "평가 완료 여부"로 집계)
     - `phase1_discarded_reason`에 폐기 근거 기록 (어떤 근거로 Source 도달성 ✗인지 코드 경로 포함)
-    - **`safe_category` 기록은 선택사항 (자동 유추 허용)**. 에이전트가 명시적으로 기록하면 우선되며, 기록하지 않으면 `assemble_report.py:_classify_safe()`가 `phase1_discarded_reason` 키워드 휴리스틱으로 분류한다. 이 경로의 safe 후보는 `validate_safe_consistency`에서 "defense_verified↔verified_defense" 상호 검증을 skip한다 (§11 DISCARD 면제 규칙).
-    - 이후 evaluate/보고서 렌더러는 `status=safe` + `phase1_discarded_reason` 조합을 "재평가 대상 아님"으로 인식
+    - `safe_category` enum 값 하나 기록 (필수, §11-A 참조)
   - `? 불명확` 판정 시: 보수적으로 `phase1_validated: true` 유지 (CONFIRM으로 취급)
 
 ### §12-D. 선택 적용 축 (효율)
@@ -481,12 +467,12 @@ assert 스크립트가 lint 형태로 이 규칙을 검사한다.
 - `phase1_validated`: evaluate_phase1이 완료했는지 (true) 또는 미완/고아 (false)
 - `phase1_discarded_reason`: §9 Source 도달성 ✗로 safe 처리된 경우의 근거 (그 외엔 null)
 - `phase1_eval_state`: 교차 검증 상태 추적 객체
-  - `retries`: §10-A **교차 검증 모순** 재호출 카운터 (상한 2, 초과 시 `requires_human_review=true`). safe_category 교정 재호출도 이 카운터에 합산되어 동일 상한을 공유한다.
-- `safe_category`: safe 판정 시 4분류 중 하나 (enum: `"no_external_path" | "defense_verified" | "not_applicable" | "false_positive"`) **또는 `null`**. 메인 오케스트레이터가 `assemble_report.py`의 "안전 판정 항목" 섹션 자동 생성 시 소비한다.
-  - **`null` sentinel 허용**: 초기화 상태 또는 Phase 1 DISCARD 경로(§12-C §9)에서 자동 유추 대상임을 표시. enum 위반으로 간주하지 않는다.
-  - 미설정(null) 시 `assemble_report.py`가 `verified_defense`/`phase1_discarded_reason` 키워드로 휴리스틱 추정한다 (vuln-format.md "safe 판정 4분류" 규약 참조).
+  - `retries`: §10-A 교차 검증 모순 재호출 카운터. 상한 2, 초과 시 `requires_human_review=true`.
+- `safe_category`: safe 판정 시 4분류 enum 중 하나 (`"no_external_path" | "defense_verified" | "not_applicable" | "false_positive"`) **필수 기록**. `assemble_report.py`의 "안전 판정 항목" 섹션 생성 시 소비한다.
+  - **초기화/비-safe 상태**: `null` 허용 (candidate/confirmed 상태 또는 아직 평가 전).
+  - **`status=safe` 상태에서는 null 금지**. enum 위반 또는 null이면 `build_safe_section`이 "기타" 버킷으로 넘기고 `assemble_report.py`가 exit 7 (safe_bucket_unclassified)로 차단한다. 에이전트가 명시 기록을 누락하면 보고서 조립 자체가 실패한다.
 
-### Writer 권한 규약 (#23)
+### Writer 권한 규약
 
 각 필드를 수정할 수 있는 모드는 아래로 제한된다. 권한 없는 모드가 필드를 변경하면 master-list.json의 단일 진실 원천 원칙이 무너진다.
 
@@ -497,7 +483,7 @@ assert 스크립트가 lint 형태로 이 규칙을 검사한다.
 
 **`mode=review`는 어떤 필드도 쓰지 않는다.** review가 §9 Source 도달성 재검증 결과 "후보→이상 없음 재분류" 권고가 필요하면 직접 수정이 아니라 `phase1_eval_state.reopen=true` 기록으로 evaluate_phase1 재호출을 요청한다. 요청을 수행하는 것은 메인 오케스트레이터이며, 실제 필드 갱신은 evaluate_phase1이 담당한다.
 
-### safe 후보 0건 처리 (#30)
+### safe 후보 0건 처리
 
 master-list.json의 `status=safe` 후보가 0건인 경우 `assemble_report.py:build_safe_section()`은 **빈 문자열을 반환**하며, `<!-- SAFE_SECTION_HERE -->` 플레이스홀더는 빈 값으로 치환되어 **`## 안전 판정 항목` 섹션 자체가 보고서에 나타나지 않는다**.
 
@@ -512,7 +498,6 @@ master-list.json의 `status=safe` 후보가 0건인 경우 `assemble_report.py:b
 **하위 호환 fallback**:
 - `phase1_validated` 필드 부재 시 `false`로 간주
 - `phase1_eval_state` 부재 시 빈 객체로 초기화 (`{reopen: false, retries: 0, conflicts: [], requires_human_review: false}`)
-- 구버전 master-list.json은 자동 마이그레이션하지 않는다 (신규 스캔부터 적용)
 
 ---
 
@@ -529,7 +514,7 @@ master-list.json의 `status=safe` 후보가 0건인 경우 `assemble_report.py:b
 | `4` | reopen_pending | **Yes** | `phase1_eval_state.reopen=true` 후보 존재. evaluate_phase1 재호출 필요 (retries 증분) |
 | `5` | lint 위반 | Yes | checklist §12-H 위반 (Phase 1 원본 직접 참조) 수정 필요 |
 | `6` | missing_placeholder | Yes | 스켈레톤에 `<!-- SAFE_SECTION_HERE -->` 등 필수 플레이스홀더 누락. 스켈레톤 작성자 재호출 |
-| `7` | safe_bucket_unclassified | Yes | `_classify_safe()`가 분류하지 못한 safe 후보 존재. `safe_category` 필드 명시 또는 `phase1_discarded_reason` 키워드 보완 필요 |
+| `7` | safe_bucket_unclassified | Yes | safe 후보에 `safe_category` enum 값이 명시되지 않음. evaluate/evaluate_phase1 에이전트가 `no_external_path`/`defense_verified`/`not_applicable`/`false_positive` 중 하나로 기록해야 한다 |
 
 **규약**:
 - assert_phase1_validated.py는 `0/1/2/3/4/5` 모두 사용 가능

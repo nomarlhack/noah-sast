@@ -45,93 +45,16 @@ CATEGORIES = {
     "false_positive": "정적 분석 오탐",
 }
 
-# 카테고리별 키워드 + 점수 (한/영 병기, 가중치 기반 — #19, #32)
-# 점수가 높을수록 해당 카테고리를 강하게 시사한다.
-KEYWORD_WEIGHTS = {
-    "no_external_path": [
-        ("도달 경로 없음", 3), ("접근 경로 없음", 3), ("노출 경로 없음", 3),
-        ("not reachable", 3), ("no external path", 3), ("no http route", 3),
-        ("dev server", 2), ("dev 전용", 2), ("dev-only", 2),
-        ("프로덕션 빌드 미포함", 3), ("production build 미포함", 3),
-        ("express.static 부재", 3), ("라우팅 경로 밖", 3), ("not served", 3),
-        ("http 노출", 2), ("비노출", 2), ("not exposed", 2),
-        ("build만 서빙", 2), ("외부 공격자 도달", 2),
-    ],
-    "defense_verified": [
-        ("방어 확인", 3), ("차단 확인", 3), ("escape 방어", 3),
-        ("defense verified", 3), ("blocked by", 3), ("rejected by", 3),
-        ("재작성", 2), ("rewrite", 2), ("escape", 2), ("이스케이프", 2),
-        ("nginx.*차단", 2), ("nginx block", 2),
-    ],
-    "not_applicable": [
-        ("민감정보 0건", 3), ("민감정보 없음", 3), ("no sensitive data", 3),
-        ("실질 영향 반증", 3), ("실질 영향 부재", 3), ("no real impact", 3),
-        ("공개 자원", 2), ("공개 정적 자산", 2), ("public resource", 2),
-        ("보호 대상 아님", 3), ("not a target", 3),
-        ("성립 안됨", 2), ("성립 조건 미충족", 3), ("requirements unmet", 3),
-    ],
-    "false_positive": [
-        ("sink 아님", 3), ("not a sink", 3),
-        ("log_format", 3), ("오탐", 3), ("false positive", 3), ("false-positive", 3),
-        ("오인", 2), ("misidentified", 2),
-        ("more_set_headers", 2),
-        ("실제로는", 1), ("actually", 1),
-        ("스캐너 오판", 3), ("scanner mistake", 3),
-    ],
-}
-
-# 동점 시 tie-break 우선순위 — "좁은→넓은" 이유 순서 (#21)
-# 좁은 이유(false_positive, no_external_path)가 진짜 원인에 더 가깝다.
-TIE_BREAK_ORDER = ["false_positive", "no_external_path", "not_applicable", "defense_verified"]
-
 
 def _classify_safe(candidate):
-    """master-list.json의 safe 후보를 4분류로 자동 배정.
+    """safe 후보의 표시 라벨을 반환. safe_category enum이 없으면 "기타".
 
-    우선순위:
-      1. `safe_category` 필드가 명시되어 있으면 그 값 사용 (evaluate_phase1/evaluate 에이전트가 채운 경우)
-      2. `verified_defense` + `rederivation_performed=true` → "방어 계층 작동 확인"
-      3. `phase1_discarded_reason` 키워드 가중치 점수 → 최고점 카테고리. 동점 시 TIE_BREAK_ORDER.
-      4. 분류 불가 → "기타" (경고 발생)
-
-    Returns:
-        str: ("외부 접근 경로 없음" | "방어 계층 작동 확인" |
-              "취약점 성립 조건 미충족" | "정적 분석 오탐" | "기타")
+    safe_category는 evaluate/evaluate_phase1 에이전트가 명시적으로 기록해야 한다.
+    누락 시 build_safe_section이 safe_bucket_unclassified로 exit 7을 유도한다.
     """
-    # 1. 명시적 safe_category 필드 우선
     explicit = candidate.get("safe_category")
     if explicit in CATEGORIES:
         return CATEGORIES[explicit]
-
-    # 2. verified_defense + rederivation_performed → 방어 작동 확인
-    if candidate.get("verified_defense") and candidate.get("rederivation_performed"):
-        return "방어 계층 작동 확인"
-
-    # 3. phase1_discarded_reason 가중치 점수
-    reason = (candidate.get("phase1_discarded_reason") or "").lower()
-    if not reason:
-        return "기타"
-
-    scores = {cat: 0 for cat in CATEGORIES}
-    for cat, kw_list in KEYWORD_WEIGHTS.items():
-        for keyword, weight in kw_list:
-            # 정규식으로 매칭 (와일드카드 처리: `.*` 포함 시)
-            if '.*' in keyword:
-                if re.search(keyword, reason):
-                    scores[cat] += weight
-            else:
-                if keyword.lower() in reason:
-                    scores[cat] += weight
-
-    max_score = max(scores.values())
-    if max_score == 0:
-        return "기타"
-
-    # 동점 시 TIE_BREAK_ORDER로 선택
-    winners = [cat for cat, score in scores.items() if score == max_score]
-    for cat in TIE_BREAK_ORDER:
-        if cat in winners:
-            return CATEGORIES[cat]
     return "기타"
 
 
@@ -206,7 +129,8 @@ def build_safe_section(master_list_path):
         unclassified_ids = [c.get("id", "") for c in buckets["기타"]]
         print(
             f"WARN: safe_bucket_unclassified {unclassified_count}건: {unclassified_ids}\n"
-            f"      safe_category 명시 필드 또는 phase1_discarded_reason 키워드 보완 필요.",
+            f"      evaluate/evaluate_phase1 에이전트가 safe_category를 "
+            f"명시(no_external_path|defense_verified|not_applicable|false_positive)해야 한다.",
             file=sys.stderr,
         )
     # "기타"는 보고서에서 제외 (독자 레이어 유출 금지)
@@ -529,7 +453,7 @@ if __name__ == '__main__':
 
     full_report = build_table_from_details(full_report)
 
-    # 입력 검증 (#29): skeleton과 output이 같은 경로이면 비멱등 위험 차단
+    # skeleton과 output이 같은 경로이면 비멱등 조립 위험 차단
     if os.path.abspath(args.skeleton) == os.path.abspath(args.output):
         print(
             f"ERROR: skeleton과 output 경로가 동일함: {args.skeleton}\n"
@@ -541,14 +465,14 @@ if __name__ == '__main__':
     # 안전 판정 4분류 섹션 자동 생성 (vuln-format.md "safe 판정 4분류" 규약)
     safe_md, unclassified_count, consistency_issues = build_safe_section(args.master_list)
 
-    # 정합성 위반 (#20): exit 1
+    # 정합성 위반 시 exit 1
     if consistency_issues:
         print("ERROR: validate_safe_consistency 실패:", file=sys.stderr)
         for msg in consistency_issues:
             print(f"  - {msg}", file=sys.stderr)
         sys.exit(1)
 
-    # 플레이스홀더 부재 감지 (#25): safe 섹션이 필요한데 skeleton에 플레이스홀더 없으면 exit 6
+    # safe 섹션이 필요한데 skeleton에 플레이스홀더 없으면 exit 6
     if safe_md and '<!-- SAFE_SECTION_HERE -->' not in full_report:
         print(
             "ERROR: missing_placeholder — skeleton에 `<!-- SAFE_SECTION_HERE -->` 플레이스홀더가 없음.\n"
@@ -563,7 +487,7 @@ if __name__ == '__main__':
     with open(args.output, 'w', encoding='utf-8') as f:
         f.write(full_report)
 
-    # "기타" 버킷 (#22): 독자 레이어 노출 방지, stderr 경고 후 exit 7
+    # "기타" 버킷: 독자 레이어 노출 방지, stderr 경고 후 exit 7
     if unclassified_count:
         print(
             f"ERROR: safe_bucket_unclassified — {unclassified_count}건이 4분류 중 어느 것에도 해당하지 않음.",

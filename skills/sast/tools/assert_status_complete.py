@@ -97,7 +97,7 @@ def main() -> int:
             print("evaluate 단계가 Phase 2보다 먼저 실행되었거나 누락되었다.")
             return 1
 
-    # 5. reopen_pending 체크 (#10 해결 — exit 4)
+    # 5. reopen_pending 체크 — exit 4
     #    evaluate가 §10-A 교차 검증에서 모순 발견 후 reopen=true 세팅한 후보가 있으면
     #    evaluate_phase1 재호출 필요.
     reopen_pending = [
@@ -111,7 +111,7 @@ def main() -> int:
         print("evaluate_phase1 재호출이 필요. SKILL.md 'reopen 재호출 원자성' 절차 수행.")
         return 4
 
-    # 6. requires_human_review 체크 (#5 해결 — exit 2)
+    # 6. requires_human_review 체크 — exit 2
     human_review_needed = [
         c["id"] for c in candidates
         if c.get("phase1_eval_state", {}).get("requires_human_review")
@@ -132,7 +132,7 @@ def main() -> int:
             return 2
 
     # 7. rederivation_performed 편향 관측 — safe 판정 중 §9 Source 도달성 폐기가 아닌
-    #    항목만 분모로 사용 (#9 해결, false alarm 방지).
+    #    항목만 분모로 사용 (false alarm 방지).
     #    phase1_discarded_reason 있는 safe는 구조적 폐기로 rederivation 개념 비적용.
     safe_items = [
         c for c in candidates

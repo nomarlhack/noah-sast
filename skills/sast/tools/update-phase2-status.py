@@ -89,7 +89,7 @@ for f in phase2_files:
         cid = result.get("id")
         status = result.get("status")
         if cid and status and cid in candidates:
-            # #3 가드: Phase 1에서 DISCARD 처리된 후보의 status를 덮어쓰지 않는다.
+            # DISCARD 가드: Phase 1에서 DISCARD 처리된 후보의 status를 덮어쓰지 않는다.
             # phase1_discarded_reason이 설정되어 있으면 Phase 2 manifest의 status 변경 무시.
             if candidates[cid].get("phase1_discarded_reason"):
                 errors.append(

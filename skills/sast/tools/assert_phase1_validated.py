@@ -29,7 +29,7 @@ C1_LINT_TARGETS = [
     # - ai-discovery-agent.md: ai-discovery.md의 "생산자"이므로 제외
     # - chain-analysis/SKILL.md: master-list.json만 소비, MD 원본 참조 안 함 → 제외
     # - phase2-agent.md: Phase 2 실행 주체로서 Phase 1 원본을 합법 참조 → 제외
-    "sub-skills/scan-report/SKILL.md",  # #7 해결: 보고서 조립도 eval MD 참조
+    "sub-skills/scan-report/SKILL.md",  # 보고서 조립은 eval MD를 참조
 ]
 
 # Phase 1 원본 MD만 금지 대상으로 제한 (<scanner>-scanner.md, <scanner-name>.md, ai-discovery.md).

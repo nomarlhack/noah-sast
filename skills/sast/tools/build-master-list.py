@@ -40,7 +40,7 @@ args = parser.parse_args()
 phase1_dir = Path(args.phase1_dir)
 out_path = Path(args.output_json)
 
-# #34 병합 모드: 기존 master-list.json 로드 (evaluate 결과 보존용)
+# 병합 모드: 기존 master-list.json 로드 (evaluate 결과 보존용)
 EVAL_FIELDS = {
     "status", "tag", "evidence_summary", "verified_defense", "rederivation_performed",
     "safe_category", "phase1_validated", "phase1_discarded_reason", "phase1_eval_state",
