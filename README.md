@@ -44,23 +44,29 @@ flowchart TD
     S3 --> BML2["build-master-list.py\n결과 검증 + master-list.json"]
     BML2 --> AI["Step 3-2: AI 자율 취약점 탐색\n(단일 프롬프트, 내부 3단계)"]
     AI -->|"ai-discovery.md 저장\n+ AI-N ID 부여"| MLUpdate2["master-list.json 갱신\n(Phase 1 + AI 후보 통합)"]
-    MLUpdate2 --> Check{후보 발견?}
-    Check -->|0건| S4["Step 4: 보고서 생성"]
+    MLUpdate2 --> EvalP1["Step 3-2.5: evaluate_phase1\n(Phase 1 품질 평가, blind eval)"]
+    EvalP1 --> Check{후보 발견?}
+    Check -->|0건| S4["Step 4: 보고서 생성\n+ safe 4분류 자동 섹션"]
     Check -->|1건+| Ask["Step 3-3: 동적 테스트 정보 요청"]
     Ask --> UserReply{사용자 응답}
     UserReply -->|정보 제공| Perm["Step 3-4: 도구 권한 확인"]
     UserReply -->|거부| S4
     Perm --> Dynamic["Step 3-5: 동적 분석\n(Tier A/B/C 병렬)"]
-    Dynamic --> ChainCheck{"안전 제외\n후보 2건+?"}
-    ChainCheck -->|Yes| Chain["Step 3-6: 연계 분석\n(동적 결과 반영, R1~R5)"]
+    Dynamic --> Eval["Step 3-5.5: evaluate\n(Phase 2 증거 기반 status 할당)"]
+    Eval --> ChainCheck{"안전 제외\n후보 2건+?"}
+    ChainCheck -->|Yes| Chain["Step 3-6: 연계 분석\n(R1~R5)"]
     ChainCheck -->|No| Verify
     Chain --> Verify["Step 3-7: 결과 검증\n(미수행 항목 보완)"]
     Verify --> S4
-    S4 --> Open["브라우저에서 보고서 열기"]
+    S4 --> Review["review: 보고서 정확성 검증"]
+    Review --> Open["브라우저에서 보고서 열기"]
 
     style User fill:#e94560,stroke:#e94560,color:#fff
     style AI fill:#e94560,stroke:#e94560,color:#fff
     style MLUpdate2 fill:#0f3460,stroke:#e94560,color:#eee
+    style EvalP1 fill:#0f3460,stroke:#e94560,color:#eee
+    style Eval fill:#0f3460,stroke:#e94560,color:#eee
+    style Review fill:#0f3460,stroke:#e94560,color:#eee
     style Chain fill:#533483,stroke:#533483,color:#fff
     style Open fill:#e94560,stroke:#e94560,color:#fff
     style Check fill:#533483,stroke:#533483,color:#fff
