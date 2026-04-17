@@ -125,7 +125,11 @@ Step 3: [후보 ID 또는 최종 영향] — [설명]
 
 ## 출력
 
-연계 분석 에이전트는 다음을 반환한다:
+**[필수] 연계 분석 에이전트는 분석 결과를 `<PHASE1_RESULTS_DIR>/chain-analysis.md` 파일에 Write 도구로 저장한다.** Phase 1/Phase 2 결과 파일과 동일한 "본문 + manifest 블록" 패턴을 따른다. 반환 메시지에는 저장 완료 1줄 요약 + 체인 개수만 포함한다.
+
+### 파일 구조
+
+`<PHASE1_RESULTS_DIR>/chain-analysis.md`의 본문은 다음 섹션으로 구성된다:
 
 1. **전제조건 매트릭스**: 후보별 전제조건 테이블
 2. **연계 매트릭스**: 후보 간 연계 관계 테이블 (`→`/`↔`/빈칸만 사용, `+` 금지)
@@ -133,15 +137,58 @@ Step 3: [후보 ID 또는 최종 영향] — [설명]
 4. **공격 체인 목록**: Step 3 통과한 것만. 없으면 "없음".
 5. **독립 후보 테이블**: 후보별 체인 미구성 사유 (폐기된 체인의 관련 후보 모두 포함)
 6. **체인 신뢰도 분류**: 각 체인을 구성하는 후보의 동적 분석 상태를 반영한 신뢰도 (모든 단계 "확인됨" → 고신뢰 / 일부 "후보" 포함 → 중신뢰)
-7. **[필수] 구조화된 JSON 블록** (반환 끝에 포함): 메인 에이전트가 이 블록을 파싱하여 JSON 파일로 저장하고, `assemble_report.py`의 `--chain` 인자로 전달한다.
+
+### 파일 끝 manifest 블록 (필수)
+
+본문 뒤에 아래 형식의 manifest 블록을 추가한다. Phase 1/2 manifest와 동일한 HTML 주석 마커 + 코드 펜스 패턴이다:
 
 ```
-<!-- CHAIN-ANALYSIS -->
-```json
-{"chains": [{"title": "...", "attacker": "...", "impact": "...", "steps": [{"vuln": "XSS-1", "desc": "..."}], "poc": "..."}], "independent": [{"id": "SQLI-1", "reason": "..."}]}
+<!-- NOAH-SAST CHAIN MANIFEST v1 -->
+​```json
+{
+  "chains": [
+    {
+      "title": "체인 제목",
+      "attacker": "공격자 프로필",
+      "impact": "최종 영향",
+      "steps": [{"vuln": "XSS-1", "desc": "..."}],
+      "poc": "#### 재현 방법 및 POC\n..."
+    }
+  ],
+  "independent": [
+    {"id": "SQLI-1", "reason": "체인 미구성 사유"}
+  ]
+}
+​```
+<!-- /NOAH-SAST CHAIN MANIFEST -->
 ```
-<!-- /CHAIN-ANALYSIS -->
+
+메인 에이전트가 이 파일을 Read하여 manifest 블록을 파싱한 후 별도 JSON 파일(예: `/tmp/chain.json`)로 저장하고, `assemble_report.py`의 `--chain` 인자로 전달한다.
+
+### Write 후 재검증 (필수)
+
+Write 도구로 `chain-analysis.md` 저장 완료 후, **같은 파일을 Read 도구로 다시 읽어** 파일 끝의 manifest 블록이 다음을 모두 만족하는지 확인한다:
+
+- 여는 마커 `<!-- NOAH-SAST CHAIN MANIFEST v1 -->` 존재
+- 내부 ```json ... ``` 코드 펜스 쌍 존재
+- 닫는 마커 `<!-- /NOAH-SAST CHAIN MANIFEST -->` 존재
+- JSON 문법 유효성:
+  - 모든 `{`가 `}`로, `[`가 `]`로 닫힘
+  - 배열/객체 마지막 요소 뒤 쉼표 없음 (trailing comma 금지)
+  - 큰따옴표 `"` 사용 (스마트 따옴표 `"`/`"` 금지)
+  - 문자열 내부 `"`는 `\"`로 이스케이프
+- 필수 필드 존재: `chains` (배열), `independent` (배열)
+
+하나라도 실패하면 manifest 블록만 수정하여 Write를 재실행한다.
+
+### 반환 메시지 형식
+
 ```
+chain-analysis.md 저장 완료: <PHASE1_RESULTS_DIR>/chain-analysis.md
+체인 N건, 독립 후보 M건
+```
+
+분석 전문은 파일에 저장했으므로 반환 메시지에 본문을 포함하지 않는다.
 
 ## 에이전트 실행 지침
 

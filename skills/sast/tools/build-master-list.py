@@ -55,7 +55,11 @@ candidates = []
 clean_scanners = []
 skipped_scanners = []
 
-md_files = sorted(f for f in phase1_dir.glob("*.md") if not f.stem.endswith("-phase2"))
+EXCLUDE_STEMS = {"chain-analysis"}  # Phase 1 manifest 형식이 아닌 파일 제외
+md_files = sorted(
+    f for f in phase1_dir.glob("*.md")
+    if not f.stem.endswith("-phase2") and f.stem not in EXCLUDE_STEMS
+)
 if not md_files:
     print(f"ERROR: No .md files found in {phase1_dir}")
     sys.exit(1)

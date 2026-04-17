@@ -133,6 +133,28 @@ class TestBuildMasterList(unittest.TestCase):
         self.assertEqual(r.returncode, 1)
         self.assertIn("Usage", r.stderr)
 
+    def test_chain_analysis_excluded(self):
+        """chain-analysis.md는 수집 대상에서 제외 (Phase 1 manifest 형식이 아님)"""
+        chain_md = (
+            "# 연계 분석 결과\n\n"
+            "## 공격 체인 #1\n...\n\n"
+            "<!-- NOAH-SAST CHAIN MANIFEST v1 -->\n"
+            "```json\n"
+            '{"chains": [], "independent": []}\n'
+            "```\n"
+            "<!-- /NOAH-SAST CHAIN MANIFEST -->\n"
+        )
+        with tempfile.TemporaryDirectory() as d:
+            Path(os.path.join(d, "xss-scanner.md")).write_text(VALID_MD)
+            Path(os.path.join(d, "chain-analysis.md")).write_text(chain_md)
+            out = os.path.join(d, "master-list.json")
+            r = self._run(d, out)
+            self.assertEqual(r.returncode, 0, f"stderr: {r.stderr}")
+            data = json.loads(Path(out).read_text())
+            # chain-analysis.md는 무시되므로 xss-scanner 후보 1개만 있어야 함
+            self.assertEqual(len(data["candidates"]), 1)
+            self.assertEqual(data["candidates"][0]["scanner"], "xss-scanner")
+
 
 if __name__ == "__main__":
     unittest.main()
