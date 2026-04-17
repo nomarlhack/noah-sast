@@ -2,43 +2,18 @@
 """assemble_report.py — 스켈레톤과 서브에이전트 결과를 조립하여 MD 보고서를 생성한다.
 
 Usage:
-    이 스크립트는 scan-report 스킬의 Step 3에서 Bash로 실행된다.
-    skeleton, subagent_results, chain_analysis를 Python 코드 내에서 직접 설정한 후 실행한다.
-
-    python3 assemble_report.py
+    python3 assemble_report.py \\
+        --skeleton /tmp/skeleton.md \\
+        --sections /tmp/sr_001.md /tmp/sr_002.md \\
+        --output noah-sast-report.md \\
+        [--chain /tmp/chain.json] \\
+        [--ai /tmp/ai_section.md]
 
 설계 원칙:
     요약 테이블은 상세 섹션에서 자동 생성한다 (단일 진실 원천).
     공격 시나리오 섹션은 chain_analysis 데이터에서 자동 생성한다.
 """
-import json, os, re, sys
-
-# --- 아래 변수를 실행 전에 설정한다 ---
-skeleton = ""  # Step 1에서 작성한 스켈레톤
-subagent_results = []  # 서브에이전트 반환 텍스트 목록
-report_name = "noah-sast-report"  # 또는 "{scanner-type}-scan-report"
-
-# chain_analysis: dict 또는 JSON 문자열
-# {
-#   "chains": [                              # 체인이 있을 때
-#     {
-#       "title": "체인 제목",
-#       "attacker": "공격자 프로필",
-#       "impact": "최종 영향",
-#       "steps": [
-#         {"vuln": "XSS-2", "desc": "설명"},
-#         {"vuln": "SSRF-1", "desc": "설명"}
-#       ],
-#       "poc": "#### 재현 방법 및 POC\n\n**Step 1: ...**\n```bash\ncurl ...\n```"
-#     }
-#   ],
-#   "independent": [                         # 체인에 포함되지 않은 후보
-#     {"id": "XSS-2", "reason": "체인 미구성 사유"}
-#   ]
-# }
-chain_analysis = None  # None이면 연계 분석 미수행, dict이면 수행됨
-ai_discovery_results = ""  # AI 자율 탐색 서브에이전트 반환 텍스트 (없으면 빈 문자열)
-# -----------------------------------
+import argparse, json, os, re, sys
 
 
 def normalize_vuln_headings(text):
@@ -214,32 +189,65 @@ def build_table_from_details(report_text):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='스켈레톤과 서브에이전트 결과를 조립하여 MD 보고서를 생성한다.')
+    parser.add_argument('--skeleton', required=True, help='스켈레톤 MD 파일 경로')
+    parser.add_argument('--sections', nargs='+', required=True, help='서브에이전트 결과 MD 파일 경로 (1개 이상)')
+    parser.add_argument('--output', required=True, help='출력 보고서 파일 경로 (예: noah-sast-report.md)')
+    parser.add_argument('--chain', default=None, help='연계 분석 JSON 파일 경로 (없으면 생략)')
+    parser.add_argument('--ai', default=None, help='AI 자율 탐색 결과 MD 파일 경로 (없으면 생략)')
+    args = parser.parse_args()
+
+    # 입력 파일 읽기
+    try:
+        skeleton = open(args.skeleton, encoding='utf-8').read()
+    except FileNotFoundError:
+        print(f"ERROR: 스켈레톤 파일 없음: {args.skeleton}", file=sys.stderr)
+        sys.exit(1)
+
+    subagent_results = []
+    for sp in args.sections:
+        try:
+            subagent_results.append(open(sp, encoding='utf-8').read())
+        except FileNotFoundError:
+            print(f"WARNING: 섹션 파일 없음, 건너뜀: {sp}", file=sys.stderr)
+
+    chain_analysis = None
+    if args.chain:
+        try:
+            with open(args.chain, encoding='utf-8') as f:
+                chain_analysis = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            print(f"WARNING: 연계 분석 파일 읽기 실패: {e}", file=sys.stderr)
+
+    ai_discovery_results = ""
+    if args.ai:
+        try:
+            ai_discovery_results = open(args.ai, encoding='utf-8').read()
+        except FileNotFoundError:
+            print(f"WARNING: AI 자율 탐색 파일 없음: {args.ai}", file=sys.stderr)
+
+    # 조립
     sections_text = '\n\n---\n\n'.join(clean_section(s) for s in subagent_results)
     full_report = skeleton.replace('<!-- SCANNER_SECTIONS_HERE -->', sections_text)
 
-    # 공격 시나리오 섹션 자동 생성
     chain_md = build_chain_section(chain_analysis)
     full_report = full_report.replace('<!-- CHAIN_SECTION_HERE -->', chain_md)
 
-    # AI 자율 탐색 결과 섹션
     if ai_discovery_results.strip():
         ai_section = clean_section(ai_discovery_results)
         full_report = full_report.replace('<!-- AI_DISCOVERY_SECTION_HERE -->', ai_section)
     else:
-        # 후보 0건 생략 시: 섹션 헤딩과 플레이스홀더를 함께 제거
         full_report = re.sub(
             r'\n## AI 자율 탐색 결과\s*\n+<!-- AI_DISCOVERY_SECTION_HERE -->',
             '',
             full_report
         )
 
-    # 상세 섹션에서 요약 테이블 자동 생성 + 헤딩 재번호
     full_report = build_table_from_details(full_report)
 
-    md_path = f'{report_name}.md'
-    with open(md_path, 'w', encoding='utf-8') as f:
+    with open(args.output, 'w', encoding='utf-8') as f:
         f.write(full_report)
 
     poc = full_report.count('재현 방법 및 POC')
     has_chain = '## 공격 시나리오' in full_report
-    print(f"조립 완료: {os.path.getsize(md_path)} bytes, POC {poc}건, 공격시나리오={'✓' if has_chain else '✗'}")
+    print(f"조립 완료: {os.path.getsize(args.output)} bytes, POC {poc}건, 공격시나리오={'✓' if has_chain else '✗'}")

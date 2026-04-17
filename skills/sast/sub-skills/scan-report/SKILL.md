@@ -89,7 +89,7 @@ AI 자율 탐색에서 후보가 발견된 경우, 별도 서브에이전트로 
 > - 심각도(HIGH/MEDIUM/LOW)를 표시하지 않는다. 상태는 "후보"만 사용한다.
 > - 반환하는 MD 텍스트의 첫 줄은 `### AI 자율 탐색`으로 시작한다. 각 취약점 헤딩은 `#### N. 제목` 형식을 사용한다.
 
-이 결과는 `assemble_report.py`의 `ai_discovery_results` 변수에 설정하여 `<!-- AI_DISCOVERY_SECTION_HERE -->` 위치에 삽입된다.
+이 결과를 임시 파일(예: `/tmp/ai_section.md`)로 저장하고, `assemble_report.py`의 `--ai` 인자로 전달하여 `<!-- AI_DISCOVERY_SECTION_HERE -->` 위치에 삽입한다.
 
 **서브에이전트 에러 핸들링:**
 
@@ -101,15 +101,30 @@ AI 자율 탐색에서 후보가 발견된 경우, 별도 서브에이전트로 
 
 **[필수] Write 도구를 직접 사용하지 않는다.** 보고서 전체를 한 번에 Write하면 32K 토큰 한도를 초과할 수 있다. 반드시 아래 Python 스크립트로 조립한다. **스크립트 실행 실패 시:** 서브에이전트 결과를 `\n\n---\n\n`로 연결하여 Write 도구로 직접 저장하는 fallback을 수행한다.
 
-**조립 스크립트:** `<NOAH_SAST_DIR>/sub-skills/scan-report/assemble_report.py`를 참조한다. 스크립트 내의 `skeleton`, `subagent_results`, `chain_analysis`, `report_name`, `ai_discovery_results` 변수를 설정한 후 Bash로 실행한다.
+**조립 절차:**
 
-**`chain_analysis` 변수 설정:**
+1. Step 1에서 작성한 스켈레톤을 Write 도구로 임시 파일에 저장한다 (예: `/tmp/skeleton.md`).
+2. Step 2에서 각 서브에이전트의 반환 텍스트를 Write 도구로 개별 임시 파일에 저장한다 (예: `/tmp/sr_001_xss.md`, `/tmp/sr_002_ssrf.md`).
+3. 연계 분석을 수행한 경우, `chain_analysis` 데이터를 JSON 파일로 저장한다 (예: `/tmp/chain.json`).
+4. AI 자율 탐색 결과가 있으면 Write 도구로 임시 파일에 저장한다 (예: `/tmp/ai_section.md`).
+5. `assemble_report.py`를 파일 경로 인자로 실행한다:
 
-연계 분석을 수행한 경우, 아래 형식의 dict를 설정한다. 수행하지 않은 경우 `None`으로 둔다.
+```bash
+python3 <NOAH_SAST_DIR>/sub-skills/scan-report/assemble_report.py \
+  --skeleton /tmp/skeleton.md \
+  --sections /tmp/sr_001_xss.md /tmp/sr_002_ssrf.md \
+  --output noah-sast-report.md \
+  --chain /tmp/chain.json \
+  --ai /tmp/ai_section.md
+```
 
-```python
-chain_analysis = {
-    "chains": [  # 체인이 있을 때. 없으면 빈 리스트 [].
+연계 분석 미수행 시 `--chain` 생략. AI 자율 탐색 후보 0건 시 `--ai` 생략.
+
+**`chain_analysis` JSON 형식** (`--chain` 파일 내용):
+
+```json
+{
+    "chains": [
         {
             "title": "체인 제목",
             "attacker": "공격자 프로필",
@@ -121,7 +136,7 @@ chain_analysis = {
             "poc": "#### 재현 방법 및 POC\n\n**Step 1: ...**\n```bash\ncurl ...\n```"
         }
     ],
-    "independent": [  # 체인에 포함되지 않은 후보
+    "independent": [
         {"id": "XSS-2", "reason": "체인 미구성 사유"}
     ]
 }
