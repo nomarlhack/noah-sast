@@ -317,17 +317,19 @@ AI 자율 탐색에서 후보가 0건이어도 정상이다. 스캐너가 이미
 동적 테스트를 진행하시겠습니까? 필요한 정보를 제공해주세요.
 ```
 
-#### Step 3-4: 동적 테스트 도구 권한 사전 확인
+#### Step 3-4: 도구 권한 사전 확인
 
 **절차:**
 
 1. `~/.claude/settings.json` 및 프로젝트 `.claude/settings.json`을 **Read 도구로** 읽어 `permissions.allow` 배열을 확인한다.
-2. 다음 기본 패턴이 `permissions.allow`에 포함되어 있는지 검사한다:
-   - `Bash(curl:*)` — HTTP 요청 테스트 (모든 스캐너 동적 분석 필수)
-   - `Bash(node:*)` — Playwright/Node.js 테스트 (XSS, ReDoS 등 클라이언트 측 테스트 필요 시)
-   - `Bash(npx:*)` — npx playwright 실행 (Playwright 필요 시, `Bash(node:*)`로 대체 가능)
-   - `Bash(python3:*)` — 검증 스크립트 실행 (보고서 검증 시)
-3. 누락된 패턴이 있으면 사용자에게 추가 여부를 묻고, 동의하면 직접 `settings.json`에 추가한다.
+2. 필요 권한은 경로에 따라 다르다:
+   - **동적 테스트 수행 경로**: 아래 4개 모두 필요
+     - `Bash(curl:*)` — HTTP 요청 테스트 (모든 스캐너 동적 분석 필수)
+     - `Bash(node:*)` — Playwright/Node.js 테스트 (XSS, ReDoS 등 클라이언트 측 테스트 필요 시)
+     - `Bash(npx:*)` — npx playwright 실행 (Playwright 필요 시, `Bash(node:*)`로 대체 가능)
+     - `Bash(python3:*)` — 검증 스크립트 실행 (보고서 생성·검증 시)
+   - **동적 테스트 거부 경로**: **`Bash(python3:*)`만 확인**한다(보고서 생성에 필요). `curl`/`node`/`npx` 확인은 생략한다.
+3. 해당 경로에서 필요한 권한이 누락되어 있으면 사용자에게 추가 여부를 묻고, 동의하면 직접 `settings.json`에 추가한다.
 
 #### Step 3-5: 동적 분석 (개별 스캐너의 Phase 2 실행)
 
