@@ -159,6 +159,18 @@ Phase 1에서 `phase1_discarded_reason != null`로 설정된 후보는 `mode=eva
 
 ---
 
+## AI 자율 탐색 후보의 취급
+
+AI 자율 탐색이 발견한 후보(`AI-N` ID, `scanner=ai-discovery`)는 Phase 1 스캐너 후보와 **동일한 3모드 평가 대상**이다.
+
+| 모드 | AI 후보 처리 |
+|------|-------------|
+| `evaluate_phase1` | `ai-discovery.md`를 원본으로 보고 `evaluation/ai-discovery-eval.md`에 판정 기록. §12-C 4축·blind eval 규약 동일 적용 |
+| `evaluate` | 기존 스캐너 카테고리에 속하면 해당 Phase 2 결과 파일, 비카테고리(Race Condition·Mass Assignment 등)면 `ai-discovery-phase2.md`의 evidence로 status 할당 |
+| `review` | 보고서의 `## AI 자율 탐색 결과` 섹션을 §1~§9 축으로 동일하게 검증 |
+
+C1 lint(Phase 1 원본 직접 참조 금지)도 `ai-discovery.md`를 감시 대상에 포함한다. 다운스트림 소비자는 `evaluation/ai-discovery-eval.md`를 참조한다.
+
 ## 참고
 
 - 상세 검증 축·스키마·Writer 권한 규약: `skills/sast/sub-skills/scan-report-review/checklist.md`
