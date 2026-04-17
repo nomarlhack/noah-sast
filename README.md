@@ -160,7 +160,7 @@ noah-8719/
 | Phase 1 공통 지침 | `skills/sast/prompts/guidelines-phase1.md` | Sink-first + Source-first 분석, 래퍼 추적, 의미 기반 판정, Source 도달성 |
 | Phase 2 공통 지침 | `skills/sast/prompts/guidelines-phase2.md` | 동적 테스트 절차, 에러 핸들링, 차단 응답 처리, 도메인 안전 규칙 |
 | AI 자율 탐색 | `skills/sast/prompts/ai-discovery-agent.md` | 3단계 자율 탐색, 7개 제외 필터, Phase 1 충돌 해소 |
-| 보고서 생성 | `skills/sast/sub-skills/scan-report/SKILL.md` | 스켈레톤 → 병렬 작성 → 조립 → HTML 변환 → 검증 |
-| 보고서 리뷰 | `skills/sast/sub-skills/scan-report-review/SKILL.md` | 9항목 체크리스트, Source 도달성 검증, Spot-check, 이중 게이트 |
+| 보고서 생성 | `skills/sast/sub-skills/scan-report/SKILL.md` | 스켈레톤 → 병렬 작성 → 조립 → HTML 변환 → 검증. safe 4분류 섹션 자동 생성 |
+| 평가·리뷰 | `skills/sast/sub-skills/scan-report-review/SKILL.md` | 3모드(`evaluate_phase1`/`evaluate`/`review`): Phase 1 품질 평가, Phase 2 증거 기반 status 할당, 보고서 정확성 검증 |
 | 연계 분석 | `skills/sast/sub-skills/chain-analysis/SKILL.md` | R1~R5 체인 구성 규칙, 전제조건/연계 매트릭스 |
 | 개별 스캐너 | `skills/sast/scanners/{name}/phase1.md` | Sink 의미론, 안전 패턴, 판정 의사결정, 자주 놓치는 패턴 |
