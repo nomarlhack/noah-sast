@@ -105,10 +105,10 @@ class TestUpdatePhase2Status(unittest.TestCase):
         self.assertIn("파일 없음", r.stdout)
 
     def test_invalid_manifest(self):
-        """잘못된 manifest → WARNING + exit 0"""
+        """잘못된 manifest → WARNING + exit 1 (메인 에이전트가 stderr를 놓쳐도 exit code로 감지)"""
         d, mp = self._setup_dir({"ssrf-scanner-phase2.md": INVALID_PHASE2})
         r = self._run(d, mp)
-        self.assertEqual(r.returncode, 0)
+        self.assertEqual(r.returncode, 1)
         self.assertIn("WARNING", r.stderr)
 
     def test_no_args(self):
