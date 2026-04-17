@@ -1,12 +1,23 @@
 #!/usr/bin/env python3
 """update-phase2-status.py — Phase 2 결과 파일의 manifest를 파싱하여 master-list.json을 갱신한다.
 
+⚠ DEPRECATED (schema v2 이후):
+    이 스크립트는 Phase 2 manifest v1(각 result가 "status" 필드를 갖는 구 스키마)
+    전용이다. v2 스키마부터는 Phase 2 에이전트가 status를 할당하지 않으며,
+    상태 판정은 `scan-report-review`의 `mode=evaluate`가 전담한다.
+
+    - v1 manifest 파일 → 이 스크립트로 처리 가능 (legacy)
+    - v2 manifest 파일 → `scan-report-review mode=evaluate`로 처리
+
+    호환성 유지를 위해 스크립트 동작은 변경하지 않으나, v2 marker를 발견하면
+    경고 후 건너뛴다. 다음 릴리스에서 제거 예정.
+
 Usage:
     python3 update-phase2-status.py <PHASE1_RESULTS_DIR> <MASTER_LIST_JSON>
 
 동작:
     1. PHASE1_RESULTS_DIR에서 *-phase2.md 파일을 수집
-    2. 각 파일의 PHASE2 MANIFEST JSON 블록을 파싱
+    2. 각 파일의 PHASE2 MANIFEST v1 JSON 블록을 파싱 (v2는 건너뜀)
     3. master-list.json의 해당 후보 status를 갱신 (confirmed/safe/candidate)
     4. 갱신된 master-list.json을 덮어쓰기
 
@@ -17,6 +28,12 @@ Usage:
 
 import json, re, sys
 from pathlib import Path
+
+print(
+    "⚠ DEPRECATED: update-phase2-status.py는 Phase 2 manifest v1 전용입니다. "
+    "v2 스키마부터는 `scan-report-review mode=evaluate`를 사용하세요.",
+    file=sys.stderr,
+)
 
 if len(sys.argv) < 3:
     print("Usage: python3 update-phase2-status.py <PHASE1_RESULTS_DIR> <MASTER_LIST_JSON>", file=sys.stderr)
@@ -72,6 +89,14 @@ for f in phase2_files:
         cid = result.get("id")
         status = result.get("status")
         if cid and status and cid in candidates:
+            # #3 가드: Phase 1에서 DISCARD 처리된 후보의 status를 덮어쓰지 않는다.
+            # phase1_discarded_reason이 설정되어 있으면 Phase 2 manifest의 status 변경 무시.
+            if candidates[cid].get("phase1_discarded_reason"):
+                errors.append(
+                    f"[{f.name}] {cid}: DISCARD 처리된 후보의 status overwrite 시도 차단 "
+                    f"(phase1_discarded_reason 유지, Phase 2 결과 무시)"
+                )
+                continue
             candidates[cid]["status"] = status
             if status == "confirmed":
                 candidates[cid]["evidence"] = result.get("evidence", "")

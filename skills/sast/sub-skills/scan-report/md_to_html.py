@@ -43,16 +43,19 @@ with open(_md_path, 'w', encoding='utf-8') as f:
 
 lines = [l.rstrip('\n') for l in _md_text.splitlines()]
 
-# 대시보드 수치를 MD에서 동적으로 집계 (suffix 유무 모두 허용)
+# 대시보드 수치를 MD에서 동적으로 집계 (suffix 유무 모두 허용, 첫 셀에 괄호 수식어 허용)
 def _parse_dashboard(md):
     confirmed = candidate = safe = na = 0
-    m = re.search(r'\|\s*(?:확인된 취약점|확인됨)\s*\|\s*(\d+)(?:건)?', md)
+    # 첫 셀이 "확인된 취약점" 또는 "확인됨"으로 시작하면 매칭 (괄호 수식어 허용)
+    m = re.search(r'\|\s*(?:확인된 취약점|확인됨)[^|]*\|\s*(\d+)(?:건)?', md)
     if m: confirmed = int(m.group(1))
-    m = re.search(r'\|\s*후보.*?\|\s*(\d+)(?:건)?', md)
+    m = re.search(r'\|\s*후보[^|]*\|\s*(\d+)(?:건)?', md)
     if m: candidate = int(m.group(1))
-    m = re.search(r'\|\s*(?:스캔 완료|이상 없음 스캐너|이상 없음)\s*\|\s*(\d+)(?:개)?', md)
+    # "스캔 완료 (이상 없음)", "이상 없음 스캐너", "이상 없음" 등 괄호/후행 단어 모두 허용
+    m = re.search(r'\|\s*(?:스캔 완료|이상 없음)[^|]*\|\s*(\d+)(?:개)?', md)
     if m: safe = int(m.group(1))
-    m = re.search(r'\|\s*(?:해당 없음|미적용 스캐너|미적용)\s*\|\s*(\d+)(?:개)?', md)
+    # "해당 없음 (미적용)", "미적용 스캐너", "미적용" 등 허용
+    m = re.search(r'\|\s*(?:해당 없음|미적용)[^|]*\|\s*(\d+)(?:개)?', md)
     if m: na = int(m.group(1))
     return confirmed, candidate, safe, na
 

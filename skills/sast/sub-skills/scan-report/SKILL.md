@@ -13,7 +13,7 @@ noah-sast에서 호출되며, `<NOAH_SAST_DIR>`은 이미 결정된 상태이다
 
 **입력:**
 - 스캐너별 분석 결과 (확인됨/후보/안전 판정, Source→Sink 경로, 코드 스니펫)
-- AI 자율 탐색 결과 (`<PHASE1_RESULTS_DIR>/ai-discovery.md`)
+- AI 자율 탐색 결과 (`<PHASE1_RESULTS_DIR>/evaluation/ai-discovery-eval.md`, 부재 시 `<PHASE1_RESULTS_DIR>/ai-discovery.md` fallback)
 - 동적 테스트 결과 (curl 요청/응답 증거)
 - 이상 없음 스캐너의 점검 항목 요약
 - 미적용 스캐너 목록 및 제외 사유
@@ -48,6 +48,7 @@ noah-sast에서 호출되며, `<NOAH_SAST_DIR>`은 이미 결정된 상태이다
 - `<!-- CHAIN_SECTION_HERE -->` — 공격 시나리오 섹션 (assemble_report.py가 chain_analysis 데이터에서 자동 생성)
 - `<!-- SCANNER_SECTIONS_HERE -->` — 스캐너별 실행 결과 섹션
 - `## AI 자율 탐색 결과` 헤딩 + `<!-- AI_DISCOVERY_SECTION_HERE -->` — AI 자율 탐색 결과 섹션 (`## 스캐너별 실행 결과` 뒤, `## 미적용 스캐너 목록` 앞에 위치). 헤딩과 플레이스홀더를 함께 포함해야 `assemble_report.py`가 후보 0건 시 정리 가능
+- `<!-- SAFE_SECTION_HERE -->` — 안전 판정 4분류 섹션 (`이상 없음 스캐너 점검 항목 요약` 앞, `## AI 자율 탐색 결과` 뒤에 위치). `assemble_report.py`가 master-list.json의 `status=safe` 후보를 4분류(외부 접근 경로 없음 / 방어 계층 작동 확인 / 취약점 성립 조건 미충족 / 정적 분석 오탐)로 자동 생성한다. **스켈레톤에는 `## 안전 판정 항목` 헤딩이나 소분류를 직접 작성하지 않는다.** 자동 생성 결과를 그대로 삽입한다. 상세 규약은 `vuln-format.md`의 "safe 판정 4분류" 섹션 참조.
 
 **[필수] 스켈레톤에 `## 공격 시나리오`를 직접 작성하지 않는다.** 공격 시나리오 섹션은 연계 분석 JSON 파일을 `assemble_report.py`의 `--chain` 인자로 전달하면 스크립트가 고정된 형식으로 자동 렌더링한다. 메타 설명, 단독 위험도 등 불필요한 내용이 구조적으로 끼어들 수 없다.
 
@@ -59,7 +60,7 @@ noah-sast에서 호출되며, `<NOAH_SAST_DIR>`은 이미 결정된 상태이다
 
 **서브에이전트 프롬프트에 반드시 포함할 내용:**
 
-1. 해당 스캐너의 취약점 데이터 전체 (파일 경로, 코드 스니펫, Source→Sink, 동적 테스트 증거). Phase 1 결과가 파일로 존재하는 경우(`<PHASE1_RESULTS_DIR>/<scanner-name>.md`), 파일 경로를 전달하고 서브에이전트가 Read하도록 지시한다.
+1. 해당 스캐너의 취약점 데이터 전체 (파일 경로, 코드 스니펫, Source→Sink, 동적 테스트 증거). **Phase 1 결과는 `<PHASE1_RESULTS_DIR>/evaluation/<scanner-name>-eval.md`(evaluate_phase1 평가본)을 전달**하고 서브에이전트가 Read하도록 지시한다. eval MD의 Override 여부(CONFIRM/OVERRIDE/DISCARD), 수정 권고, phase1_quality_notes가 보고서에 반영되도록 한다. **Phase 1 원본(`<PHASE1_RESULTS_DIR>/<scanner-name>.md`) 직접 참조 금지** (checklist.md §12-H). 단, eval MD가 부재하면(evaluate_phase1 미수행 레거시 스캔) 원본 MD를 fallback으로 사용.
 2. 다음 한 줄 지시: **"`<NOAH_SAST_DIR>/sub-skills/scan-report/vuln-format.md`를 Read 도구로 읽고, 그 안의 '확인됨 형식' / '후보 형식' / '이상 없음 형식' 템플릿을 그대로 따라 MD 텍스트를 작성하라."** 메인 에이전트는 템플릿 본문을 인라인으로 복사하지 않는다.
 3. 다음 필수 준수 사항:
 
@@ -78,7 +79,7 @@ noah-sast에서 호출되며, `<NOAH_SAST_DIR>`은 이미 결정된 상태이다
 
 AI 자율 탐색에서 후보가 발견된 경우, 별도 서브에이전트로 AI 자율 탐색 상세 섹션을 작성한다. 서브에이전트 프롬프트에 다음을 포함한다:
 
-1. `<PHASE1_RESULTS_DIR>/ai-discovery.md` 파일 경로 전달 (서브에이전트가 Read하도록 지시)
+1. `<PHASE1_RESULTS_DIR>/evaluation/ai-discovery-eval.md`(evaluate_phase1이 생성한 AI 자율 탐색 평가본)를 우선 전달. 부재 시 `<PHASE1_RESULTS_DIR>/ai-discovery.md` 원본을 fallback으로 사용 (서브에이전트가 Read하도록 지시). **ai-discovery-eval.md는 §12-H C1 lint의 화이트리스트이므로 예외 처리된다.**
 2. 다음 한 줄 지시: **"`<NOAH_SAST_DIR>/sub-skills/scan-report/vuln-format.md`를 Read 도구로 읽고, 그 안의 '후보 형식' 템플릿을 그대로 따라 MD 텍스트를 작성하라."**
 3. 스캐너 서브에이전트와 동일한 필수 준수 사항:
 
@@ -115,10 +116,13 @@ python3 <NOAH_SAST_DIR>/sub-skills/scan-report/assemble_report.py \
   --sections /tmp/sr_001_xss.md /tmp/sr_002_ssrf.md \
   --output noah-sast-report.md \
   --chain /tmp/chain.json \
-  --ai /tmp/ai_section.md
+  --ai /tmp/ai_section.md \
+  --master-list <PHASE1_RESULTS_DIR>/master-list.json
 ```
 
-연계 분석 미수행 시 `--chain` 생략. AI 자율 탐색 후보 0건 시 `--ai` 생략.
+- `--chain` 생략: 연계 분석 미수행
+- `--ai` 생략: AI 자율 탐색 후보 0건
+- `--master-list` 생략: `<!-- SAFE_SECTION_HERE -->` 플레이스홀더가 빈 값으로 치환 (안전 판정 섹션 미생성). **4분류 safe 섹션을 자동 생성하려면 master-list.json 경로를 반드시 전달한다**
 
 **`chain_analysis` JSON 형식** (`--chain` 파일 내용):
 

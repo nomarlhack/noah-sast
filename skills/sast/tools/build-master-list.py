@@ -3,7 +3,15 @@
 Phase 1 결과 파일(markdown + manifest)에서 후보 메타데이터를 추출하여
 master-list.json을 생성한다.
 
-Usage: build-master-list.py <phase1_dir> <output_json>
+Usage:
+  build-master-list.py <phase1_dir> <output_json> [--merge]
+
+옵션:
+  --merge: 기존 master-list.json이 존재하면 각 후보 id 기준으로 병합.
+           evaluate 결과 필드(status, tag, evidence_summary, verified_defense,
+           rederivation_performed, safe_category, phase1_*, phase1_eval_state)를
+           보존하고, Phase 1 파싱은 새로 수행한다. 사라진 후보는 삭제,
+           신규 후보는 추가, 동명 후보는 메타데이터만 갱신 + evaluate 필드 보존.
 
 검증 기능:
 - manifest JSON 파싱 실패 시 ERROR
@@ -12,18 +20,92 @@ Usage: build-master-list.py <phase1_dir> <output_json>
 - 필수 섹션(Code, Source→Sink Flow 등) 누락/빈약 시 WARNING
 - 동일 file:line 후보 자동 그룹핑 (DUPLICATE SINK)
 """
+import argparse
 import re
 import json
 import sys
 from pathlib import Path
 from datetime import datetime, timezone
 
-if len(sys.argv) < 3:
-    print("Usage: python3 build-master-list.py <PHASE1_RESULTS_DIR> <OUTPUT_JSON>", file=sys.stderr)
-    sys.exit(1)
+parser = argparse.ArgumentParser()
+parser.add_argument("phase1_dir")
+parser.add_argument("output_json")
+parser.add_argument(
+    "--merge",
+    action="store_true",
+    help="기존 master-list.json이 존재하면 evaluate 결과 필드를 보존하며 병합",
+)
+args = parser.parse_args()
 
-phase1_dir = Path(sys.argv[1])
-out_path = Path(sys.argv[2])
+phase1_dir = Path(args.phase1_dir)
+out_path = Path(args.output_json)
+
+# #34 병합 모드: 기존 master-list.json 로드 (evaluate 결과 보존용)
+EVAL_FIELDS = {
+    "status", "tag", "evidence_summary", "verified_defense", "rederivation_performed",
+    "safe_category", "phase1_validated", "phase1_discarded_reason", "phase1_eval_state",
+}
+existing_by_id = {}
+if args.merge and out_path.is_file():
+    try:
+        prev = json.loads(out_path.read_text(encoding="utf-8"))
+        for c in prev.get("candidates", []):
+            cid = c.get("id")
+            if cid:
+                snapshot = {k: c[k] for k in EVAL_FIELDS if k in c}
+                snapshot["__prev_file"] = c.get("file")
+                snapshot["__prev_line"] = c.get("line")
+                existing_by_id[cid] = snapshot
+        print(
+            f"INFO: --merge 모드, 기존 {len(existing_by_id)}건의 evaluate 결과 필드를 보존합니다.",
+            file=sys.stderr,
+        )
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"WARNING: --merge 실패, 새로 생성: {e}", file=sys.stderr)
+        existing_by_id = {}
+
+def _build_candidate_dict(cid, scanner, cand, md, existing_by_id):
+    base = {
+        "id": cid,
+        "scanner": scanner,
+        "title": cand.get("title", ""),
+        "file": cand.get("file", ""),
+        "line": cand.get("line", 0),
+        "url_path": cand.get("url_path", ""),
+        "source": cand.get("source", ""),
+        "sink": cand.get("sink", ""),
+        "test_prereq": cand.get("test_prereq", ""),
+        "phase1_path": str(md),
+        "status": "candidate",
+        "phase1_validated": False,
+        "phase1_discarded_reason": None,
+        "phase1_eval_state": {
+            "reopen": False,
+            "retries": 0,
+            "conflicts": [],
+            "requires_human_review": False,
+        },
+        "safe_category": None,
+    }
+    preserved = existing_by_id.get(cid)
+    if preserved:
+        # M3 가드: 동일 ID여도 (file, line)이 바뀌면 다른 sink로 간주하여 eval 필드 보존하지 않는다.
+        # 과거 safe/confirmed 판정이 새 위치의 다른 취약점으로 잘못 전이되는 false-carryover를 차단.
+        prev_file = preserved.pop("__prev_file", None)
+        prev_line = preserved.pop("__prev_line", None)
+        if prev_file is not None and prev_line is not None and (
+            prev_file != base["file"] or prev_line != base["line"]
+        ):
+            print(
+                f"WARNING: --merge {cid} (file,line) 변경 "
+                f"({prev_file}:{prev_line} → {base['file']}:{base['line']}) — "
+                f"eval 필드 보존하지 않음",
+                file=sys.stderr,
+            )
+        else:
+            base.update(preserved)
+    return base
+
 
 MANIFEST_RE = re.compile(
     r"<!-- NOAH-SAST MANIFEST v1 -->\s*```json\s*(\{.*?\})\s*```\s*<!-- /NOAH-SAST MANIFEST -->",
@@ -147,19 +229,13 @@ for md in md_files:
                 )
 
         candidates.append(
-            {
-                "id": cid,
-                "scanner": scanner,
-                "title": cand.get("title", ""),
-                "file": cand.get("file"),
-                "line": cand.get("line"),
-                "url_path": cand.get("url_path"),
-                "source": cand.get("source"),
-                "sink": cand.get("sink"),
-                "test_prereq": cand.get("test_prereq"),
-                "phase1_path": str(md),
-                "status": "candidate",
-            }
+            _build_candidate_dict(
+                cid=cid,
+                scanner=scanner,
+                cand=cand,
+                md=md,
+                existing_by_id=existing_by_id,
+            )
         )
 
     # prose에는 있으나 manifest에 없는 ID
