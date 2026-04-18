@@ -62,7 +62,7 @@ flowchart TD
     ChainCheck -->|No| Review
     Chain --> Review["Step 3-8: mode=report-review\n원천 데이터 cross-check\n(체크리스트 1~10)"]
     Review --> S4
-    Review -.->|사용자 검토 권장| UserReport["사용자 보고\n(Phase 2 재실행 판단)"]
+    Review -.->|검토 권장 사항| UserReport["사용자 보고"]
     S4 --> Open["브라우저에서 보고서 열기"]
 
     style User fill:#e94560,stroke:#e94560,color:#fff
