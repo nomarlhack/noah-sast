@@ -8,7 +8,7 @@
 |------|----------|----------|----------|----------|
 | `phase1-review` | Phase 1 + AI 자율 탐색 완료 직후 | `PHASE1_RESULTS_DIR`, `master-list.json` | `evaluation/<scanner>-eval.md`, master-list의 `phase1_*` 필드 | Phase 1 결과 품질 검증. Phase 2 낭비 방지 |
 | `phase2-review` | Phase 2 동적 분석 완료 직후 | `PHASE1_RESULTS_DIR` (Phase 2 결과 포함), `master-list.json` | master-list의 `status`/`tag`/`evidence_summary`/`verified_defense`/`rederivation_performed`/`safe_category` | Phase 2 증거 기반 최종 status 할당 |
-| `report-review` | 보고서 조립(`assemble_report.py`) 완료 직후 | 조립된 보고서 MD 파일, 프로젝트 루트 | 보고서 MD 파일 내용만 수정 | 보고서의 기술 정확성 검증 |
+| `report-review` | 연계 분석 완료 후, 보고서 조립 직전 | `master-list.json` + `evaluation/<scanner>-eval.md` + `<scanner>-phase2.md` + `chain-analysis.md` | **쓰기 없음** (반환 텍스트만) | 조립될 원천 데이터의 cross-scanner 정확성 검증 (사용자 검토 권장 보고) |
 
 ## 흐름도
 
