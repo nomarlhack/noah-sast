@@ -567,6 +567,8 @@ exit 4는 "Phase 1 품질 개선 힌트"이며 **파이프라인 차단 아님**
 
 Step 3-6(연계 분석)과 Step 3-7(결과 체크리스트) 완료 후, Step 4(보고서 조립) 진입 전에 `mode=report-review` 에이전트를 실행하여 **조립에 들어갈 원천 데이터**(master-list.json + eval MD + Phase 2 manifest + chain-analysis.md)의 정확성을 독립 cross-check한다.
 
+**스킵 조건**: master-list.json의 `status ∈ {confirmed, candidate}` 후보가 0건이면 검증 대상이 없으므로 이 단계 스킵하고 Step 4로 진행. 그 외 모든 경우 (후보 1건 이상, 동적 테스트 거부 경로 포함)에는 반드시 실행한다.
+
 에이전트 프롬프트:
 
 ```

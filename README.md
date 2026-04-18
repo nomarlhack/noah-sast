@@ -48,7 +48,7 @@ flowchart TD
     EvalP1 -->|DISCARD| ML_Safe["status: safe\n(Phase 2 낭비 방지)"]
     EvalP1 -->|CONFIRM / OVERRIDE| Check{후보 발견?}
     ML_Safe --> Check
-    Check -->|0건| Review
+    Check -->|0건| S4["Step 4: 보고서 조립\n+ safe 4분류 자동 섹션"]
     Check -->|1건+| Ask["Step 3-3: 동적 테스트 정보 요청"]
     Ask --> UserReply{사용자 응답}
     UserReply -->|정보 제공| Perm["Step 3-4: 도구 권한 확인"]
@@ -61,7 +61,7 @@ flowchart TD
     ChainCheck -->|Yes| Chain["Step 3-6: 연계 분석\n(R1~R5)"]
     ChainCheck -->|No| Review
     Chain --> Review["Step 3-8: mode=report-review\n원천 데이터 cross-check\n(체크리스트 1~10)"]
-    Review --> S4["Step 4: 보고서 조립\n+ safe 4분류 자동 섹션"]
+    Review --> S4
     Review -.->|사용자 검토 권장| UserReport["사용자 보고\n(Phase 2 재실행 판단)"]
     S4 --> Open["브라우저에서 보고서 열기"]
 
