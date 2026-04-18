@@ -1,40 +1,36 @@
 #!/usr/bin/env python3
 """
-lint_reader_layer.py — 보고서 MD/HTML의 헤딩 및 개요 필드에 내부 규약 용어 노출 검사.
+lint_reader_layer.py — 보고서 MD/HTML의 헤딩 및 개요 필드 검증.
 
-vuln-format.md "safe 판정 4분류" 섹션에 선언된 "독자 레이어 용어 노출 금지" 규약을
-자동 검증한다. 보고서 조립·리뷰 후에 호출하며, 헤딩(# ~ ######) 및 개요 섹션의
-`**필드**:` 라인에 내부 토큰이 포함되어 있으면 exit 5(lint 위반)로 경고한다.
+vuln-format.md를 단일 진실 원천으로 사용한다. 두 가지 검증:
 
-검사 범위:
-  1. MD/HTML 헤딩 (h1 ~ h6)
-  2. 개요 블록의 필드명 (보고서 최상단 제목 직후 ~ 첫 `---` 또는 첫 `##` 이전)
-     — vuln-format.md의 "통합 보고서 구조" 정의에 따라 개요 필드는 독자에게
-     직접 노출되므로 헤딩과 동등한 수준으로 검사한다.
+1. **헤딩 검사** (h1~h6): checklist.md의 내부 규약 용어(BANNED_PATTERNS)가
+   헤딩 텍스트에 노출되지 않았는지 검사. 정규식 블랙리스트 방식.
 
-금지 토큰:
-  - section-symbol + 숫자 (예: 원단위 기호 + N) — checklist.md 섹션 번호
-  - mode명: evaluate_phase1, mode=evaluate, mode=review
-  - 내부 라벨: DISCARD, OVERRIDE, CONFIRM (대소문자 무관)
-  - Source 도달성, 실질 영향 반증 같은 내부 판정 용어
-  - 스크립트명: .py 확장자 포함
-  - 내부 메타 서술: 파이프라인, Phase N, 내부 파이프라인
+2. **개요 필드 검사**: 보고서 최상단 개요 블록의 `**필드명**:` 라인을
+   vuln-format.md의 "통합 보고서 구조" 섹션에서 파싱한 **허용 필드 집합**과
+   대조. 블랙리스트 없이 단일 출처 화이트리스트로 검증하므로 필드 이름이
+   단어 변형을 거쳐도 스펙에 없으면 차단된다.
 
-근거 테이블·본문에서는 풀이 형태로 쓰이면 허용 (헤딩·개요 필드명만 검사).
-
-Usage:
-  python3 lint_reader_layer.py <report.md> [<report.html>]
+   - 신규 필드가 필요하면 vuln-format.md의 "통합 보고서 구조" 코드 블록을
+     먼저 갱신. lint가 다음 실행 시 자동 반영.
+   - 스펙 파일을 찾지 못하면 개요 검사는 스킵 (헤딩 검사만 수행).
 
 Exit code:
   0: pass
-  5: lint 위반
+  5: lint 위반 (헤딩 금지 토큰 또는 스펙 외 개요 필드)
+  1: CLI 인자 오류
+
+Usage:
+  python3 lint_reader_layer.py <report.md> [<report.html>]
 """
 
 import os
 import re
 import sys
 
-# 금지 토큰 정규식 (헤딩·개요 필드명에서 검사)
+# 금지 토큰 정규식 (헤딩 한정 — checklist.md 내부 규약 용어 차단용)
+# 개요 필드명은 블랙리스트가 아니라 vuln-format.md 스펙 기반 화이트리스트로 검사한다.
 BANNED_PATTERNS = [
     (r"§\s*\d+", "§N (checklist 섹션 번호)"),
     (r"\bmode\s*=\s*(evaluate_phase1|evaluate|review)\b", "mode명"),
@@ -45,9 +41,6 @@ BANNED_PATTERNS = [
     (r"\b[a-z0-9_-]+\.py\b", "스크립트 파일명"),
     (r"phase1_(validated|discarded_reason|eval_state)", "phase1_* 필드명"),
     (r"safe_category", "safe_category 필드명"),
-    (r"파이프라인", "파이프라인 (내부 메타 서술)"),
-    (r"Phase\s*\d+", "Phase N (내부 단계 서술)"),
-    (r"내부\s*흐름", "내부 흐름"),
 ]
 
 # 헤딩 패턴: MD는 `^#+\s`, HTML은 `<h\d>`
@@ -56,6 +49,35 @@ HTML_HEADING = re.compile(r"<h(\d)[^>]*>(.*?)</h\d>", re.IGNORECASE | re.DOTALL)
 
 # 개요 필드 패턴: **필드명**: 값 — 필드명만 검사 대상
 MD_OVERVIEW_FIELD = re.compile(r"^\*\*([^*]+?)\*\*\s*:\s*(.+)$", re.MULTILINE)
+
+
+def _load_allowed_overview_fields():
+    """vuln-format.md의 '통합 보고서 구조' 섹션에서 허용 필드 목록 추출.
+
+    반환: 허용 필드 이름 리스트 (순서 유지), 스펙 파싱 실패 시 None.
+    스펙 파일 경로는 본 스크립트 기준 상대 경로 resolve.
+    """
+    spec_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "..", "sub-skills", "scan-report", "vuln-format.md"
+    )
+    if not os.path.isfile(spec_path):
+        return None
+    text = open(spec_path, encoding="utf-8").read()
+    # "## 통합 보고서 구조" 헤딩 직후 첫 ```markdown 코드 블록 추출
+    m = re.search(
+        r"##\s+통합\s*보고서\s*구조\s*\n\s*```markdown\s*\n(.*?)\n```",
+        text, re.DOTALL
+    )
+    if not m:
+        return None
+    block = m.group(1)
+    fields = re.findall(r"^\*\*([^*]+?)\*\*\s*:", block, re.MULTILINE)
+    return [f.strip() for f in fields]
+
+
+# 모듈 로드 시 1회만 스펙 파싱 (단일 진실 원천)
+ALLOWED_OVERVIEW_FIELDS = _load_allowed_overview_fields()
 
 
 def _extract_overview_block(text: str) -> tuple[str, int]:
@@ -111,22 +133,23 @@ def check_md(path: str) -> list[str]:
                     f"{path}:{line_no} (h{level}): 금지 토큰 '{label}' → \"{heading}\""
                 )
 
-    # 2. 개요 섹션 필드명 검사 (보고서 최상단 `# 제목` ~ 첫 `---` 또는 `## ` 사이)
+    # 2. 개요 섹션 필드명 검사
+    # vuln-format.md 스펙에서 파싱한 허용 집합과 대조 (단일 진실 원천).
+    # 단어 변형(예: '파이프 구성', '스캔 단계')에도 강건 — 스펙에 없는 필드는 무조건 차단.
     overview_block, overview_start_line = _extract_overview_block(text)
-    if overview_block:
+    if overview_block and ALLOWED_OVERVIEW_FIELDS is not None:
+        allowed = {f for f in ALLOWED_OVERVIEW_FIELDS}
         for fm in MD_OVERVIEW_FIELD.finditer(overview_block):
             field_name = fm.group(1).strip()
-            # 필드명 자체만 검사 대상 (값은 허용 — 독자 친절 서술 가능)
-            for pattern, label in BANNED_PATTERNS:
-                hit = re.search(pattern, field_name, re.IGNORECASE)
-                if hit:
-                    # 블록 내 offset → 전체 텍스트 라인 번호 변환
-                    rel_line = overview_block.count("\n", 0, fm.start()) + 1
-                    abs_line = overview_start_line + rel_line
-                    violations.append(
-                        f"{path}:{abs_line} (개요 필드): 금지 토큰 '{label}' → "
-                        f"\"**{field_name}**:\""
-                    )
+            if field_name in allowed:
+                continue
+            rel_line = overview_block.count("\n", 0, fm.start()) + 1
+            abs_line = overview_start_line + rel_line
+            violations.append(
+                f"{path}:{abs_line} (개요 필드): 스펙 외 필드 '**{field_name}**:' — "
+                f"허용 필드는 vuln-format.md '통합 보고서 구조' 섹션 참조 "
+                f"(현재 허용: {ALLOWED_OVERVIEW_FIELDS})"
+            )
     return violations
 
 
@@ -149,32 +172,36 @@ def check_html(path: str) -> list[str]:
                 )
 
     # 2. 개요 섹션 필드명 검사 (HTML: <h1> 이후 첫 <h2>/<hr> 전까지)
-    m_h1 = re.search(r"<h1[^>]*>.*?</h1>", text, re.IGNORECASE | re.DOTALL)
-    if m_h1:
-        body_start = m_h1.end()
-        after = text[body_start:]
-        end_offsets = []
-        for pat in (r"<h2[^>]*>", r"<hr\s*/?>"):
-            em = re.search(pat, after, re.IGNORECASE)
-            if em:
-                end_offsets.append(em.start())
-        if end_offsets:
-            overview_html = after[:min(end_offsets)]
-            # HTML에서 <strong>필드</strong>: 또는 <b>필드</b>: 형식
-            for fm in re.finditer(
-                r"<(?:strong|b)>([^<]+?)</(?:strong|b)>\s*:",
-                overview_html, re.IGNORECASE
-            ):
-                field_name = fm.group(1).strip()
-                for pattern, label in BANNED_PATTERNS:
-                    hit = re.search(pattern, field_name, re.IGNORECASE)
-                    if hit:
-                        abs_offset = body_start + fm.start()
-                        line_no = text.count("\n", 0, abs_offset) + 1
-                        violations.append(
-                            f"{path}:{line_no} (개요 필드): 금지 토큰 '{label}' → "
-                            f"\"<strong>{field_name}</strong>:\""
-                        )
+    # vuln-format.md 스펙 기반 화이트리스트 대조
+    if ALLOWED_OVERVIEW_FIELDS is not None:
+        allowed = {f for f in ALLOWED_OVERVIEW_FIELDS}
+        m_h1 = re.search(r"<h1[^>]*>.*?</h1>", text, re.IGNORECASE | re.DOTALL)
+        if m_h1:
+            body_start = m_h1.end()
+            after = text[body_start:]
+            end_offsets = []
+            for pat in (r"<h2[^>]*>", r"<hr\s*/?>"):
+                em = re.search(pat, after, re.IGNORECASE)
+                if em:
+                    end_offsets.append(em.start())
+            if end_offsets:
+                overview_html = after[:min(end_offsets)]
+                # HTML에서 <strong>필드</strong>: 또는 <b>필드</b>: 형식
+                for fm in re.finditer(
+                    r"<(?:strong|b)>([^<]+?)</(?:strong|b)>\s*:",
+                    overview_html, re.IGNORECASE
+                ):
+                    field_name = fm.group(1).strip()
+                    if field_name in allowed:
+                        continue
+                    abs_offset = body_start + fm.start()
+                    line_no = text.count("\n", 0, abs_offset) + 1
+                    violations.append(
+                        f"{path}:{line_no} (개요 필드): 스펙 외 필드 "
+                        f"'<strong>{field_name}</strong>:' — "
+                        f"허용 필드는 vuln-format.md '통합 보고서 구조' 섹션 참조 "
+                        f"(현재 허용: {ALLOWED_OVERVIEW_FIELDS})"
+                    )
     return violations
 
 
@@ -193,8 +220,10 @@ def main() -> int:
         for v in all_violations:
             print(f"  - {v}", file=sys.stderr)
         print(
-            "\n금지 토큰은 헤딩(# ~ ######)에서만 검사됩니다. 근거 테이블·본문은 풀이 형태로 허용됩니다.\n"
-            "vuln-format.md 'safe 판정 4분류' 섹션의 '독자 레이어 노출 금지 용어' 목록 참조.",
+            "\n검사 범위:\n"
+            "  1) 헤딩(# ~ ######): checklist.md 내부 규약 용어 차단 — 본문·테이블은 풀이 형태로 허용.\n"
+            "  2) 개요 필드명: vuln-format.md '통합 보고서 구조' 스펙 단일 출처 기반 화이트리스트.\n"
+            "     신규 필드가 필요하면 먼저 vuln-format.md 스펙을 갱신하세요.",
             file=sys.stderr,
         )
         return 5  # §13 exit code table: 5 = lint 위반
