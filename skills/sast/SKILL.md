@@ -449,7 +449,7 @@ Agent 도구로 phase2-review 에이전트를 생성한다. <NOAH_SAST_DIR>/<PHA
 2. <NOAH_SAST_DIR>/sub-skills/scan-report-review/_principles.md (공통 판정 원칙)
 3. <NOAH_SAST_DIR>/sub-skills/scan-report-review/_contracts.md (공통 계약: 판정×태그 매트릭스, 스키마)
 
-위 3개 파일의 지시를 정확히 따라 mode=phase2-review 절차를 수행하세요. 다른 모드(phase1-review, review의 절차를 수행하면 안 됩니다. 특히 report-review 모드의 "소스코드 대조 검증" 절차로 빠지지 마세요.
+위 3개 파일의 지시를 정확히 따라 mode=phase2-review 절차를 수행하세요. 다른 모드(phase1-review, report-review)의 절차를 수행하면 안 됩니다. 특히 report-review 모드의 "MD 본문 수정" 절차로 빠져 보고서 파일을 수정하면 안 됩니다 (phase2-review는 master-list.json만 갱신).
 
 변수: NOAH_SAST_DIR=<NOAH_SAST_DIR>, PHASE1_RESULTS_DIR=<PHASE1_RESULTS_DIR>
 대상: master-list.json의 후보 — Idempotent 동작(phase2-review.md §Idempotent 동작)에 따라 이미 status가 할당된 후보는 skip, 미판정 후보만 처리 (reopen=true는 예외)
