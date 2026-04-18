@@ -8,7 +8,7 @@
 |------|----------|----------|----------|----------|
 | `phase1-review` | Phase 1 + AI 자율 탐색 완료 직후 | `PHASE1_RESULTS_DIR`, `master-list.json` | `evaluation/<scanner>-eval.md`, master-list의 `phase1_*` 필드 | Phase 1 결과 품질 검증. Phase 2 낭비 방지 |
 | `phase2-review` | Phase 2 동적 분석 완료 직후 | `PHASE1_RESULTS_DIR` (Phase 2 결과 포함), `master-list.json` | master-list의 `status`/`tag`/`evidence_summary`/`verified_defense`/`rederivation_performed`/`safe_category` | Phase 2 증거 기반 최종 status 할당 |
-| `report-review` | 연계 분석 완료 후, 보고서 조립 직전 | `master-list.json` + `evaluation/<scanner>-eval.md` + `<scanner>-phase2.md` + `chain-analysis.md` | **쓰기 없음** (반환 텍스트만) | 조립될 원천 데이터의 cross-scanner 정확성 검증 (사용자 검토 권장 보고) |
+| `report-review` | 보고서 조립(`assemble_report.py`) 완료 후, validate/lint/HTML 변환 전 | 조립된 `noah-sast-report.md` + master-list·eval·phase2·chain · 프로젝트 루트 | 보고서 MD 본문 (설명·스니펫·POC·원인 분석·권장 조치, 판정 필드 불변) | 본문 설명 품질 개선 — 스니펫·경로 보정, POC 교정, 중복 통합, 원인 분석·권장 조치 보강 |
 
 ## 흐름도
 
@@ -34,16 +34,15 @@ flowchart TD
     ML3S --> Chain
     Skip --> Chain
 
-    Chain --> RV["mode=report-review\n원천 데이터 cross-check"]
-    RV --> Report["보고서 조립\n(assemble_report.py)"]
-    Report --> Final["최종 보고서\n(브라우저)"]
-    RV -.->|사용자 검토 권장| UserReport["사용자 보고"]
+    Chain --> Report["보고서 조립\n(assemble_report.py)"]
+    Report --> RV["mode=report-review\n본문 품질 개선"]
+    RV --> ValLint["validate_report.py\nlint_reader_layer.py\nmd_to_html.py"]
+    ValLint --> Final["최종 보고서\n(브라우저)"]
 
     style EP1 fill:#0f3460,stroke:#e94560,color:#eee
     style EV fill:#0f3460,stroke:#e94560,color:#eee
     style RV fill:#0f3460,stroke:#e94560,color:#eee
     style Final fill:#e94560,stroke:#e94560,color:#fff
-    style UserReport fill:#533483,stroke:#533483,color:#fff
 ```
 
 ---
@@ -132,24 +131,24 @@ Phase 1에서 `phase1_discarded_reason != null`로 설정된 후보는 `mode=pha
 
 ## `mode=report-review`
 
-보고서 조립 직전 `master-list.json + eval MD + Phase 2 manifest + chain-analysis.md`의 정확성을 독립 에이전트로 cross-check. phase1-review/phase2-review 결과를 재확인하며 특히 **cross-scanner 일관성**을 전담. 쓰기 권한 없음 — 사용자 보고만.
+조립된 보고서 MD 본문의 **설명 품질 개선**. 스니펫·경로·흐름 보정, POC 명령어 교정, 동일 file:line 중복 통합, 원인 분석·권장 조치 보강. **판정 전환 금지** — `**상태**:` 필드는 건드리지 않고 본문 설명만 보강.
 
 ### 입력
-- `master-list.json`, `evaluation/<scanner>-eval.md`, `<scanner>-phase2.md`, `chain-analysis.md`
-- 프로젝트 소스코드 (스팟체크용)
+- 조립된 `noah-sast-report.md` (주요 수정 대상)
+- master-list.json, evaluation/<scanner>-eval.md, <scanner>-phase2.md, chain-analysis.md (Read)
+- 프로젝트 소스코드 (Read, 스팟체크)
 
 ### 스킵 조건
-`status ∈ {confirmed, candidate}` 후보가 0건이면 검증 대상 없음 → 스킵하고 보고서 조립으로 진행.
+`status ∈ {confirmed, candidate}` 후보 0건이면 수정 대상 없음 → 스킵.
+
+### 수정 가능 영역
+원인 분석 / 재현 방법 및 POC / 권장 조치 섹션 본문, `**위치**:`·`**Source**:`·`**Sink**:` 텍스트, 코드 블록 스니펫, 연계 시나리오 Step 설명.
+
+### 수정 금지 영역
+`**ID**:`·`**유형**:`·`**상태**:`·`**미확인 사유**:` 필드 값, 총괄 요약 건수 구조, `## 안전 판정 항목` 섹션, 미적용 스캐너 테이블, `#### N. 제목` 헤딩 구조.
 
 ### 체크리스트 10항목
-- **Cross-scanner 전담**: Item 7 (복수 요소 커버리지), Item 8 (동일 file:line 다층 관점)
-- **스팟체크 (샘플 3개 재확인)**: Items 1~6·9·10 (phase1/phase2-review 판정 재검증)
-- **체인 검증** (M_chains > 0): R1~R5 재적용
-
-### 조치 범위
-- 쓰기 권한 없음 (어떤 파일도 수정·생성하지 않음)
-- 이상 발견 시 반환 텍스트 `## 사용자 검토 권장` 섹션에 ID·문제·권장 조치 기재
-- 파이프라인은 어떤 결과에서도 계속 진행 (보고서 조립 → HTML). 발견한 이상은 사용자 보고에만 반영되며 자동 조치·재실행 경로 없음.
+1~3·7·10은 본문 직접 수정. 4·5·6·9는 본문 보강만 (판정 전환 금지). 8은 중복 섹션 통합 (총괄 요약 동기화 필수).
 
 ---
 

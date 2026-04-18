@@ -14,7 +14,7 @@
 | `phase1_eval_state.conflicts` (**append-only 감사 로그**) | `phase2-review` (Phase 1↔Phase 2 불일치 기록) 및 `phase1-review` (파일 간 판정 충돌 기록). **어떤 모드도 reset 금지** | `report-review`, 연계 분석 |
 | `phase1_eval_state.reopen` (품질 개선 힌트, 비차단) | `phase2-review` (set + Phase 2 재평가 완료 후 자체 reset) 및 `phase1-review` (처리 후 reset) | `report-review`, 연계 분석 |
 | `safe_category` | `phase1-review` (기본), `phase2-review` (단 `defense_verified` 케이스에 한함) | `report-review`, 연계 분석 |
-| 보고서 MD 본문 | `report-review` | — |
+| 보고서 MD 본문 (설명·스니펫·POC·원인 분석·권장 조치 한정, 판정 필드 불변) | `report-review` | — |
 | Phase 1 원본 MD (`<scanner>.md`) | **없음 (불변, 어떤 모드도 Edit·Write 불가)** | `phase1-review`만 Read 허용 |
 | eval MD (`evaluation/<scanner>-eval.md`) | `phase1-review` | `phase2-review`, `report-review`, 보고서 조립 |
 

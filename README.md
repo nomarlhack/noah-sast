@@ -52,18 +52,18 @@ flowchart TD
     Check -->|1건+| Ask["Step 3-3: 동적 테스트 정보 요청"]
     Ask --> UserReply{사용자 응답}
     UserReply -->|정보 제공| Perm["Step 3-4: 도구 권한 확인"]
-    UserReply -->|거부| Review
+    UserReply -->|거부| S4
     Perm --> Dynamic["Step 3-5: 동적 분석\n(Tier A/B/C 병렬)"]
     Dynamic --> Eval["Step 3-5.5: mode=phase2-review\nPhase 2 우선 원칙으로\nstatus 확정"]
     Eval -->|불일치 감사 로그| Conflicts["phase1_eval_state.conflicts\n(append-only)"]
     Conflicts --> ChainCheck
     Eval --> ChainCheck{"안전 제외\n후보 2건+?"}
     ChainCheck -->|Yes| Chain["Step 3-6: 연계 분석\n(R1~R5)"]
-    ChainCheck -->|No| Review
-    Chain --> Review["Step 3-8: mode=report-review\n원천 데이터 cross-check\n(체크리스트 1~10)"]
-    Review --> S4
-    Review -.->|검토 권장 사항| UserReport["사용자 보고"]
-    S4 --> Open["브라우저에서 보고서 열기"]
+    ChainCheck -->|No| S4
+    Chain --> S4
+    S4 --> Review["mode=report-review\n보고서 본문 품질 개선\n(스니펫·POC·원인 분석 보강)"]
+    Review --> ValLint["validate_report.py\nlint_reader_layer.py\nmd_to_html.py"]
+    ValLint --> Open["브라우저에서 보고서 열기"]
 
     style User fill:#e94560,stroke:#e94560,color:#fff
     style AI fill:#e94560,stroke:#e94560,color:#fff
@@ -78,7 +78,7 @@ flowchart TD
     style Check fill:#533483,stroke:#533483,color:#fff
     style ChainCheck fill:#533483,stroke:#533483,color:#fff
     style UserReply fill:#533483,stroke:#533483,color:#fff
-    style UserReport fill:#533483,stroke:#533483,color:#fff
+    style ValLint fill:#0f3460,stroke:#e94560,color:#eee
 ```
 
 ## 개요
@@ -181,6 +181,6 @@ noah-8719/
 | └ 공통 계약 | `skills/sast/sub-skills/scan-report-review/_contracts.md` | Writer 권한 matrix, exit code, master-list.json 스키마, DISCARD 보호 |
 | └ Phase 1 품질 평가 | `skills/sast/sub-skills/scan-report-review/phase1-review.md` | blind eval, 4축 독립 판정, DISCARD 시 Phase 2 낭비 방지 |
 | └ Phase 2 증거 해석 | `skills/sast/sub-skills/scan-report-review/phase2-review.md` | Phase 2 우선 원칙, status 확정, `conflicts` 감사 로그 |
-| └ 원천 데이터 cross-check | `skills/sast/sub-skills/scan-report-review/report-review.md` | 보고서 조립 직전 master-list + eval + phase2 + chain 정확성 검증 (cross-scanner 전담, 쓰기 없음) ([3모드 상세 가이드](skills/sast/docs/review-modes.md)) |
+| └ 보고서 본문 품질 개선 | `skills/sast/sub-skills/scan-report-review/report-review.md` | 조립된 MD 본문 설명 보강 — 스니펫·POC 교정, 중복 통합, 원인 분석·권장 조치 보강 (판정 필드 불변) ([3모드 상세 가이드](skills/sast/docs/review-modes.md)) |
 | 연계 분석 | `skills/sast/sub-skills/chain-analysis/SKILL.md` | R1~R5 체인 구성 규칙, 전제조건/연계 매트릭스 |
 | 개별 스캐너 | `skills/sast/scanners/{name}/phase1.md` | Sink 의미론, 안전 패턴, 판정 의사결정, 자주 놓치는 패턴 |

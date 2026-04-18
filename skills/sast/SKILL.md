@@ -563,36 +563,9 @@ exit 4는 "Phase 1 품질 개선 힌트"이며 **파이프라인 차단 아님**
 3. **Phase 1 및 AI 자율 탐색에서 발견된 후보 중 누락된 것이 없는가?** — Phase 1 결과와 AI 자율 탐색 결과를 다시 대조한다.
 4. **모든 후보에 실제 URL 경로가 확정되어 있는가?** — 경로가 누락된 항목이 있으면 메인 에이전트가 직접 호출부를 추적한다(Sink 함수명으로 Grep → import하는 컴포넌트 식별 → 라우트 정의를 Read로 읽어 경로 확정). 모든 후보의 경로가 확정된 후에만 Step 4로 진행한다.
 
-#### Step 3-8: report-review (보고서 조립 전 데이터 정확성 검증)
-
-Step 3-6(연계 분석)과 Step 3-7(결과 체크리스트) 완료 후, Step 4(보고서 조립) 진입 전에 `mode=report-review` 에이전트를 실행하여 **조립에 들어갈 원천 데이터**(master-list.json + eval MD + Phase 2 manifest + chain-analysis.md)의 정확성을 독립 cross-check한다.
-
-**스킵 조건**: master-list.json의 `status ∈ {confirmed, candidate}` 후보가 0건이면 검증 대상이 없으므로 이 단계 스킵하고 Step 4로 진행. 그 외 모든 경우 (후보 1건 이상, 동적 테스트 거부 경로 포함)에는 반드시 실행한다.
-
-에이전트 프롬프트:
-
-```
-[MODE=report-review 전용 에이전트]
-
-진입 즉시 아래 3개 파일을 순서대로 Read하세요. 그 외 파일(dispatcher SKILL.md, 다른 모드 파일)은 Read하지 마세요.
-
-1. <NOAH_SAST_DIR>/sub-skills/scan-report-review/report-review.md (MODE GUARD 및 전체 절차)
-2. <NOAH_SAST_DIR>/sub-skills/scan-report-review/_principles.md
-3. <NOAH_SAST_DIR>/sub-skills/scan-report-review/_contracts.md
-
-위 3개 파일의 지시를 정확히 따라 mode=report-review 절차를 수행하세요. 다른 모드의 절차를 수행하면 안 됩니다. master-list.json·eval MD·보고서 MD 어떤 파일도 쓰지 마세요.
-
-변수: NOAH_SAST_DIR=<NOAH_SAST_DIR>, PHASE1_RESULTS_DIR=<PHASE1_RESULTS_DIR>
-프로젝트 루트: <PROJECT_ROOT>
-```
-
-**반환 처리**:
-- `## 사용자 검토 권장` 섹션이 포함되어 있으면 메인 에이전트는 해당 섹션을 **사용자에게 그대로 보고**하고 Step 4로 계속 진행. 자동 재호출·재조립 없음.
-- 커버리지 게이트 실패(N ≠ M) 반환 시 report-review 재호출 1회. 재차 실패 시 로그만 남기고 진행.
-
 ### Step 4: scan-report 스킬에 결과 전달 및 보고서 생성
 
-> **전제 조건**: Step 3-7/3-8이 완료되었거나, 사용자가 동적 테스트를 명시적으로 거부한 경우에만 이 단계를 수행한다. 정적 분석만 완료된 상태에서 이 단계로 넘어가지 않는다.
+> **전제 조건**: Step 3-7(결과 체크리스트)이 완료되었거나, 사용자가 동적 테스트를 명시적으로 거부한 경우에만 이 단계를 수행한다. 정적 분석만 완료된 상태에서 이 단계로 넘어가지 않는다.
 
 Step 3에서 수집한 모든 개별 스캐너의 결과를 **`scan-report` 스킬(`<NOAH_SAST_DIR>/sub-skills/scan-report/SKILL.md`)에 전달**하여 통합 보고서를 생성한다. **작업 디렉토리에 여러 프로젝트가 존재하더라도 보고서는 반드시 1개(`noah-sast-report.md` + `.html`)만 생성한다. 프로젝트별로 보고서를 분리하지 않는다.**
 
@@ -612,15 +585,31 @@ Step 1에서 추출한 `SANDBOX_DOMAINS`가 있으면, 보고서 서브에이전
 
 scan-report SKILL.md를 읽고, 그 스킬이 정의하는 보고서 작성 프로세스를 수행한다. **noah-sast는 보고서를 직접 작성하지 않는다.**
 
-> report-review는 Step 3-8에서 보고서 조립 이전에 이미 수행되었다. Step 4는 조립·HTML 변환·정량/lint 검증만 담당한다.
+**Step 4 후처리 (메인 에이전트 수행, 순서대로):**
 
-**Step 4 후처리 (메인 에이전트 수행):**
+1. **report-review (MD 본문 품질 개선)**: master-list.json의 `status ∈ {confirmed, candidate}` 후보가 1건 이상일 때 실행. 0건이면 스킵. 에이전트 프롬프트:
 
-1. **HTML 변환**: `python3 <NOAH_SAST_DIR>/sub-skills/scan-report/md_to_html.py` — 실패 시 `vuln-format.md`의 "공통 HTML 보고서 사양"을 참조하여 직접 변환 코드 작성
-2. **링크 검증**: `python3 <NOAH_SAST_DIR>/sub-skills/scan-report/validate_links.py noah-sast-report.html` — LINK FAIL 시 `missing_ids`에 해당하는 MD 섹션을 찾아 `**N번 - ID**: 제목` 형식이면 `#### N. 제목`으로 변환, HTML 재생성 후 재검증
-3. **정량 검증**: `python3 <NOAH_SAST_DIR>/sub-skills/scan-report/validate_report.py [확인됨+후보 건수] --master-list <PHASE1_RESULTS_DIR>/master-list.json` — FAIL 시 누락 보충 후 재검증. `--master-list` 인자를 반드시 전달해야 `## 안전 판정 항목` 섹션 존재성이 정확히 검증된다. 추가 체크: 확인됨 항목에 실제 값 사용, 후보 항목에 curl 명령어 포함, 테스트 환경 명시
-3-B. **독자 레이어 용어 lint**: `python3 <NOAH_SAST_DIR>/tools/lint_reader_layer.py noah-sast-report.md noah-sast-report.html` — exit 5 (lint 위반) 시 헤딩에 노출된 내부 규약 용어를 풀이 형태로 수정하거나 본문 근거 테이블로 이관
-4. **브라우저 열기**: `open noah-sast-report.html`
+   ```
+   [MODE=report-review 전용 에이전트]
+
+   진입 즉시 아래 3개 파일을 순서대로 Read하세요. 그 외 파일(dispatcher SKILL.md, 다른 모드 파일)은 Read하지 마세요.
+
+   1. <NOAH_SAST_DIR>/sub-skills/scan-report-review/report-review.md
+   2. <NOAH_SAST_DIR>/sub-skills/scan-report-review/_principles.md
+   3. <NOAH_SAST_DIR>/sub-skills/scan-report-review/_contracts.md
+
+   위 3개 파일의 지시를 정확히 따라 mode=report-review 절차를 수행하세요. 다른 모드의 절차는 금지. 보고서 MD 본문만 수정하고 master-list.json·eval MD·Phase 2 manifest는 쓰지 마세요. `**상태**:` 필드 전환 금지.
+
+   변수: NOAH_SAST_DIR=<NOAH_SAST_DIR>, PHASE1_RESULTS_DIR=<PHASE1_RESULTS_DIR>
+   보고서 MD: <REPORT_MD_PATH>
+   프로젝트 루트: <PROJECT_ROOT>
+   ```
+
+2. **정량 검증**: `python3 <NOAH_SAST_DIR>/sub-skills/scan-report/validate_report.py [확인됨+후보 건수] --master-list <PHASE1_RESULTS_DIR>/master-list.json` — FAIL 시 누락 보충 후 재검증.
+3. **독자 레이어 용어 lint**: `python3 <NOAH_SAST_DIR>/tools/lint_reader_layer.py noah-sast-report.md` — exit 5 시 헤딩 수정 후 재검증. 위반 내용이 review가 만든 것이면 report-review 재호출 1회 허용.
+4. **HTML 변환**: `python3 <NOAH_SAST_DIR>/sub-skills/scan-report/md_to_html.py` — 실패 시 `vuln-format.md` "공통 HTML 보고서 사양" 참조.
+5. **링크 검증**: `python3 <NOAH_SAST_DIR>/sub-skills/scan-report/validate_links.py noah-sast-report.html` — LINK FAIL 시 `missing_ids`에 해당하는 MD 섹션을 `#### N. 제목`으로 변환, HTML 재생성 후 재검증.
+6. **브라우저 열기**: `open noah-sast-report.html`
 
 ## 유의사항 (메인 에이전트 — 일반)
 
