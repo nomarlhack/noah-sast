@@ -42,24 +42,30 @@ flowchart TD
     S1 --> S2["Step 2: 스캐너 선별\n(다국어 의존성 + AI 검토)"]
     S2 --> S3["Step 3-1: Phase 1 정적 분석\n(그룹 병렬 → 파일 저장)"]
     S3 --> BML2["build-master-list.py\n결과 검증 + master-list.json"]
-    BML2 --> AI["Step 3-2: AI 자율 취약점 탐색\n(단일 프롬프트, 내부 3단계)"]
-    AI -->|"ai-discovery.md 저장\n+ AI-N ID 부여"| MLUpdate2["master-list.json 갱신\n(Phase 1 + AI 후보 통합)"]
-    MLUpdate2 --> EvalP1["Step 3-2.5: evaluate_phase1\n(Phase 1 품질 평가, blind eval)"]
-    EvalP1 --> Check{후보 발견?}
+    BML2 --> AI["Step 3-2: AI 자율 취약점 탐색\n(내부 3단계)"]
+    AI --> MLUpdate2["master-list.json 갱신\n(Phase 1 + AI 후보 통합)"]
+    MLUpdate2 --> EvalP1["Step 3-2.5: mode=evaluate_phase1\n(blind eval, 4축 독립 판정)"]
+    EvalP1 -->|DISCARD| ML_Safe["status: safe\n(Phase 2 낭비 방지)"]
+    EvalP1 -->|CONFIRM / OVERRIDE| Check{후보 발견?}
+    ML_Safe --> Check
     Check -->|0건| S4["Step 4: 보고서 생성\n+ safe 4분류 자동 섹션"]
     Check -->|1건+| Ask["Step 3-3: 동적 테스트 정보 요청"]
     Ask --> UserReply{사용자 응답}
     UserReply -->|정보 제공| Perm["Step 3-4: 도구 권한 확인"]
     UserReply -->|거부| S4
     Perm --> Dynamic["Step 3-5: 동적 분석\n(Tier A/B/C 병렬)"]
-    Dynamic --> Eval["Step 3-5.5: evaluate\n(Phase 2 증거 기반 status 할당)"]
+    Dynamic --> Eval["Step 3-5.5: mode=evaluate\nPhase 2 우선 원칙으로\nstatus 확정"]
+    Eval -->|불일치 감사 로그| Conflicts["phase1_eval_state.conflicts\n(append-only)"]
+    Conflicts --> ChainCheck
     Eval --> ChainCheck{"안전 제외\n후보 2건+?"}
     ChainCheck -->|Yes| Chain["Step 3-6: 연계 분석\n(R1~R5)"]
-    ChainCheck -->|No| Verify
-    Chain --> Verify["Step 3-7: 결과 검증\n(미수행 항목 보완)"]
-    Verify --> S4
-    S4 --> Review["review: 보고서 정확성 검증"]
-    Review --> Open["브라우저에서 보고서 열기"]
+    ChainCheck -->|No| S4
+    Chain --> S4
+    S4 --> Review["mode=review\n보고서 정확성 검증\n(체크리스트 1~10)"]
+    Review -->|재평가 요청| RetryDecide{트리거 모드}
+    RetryDecide -->|evaluate_phase1| EvalP1
+    RetryDecide -->|evaluate| Eval
+    Review -->|요청 없음| Open["브라우저에서 보고서 열기"]
 
     style User fill:#e94560,stroke:#e94560,color:#fff
     style AI fill:#e94560,stroke:#e94560,color:#fff
@@ -67,11 +73,14 @@ flowchart TD
     style EvalP1 fill:#0f3460,stroke:#e94560,color:#eee
     style Eval fill:#0f3460,stroke:#e94560,color:#eee
     style Review fill:#0f3460,stroke:#e94560,color:#eee
+    style Conflicts fill:#0f3460,stroke:#e94560,color:#eee
+    style ML_Safe fill:#533483,stroke:#533483,color:#fff
     style Chain fill:#533483,stroke:#533483,color:#fff
     style Open fill:#e94560,stroke:#e94560,color:#fff
     style Check fill:#533483,stroke:#533483,color:#fff
     style ChainCheck fill:#533483,stroke:#533483,color:#fff
     style UserReply fill:#533483,stroke:#533483,color:#fff
+    style RetryDecide fill:#533483,stroke:#533483,color:#fff
 ```
 
 ## 개요
@@ -82,8 +91,10 @@ Noah SAST는 Claude Code의 **스킬(Skill)** 시스템 위에 구축된 통합 
 |-----------|------|
 | **중복 탐색 방지** | Step 0에서 모든 grep 패턴을 사전 인덱싱하여 개별 스캐너가 코드베이스를 중복 탐색하지 않음 |
 | **병렬 실행** | 스캐너 그룹을 Agent 도구로 동시 실행 (grep 히트 수 기반 동적 리밸런싱) |
-| **단일 진실 원천** | `master-list.json` 파일이 전체 프로세스의 유일한 상태 저장소 |
-| **오탐 방지** | Sink-first + Source-first 병행 분석, 보고서 작성 후 소스코드 대조 검증 |
+| **단일 진실 원천** | `master-list.json` 파일이 전체 프로세스의 유일한 상태 저장소. Writer 권한 matrix로 모드별 쓰기 범위 분리 |
+| **Phase 2 우선** | Phase 2는 실증 데이터. Phase 1 정적 주장과 모순 시 항상 Phase 2 증거로 status 확정 (인프라 방어 관측 포함) |
+| **인간 개입 최소화** | 파이프라인 차단 없이 자동 수렴. Phase 1↔Phase 2 불일치는 append-only 감사 로그(`conflicts`)로만 기록 |
+| **오탐 방지** | Sink-first + Source-first 병행 분석, 보고서 작성 후 소스코드 대조 검증 (체크리스트 10항목) |
 | **다중 언어 지원** | Node.js, Python, Ruby, Java, Go 매니페스트에서 의존성을 파싱하여 스캐너 선별 |
 
 ## 스캐너 목록
@@ -167,6 +178,11 @@ noah-8719/
 | Phase 2 공통 지침 | `skills/sast/prompts/guidelines-phase2.md` | 동적 테스트 절차, 에러 핸들링, 차단 응답 처리, 도메인 안전 규칙 |
 | AI 자율 탐색 | `skills/sast/prompts/ai-discovery-agent.md` | 3단계 자율 탐색, 7개 제외 필터, Phase 1 충돌 해소 |
 | 보고서 생성 | `skills/sast/sub-skills/scan-report/SKILL.md` | 스켈레톤 → 병렬 작성 → 조립 → HTML 변환 → 검증. safe 4분류 섹션 자동 생성 |
-| 평가·리뷰 | `skills/sast/sub-skills/scan-report-review/SKILL.md` | 3모드(`evaluate_phase1`/`evaluate`/`review`): Phase 1 품질 평가, Phase 2 증거 기반 status 할당, 보고서 정확성 검증 ([상세 가이드](skills/sast/docs/review-modes.md)) |
+| 평가·리뷰 (dispatcher) | `skills/sast/sub-skills/scan-report-review/SKILL.md` | 3모드 진입점 안내. 모드별 파일을 직접 Read하도록 오케스트레이션 |
+| └ 공통 판정 원칙 | `skills/sast/sub-skills/scan-report-review/_principles.md` | Source 도달성, 부재 주장, 반환 형식 규칙 |
+| └ 공통 계약 | `skills/sast/sub-skills/scan-report-review/_contracts.md` | Writer 권한 matrix, exit code, master-list.json 스키마, DISCARD 보호 |
+| └ Phase 1 품질 평가 | `skills/sast/sub-skills/scan-report-review/evaluate_phase1.md` | blind eval, 4축 독립 판정, DISCARD 시 Phase 2 낭비 방지 |
+| └ Phase 2 증거 해석 | `skills/sast/sub-skills/scan-report-review/evaluate.md` | Phase 2 우선 원칙, status 확정, `conflicts` 감사 로그 |
+| └ 보고서 검증 | `skills/sast/sub-skills/scan-report-review/review.md` | 체크리스트 10항목, 재평가 요청 경로 ([3모드 상세 가이드](skills/sast/docs/review-modes.md)) |
 | 연계 분석 | `skills/sast/sub-skills/chain-analysis/SKILL.md` | R1~R5 체인 구성 규칙, 전제조건/연계 매트릭스 |
 | 개별 스캐너 | `skills/sast/scanners/{name}/phase1.md` | Sink 의미론, 안전 패턴, 판정 의사결정, 자주 놓치는 패턴 |
