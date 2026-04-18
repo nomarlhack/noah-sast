@@ -27,7 +27,7 @@
 | Exit code | 의미 | Blocking | 후속 조치 |
 |-----------|------|---------|----------|
 | `0` | pass | — | 다음 단계 진행 |
-| `1` | incomplete / invalid state | Yes | 해당 단계 재호출 (phase1-review 또는 evaluate) |
+| `1` | incomplete / invalid state | Yes | 해당 단계 재호출 (phase1-review 또는 phase2-review) |
 | `2` | (사용 안 함 — Phase 2 우선 원칙으로 인간 개입 경로 폐기) | — | — |
 | `3` | non-blocking warning (rederivation 편향 등) | No | 기록·모니터링만, 다음 단계 진행 가능 |
 | `4` | reopen_pending (품질 개선 힌트) | No | `phase1_eval_state.reopen=true` 후보 존재. phase1-review 선택적 재호출 (status는 이미 phase2-review가 확정) |

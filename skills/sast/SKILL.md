@@ -469,11 +469,11 @@ python3 <NOAH_SAST_DIR>/tools/assert_status_complete.py \
 
 Exit code별 조치 (`sub-skills/scan-report-review/_contracts.md §2` Exit Code 통일 테이블):
 - `0`: Step 3-6 진행
-- `1`: status 미완결. **evaluate 재시도 절차** 수행 (아래 참조)
+- `1`: status 미완결. **phase2-review 재시도 절차** 수행 (아래 참조)
 - `3`: 비차단 경고 (rederivation 편향). 로그만 남기고 진행
 - `4`: `phase1_eval_state.reopen=true` 후보 존재 — **품질 개선 힌트**. phase1-review 재호출은 선택적이며, Phase 2 우선 원칙에 따라 status는 이미 phase2-review가 확정했으므로 파이프라인은 차단하지 않고 다음 단계로 진행 가능
 
-**evaluate 재시도 절차 (exit 1 대응)**:
+**phase2-review 재시도 절차 (exit 1 대응)**:
 
 1. **1회차 재시도**: `scan-report-review mode=phase2-review` 재호출. idempotent로 미판정 후보만 처리. 이후 assert 재실행.
 2. **2회차 재시도**: 여전히 exit 1이면 동일 재호출.
