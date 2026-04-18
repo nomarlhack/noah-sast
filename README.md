@@ -61,7 +61,9 @@ flowchart TD
     ChainCheck -->|Yes| Chain["Step 3-6: 연계 분석\n(R1~R5)"]
     ChainCheck -->|No| S4
     Chain --> S4
-    S4 --> Review["mode=report-review\n보고서 본문 품질 개선\n(스니펫·POC·원인 분석 보강)"]
+    S4 --> ReviewCheck{"후보 1건+?"}
+    ReviewCheck -->|Yes| Review["mode=report-review\n보고서 본문 품질 개선\n(스니펫·POC·원인 분석 보강)"]
+    ReviewCheck -->|No| ValLint
     Review --> ValLint["validate_report.py\nlint_reader_layer.py\nmd_to_html.py"]
     ValLint --> Open["브라우저에서 보고서 열기"]
 
@@ -77,6 +79,7 @@ flowchart TD
     style Open fill:#e94560,stroke:#e94560,color:#fff
     style Check fill:#533483,stroke:#533483,color:#fff
     style ChainCheck fill:#533483,stroke:#533483,color:#fff
+    style ReviewCheck fill:#533483,stroke:#533483,color:#fff
     style UserReply fill:#533483,stroke:#533483,color:#fff
     style ValLint fill:#0f3460,stroke:#e94560,color:#eee
 ```
