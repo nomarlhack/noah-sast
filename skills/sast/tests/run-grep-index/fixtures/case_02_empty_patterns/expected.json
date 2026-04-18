@@ -1,0 +1,6 @@
+{
+  "empty-scanner": {
+    "matches_by_pattern": {}
+  },
+  "expect_failures": false
+}
