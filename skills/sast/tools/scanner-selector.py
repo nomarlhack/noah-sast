@@ -2,13 +2,18 @@
 """scanner-selector.py — grep 인덱스 + 프로젝트 파일 기반 41개 스캐너 자동 선별.
 
 Usage:
-    python3 scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT>
+    python3 scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT> [--write-expected-file=PATH]
+
+Options:
+    --write-expected-file=PATH  적용 스캐너 목록을 JSON 파일로 저장 (build-master-list.py가 읽음)
 
 Output:
-    - 적용 스캐너 목록 (grep 히트 건수 포함)
-    - 제외 스캐너 목록 (제외 사유 포함)
+    - 적용/제외 판정 테이블 (grep 히트 건수 + 사유 포함)
+    - 적용 스캐너 목록
+    - 그룹 편성
 """
 import json, os, re, sys, glob
+from pathlib import Path
 
 if len(sys.argv) < 3:
     print("Usage: python3 scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT>")
@@ -580,3 +585,15 @@ for gname, members in balanced_groups.items():
     member_strs = [f"{s}({included_hits.get(s, 0)})" for s in members]
     total = sum(included_hits.get(s, 0) for s in members)
     print(f"Group ({gname}): {', '.join(member_strs)} [총 {total}건]")
+
+# 선택적: 적용 스캐너 목록을 JSON 파일로 저장
+for arg in sys.argv[3:]:
+    if arg.startswith("--write-expected-file="):
+        wef_path = Path(arg.split("=", 1)[1])
+        wef_path.parent.mkdir(parents=True, exist_ok=True)
+        wef_path.write_text(
+            json.dumps([s for s, _ in included], ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        print(f"\n적용 스캐너 목록 저장: {wef_path}")
+        break

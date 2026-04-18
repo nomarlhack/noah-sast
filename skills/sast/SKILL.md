@@ -134,12 +134,14 @@ echo "expected=$EXPECTED"
 `scanner-selector.py`를 실행하여 grep 인덱스 + 프로젝트 아키텍처 기반으로 자동 선별한다:
 
 ```bash
-python3 <NOAH_SAST_DIR>/tools/scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT>
+python3 <NOAH_SAST_DIR>/tools/scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT> \
+  --write-expected-file=<PHASE1_RESULTS_DIR>/_expected_scanners.json
 ```
 
 스크립트 출력:
 - 적용/제외 판정 테이블 (grep 히트 건수 + 사유 포함)
 - 적용 스캐너 목록
+- `<PHASE1_RESULTS_DIR>/_expected_scanners.json`: 적용 스캐너 이름 목록 (JSON). `build-master-list.py`가 자동으로 읽어 Phase 1 완료 후 누락 파일을 MISSING_FILE 에러로 보고한다.
 
 **기본 원칙: 포함이 기본이고, 제외에는 근거가 필요하다.**
 - grep 결과 1건 이상 → 반드시 포함

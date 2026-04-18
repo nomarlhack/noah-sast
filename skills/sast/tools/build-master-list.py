@@ -146,6 +146,15 @@ if not md_files:
     print(f"ERROR: No .md files found in {phase1_dir}")
     sys.exit(1)
 
+# 예상 스캐너 목록 로드 (scanner-selector.py --write-expected-file 결과)
+_expected_file = phase1_dir / "_expected_scanners.json"
+expected_scanner_set: set[str] | None = None
+if _expected_file.is_file():
+    try:
+        expected_scanner_set = set(json.loads(_expected_file.read_text(encoding="utf-8")))
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"WARNING: _expected_scanners.json 파싱 실패 — {e}", file=sys.stderr)
+
 for md in md_files:
     try:
         text = md.read_text(encoding="utf-8")
@@ -269,7 +278,17 @@ out_path.write_text(
     )
 )
 
-# 6. stdout 출력
+# 6. MISSING_FILE 검사 (예상 스캐너 중 MD 파일이 없는 것)
+if expected_scanner_set is not None:
+    actual_stems = {md.stem for md in md_files}
+    for scanner in sorted(expected_scanner_set):
+        if scanner not in actual_stems:
+            errors.append(
+                f"{scanner}: MISSING_FILE — Phase 1 결과 파일이 생성되지 않음 "
+                f"(예상: {phase1_dir / (scanner + '.md')})"
+            )
+
+# 7. stdout 출력
 if errors:
     for e in errors:
         print(f"ERROR: {e}")
