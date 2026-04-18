@@ -38,7 +38,6 @@ ${CLAUDE_PLUGIN_ROOT}/skills/sast
   prompts/                         ← 서브 에이전트 지시 문서
     guidelines-phase1.md           ← Phase 1 공통 지침
     guidelines-phase2.md           ← Phase 2 공통 지침
-    grep-agent.md                  ← grep 인덱싱 에이전트 프롬프트
     phase1-group-agent.md          ← Phase 1 그룹 에이전트 프롬프트
     ai-discovery-agent.md          ← AI 자율 취약점 탐색 에이전트 프롬프트
     phase2-agent.md                ← Phase 2 동적 테스트 에이전트 프롬프트
@@ -47,6 +46,7 @@ ${CLAUDE_PLUGIN_ROOT}/skills/sast
     sqli-scanner/
     ...
   tools/                           ← Python 유틸리티 스크립트
+    run_grep_index.py              ← grep 인덱싱 (Step 0)
     scanner-selector.py
     build-master-list.py
     update-phase2-status.py
@@ -58,71 +58,68 @@ ${CLAUDE_PLUGIN_ROOT}/skills/sast
   tests/                           ← grep 커버리지 테스트
 ```
 
-### Step 0: 전체 패턴 사전 인덱싱 (grep 인덱싱 에이전트)
+### Step 0: 전체 패턴 사전 인덱싱 (`run_grep_index.py`)
 
-**[필수] Step 1 진입 전에 반드시 완료한다.** 개별 취약점 스캐너 에이전트가 코드베이스를 중복 탐색하는 것을 방지하기 위해, **grep 인덱싱 에이전트**를 생성하여 모든 패턴 인덱싱을 위임한다. 메인 에이전트는 파일 경로와 카운트 요약만 수신한다.
+**[필수] Step 1 진입 전에 반드시 완료한다.** 개별 취약점 스캐너 에이전트가 코드베이스를 중복 탐색하는 것을 방지하기 위해, **결정적 스크립트 `tools/run_grep_index.py`로 모든 패턴 인덱싱을 수행**한다. 각 스캐너의 `phase1.md` frontmatter에서 `grep_patterns`를 추출해 프로젝트 전체에 grep을 실행하고, 스캐너별 JSON 인덱스를 생성한다.
 
-#### Step 0-1: grep 인덱싱 에이전트 생성
+#### Step 0-1: 디렉토리 경로 생성
 
-**[필수] grep 인덱싱 에이전트 생성 전에 메인 에이전트가 직접 Bash로 고유 경로를 생성한다.**
-
-아래 Bash 명령을 실행하여 완성된 디렉토리 경로 문자열을 얻는다:
+메인 에이전트가 Bash로 두 디렉토리 경로를 생성한다:
 
 ```bash
 echo "/tmp/scan_index_$(basename <PROJECT_ROOT>)_$(date +%s)"
-```
-
-예시 출력: `/tmp/scan_index_storychannel_1711700000`
-
-이 출력값을 `PATTERN_INDEX_DIR` 변수로 보관한다. grep 인덱싱 에이전트 프롬프트에는 이 **완성된 경로 문자열**을 그대로 삽입한다. grep 인덱싱 에이전트가 경로를 스스로 생성하거나 해석하도록 맡기지 않는다.
-
-동일하게 Phase 1 결과 디렉토리 경로도 생성한다:
-
-```bash
 echo "/tmp/phase1_results_$(basename <PROJECT_ROOT>)_$(date +%s)"
 ```
 
-이 출력값을 `PHASE1_RESULTS_DIR` 변수로 보관한다. Phase 1 그룹 에이전트가 스캐너별 분석 결과를 이 디렉토리에 파일로 저장한다. 서브 에이전트 프롬프트에는 `<PHASE1_RESULTS_DIR>`을 **resolve된 실제 경로 문자열**로 치환하여 삽입한다.
+출력값을 각각 `PATTERN_INDEX_DIR`, `PHASE1_RESULTS_DIR` 변수로 보관한다. 이후 모든 경로 참조에 사용한다. 서브 에이전트 프롬프트에는 **resolve된 실제 경로 문자열**로 치환하여 삽입한다.
 
-Agent 도구로 grep 인덱싱 에이전트를 생성한다. **[필수] 메인 에이전트는 grep 프롬프트 본문을 인라인으로 복사하지 않는다.** 대신 아래 한 줄 프롬프트를 그대로 사용하되, `<NOAH_SAST_DIR>`/`<PROJECT_ROOT>`/`<PATTERN_INDEX_DIR>` 세 변수를 **resolve된 실제 경로 문자열**로 치환한다.
+#### Step 0-2: `run_grep_index.py` 실행
 
-```
-<NOAH_SAST_DIR>/prompts/grep-agent.md를 Read 도구로 읽고 그 안의 지시를 정확히 따르세요.
-변수: NOAH_SAST_DIR=<NOAH_SAST_DIR>, PROJECT_ROOT=<PROJECT_ROOT>, PATTERN_INDEX_DIR=<PATTERN_INDEX_DIR>
-```
-
-`prompts/grep-agent.md`에는 단계 1~4(통합 패턴 파일 읽기, INCLUDE/EXCLUDE 화이트리스트, JSON 저장 형식, 카운트 요약 반환)이 한 글자도 빠지지 않고 정의되어 있으므로, 메인 에이전트는 본문을 절대 축약·재작성·재인용하지 않는다.
-
----
-
-#### Step 0-2: 패턴 인덱스 디렉토리 경로 및 카운트 요약 수신
-
-grep 인덱싱 에이전트가 반환한 **카운트 요약**을 보관한다. 디렉토리 경로는 Step 0-1에서 메인 에이전트가 직접 생성한 `PATTERN_INDEX_DIR` 값을 그대로 사용한다.
-
-- 카운트 요약 → 보관만 (출력 의무 없음)
-- 디렉토리 경로 → 각 개별 취약점 스캐너 에이전트에 전달 (에이전트는 `<PATTERN_INDEX_DIR>/<스캐너명>.json` 파일만 읽음)
-
-**[필수] 메인 에이전트는 패턴 인덱스 파일을 직접 읽지 않는다. 디렉토리 경로만 전달한다.**
-
-**[필수] 반환 직후 드리프트 검증 (Step 1 진입 전 반드시 수행):**
-
-grep 에이전트가 "스크립트 작성 후 실행 없이 종료"하는 드리프트를 보일 수 있으므로, 메인 에이전트가 Bash로 실제 결과물을 검증한다:
+Bash 도구로 스크립트를 직접 호출한다. `<NOAH_SAST_DIR>`/`<PROJECT_ROOT>`/`<PATTERN_INDEX_DIR>`는 resolve된 실제 경로 문자열로 치환한다.
 
 ```bash
-JSON_COUNT=$(ls -1 <PATTERN_INDEX_DIR>/*.json 2>/dev/null | wc -l | tr -d ' ')
-STRAY=$(ls -1 <PATTERN_INDEX_DIR> 2>/dev/null | grep -vE '^[a-z0-9-]+-scanner\.json$' | tr '\n' ' ')
-echo "json_count=$JSON_COUNT"
-echo "stray=$STRAY"
+python3 <NOAH_SAST_DIR>/tools/run_grep_index.py \
+  --scanners-dir <NOAH_SAST_DIR>/scanners \
+  --project-root <PROJECT_ROOT> \
+  --out-dir <PATTERN_INDEX_DIR>
 ```
 
-판정:
-- `json_count` == 적용 스캐너 수 (41 이하, scanner-selector.py 실행 전이면 41 기준) 이면 정상 → Step 1 진행
-- `json_count == 0` 또는 `stray`에 `run_scan.py`/`runner*.py`/`_batch*.json` 등 **비-스캐너 파일이 남아있음** → **드리프트**. grep 에이전트를 즉시 재실행한다. 재실행 프롬프트에는 "이전 시도가 스크립트 파일(`run_scan.py` 등)만 남기고 JSON 인덱스를 생성하지 않았음. Bash 도구로 grep을 직접 호출하여 JSON 파일을 실제로 저장할 것"을 명시한다.
-- 재실행 후에도 `json_count == 0`이면 프로젝트 크기 분할(서브디렉토리별 PROJECT_ROOT로 나누기)을 검토한다.
+스크립트가 수행하는 일:
+- 41개 스캐너의 `phase1.md` frontmatter에서 `grep_patterns` 추출 (YAML 파싱)
+- 각 패턴을 `subprocess.run(["grep", ...], shell=False)` argv로 실행 (shell 인젝션/이스케이프 이슈 없음)
+- 스캐너별 결과를 `<PATTERN_INDEX_DIR>/<스캐너명>.json`에 저장 (형식: `{pattern: ["file:line", ...]}`)
+- 스캐너 단위로 실패 격리: YAML 파싱 오류/regex 오류/grep timeout은 `_failures.json`에 기록하고 다른 스캐너는 계속 처리
+- stdout에 스캐너별 히트 건수 요약 출력
 
-그 외 `[INCOMPLETE: scanner-name]`이 반환에 포함된 경우는 해당 스캐너만 별도로 grep을 재실행한다.
+**Exit code별 분기:**
 
----
+| exit | 의미 | 조치 |
+|------|------|------|
+| `0` | 41개 JSON 모두 정상 저장, 실패 없음 | Step 1 진행 |
+| `1` | 환경/CLI 오류 (grep 부재, 경로 오타, 권한 등) | 오류 메시지 확인 후 재실행 |
+| `2` | 부분 실패 (`_failures.json` 생성됨) | 실패 사유 확인 후 조치 (아래) |
+
+**exit 2 시 실패 사유별 대응:**
+
+메인 에이전트가 `<PATTERN_INDEX_DIR>/_failures.json`을 Read하여 `reason` 필드로 분기:
+
+- `yaml_parse_error`: 해당 스캐너 `phase1.md` frontmatter 수정 필요 (버그 — 이슈 보고)
+- `regex_error`: 해당 스캐너 `phase1.md`의 `grep_patterns` 중 정규식 오류 (버그 — 이슈 보고)
+- `grep_timeout`: 프로젝트 크기가 크거나 패턴이 과다 매치. `PROJECT_ROOT` 서브디렉토리 분할 검토
+- `io_error`: 파일 시스템 권한/경로 점검 후 전체 재실행
+- `phase1_md_missing`: 스캐너 디렉토리 구조 오류 (버그 — 이슈 보고)
+
+`yaml_parse_error`, `regex_error`, `phase1_md_missing`은 해당 스캐너의 JSON이 빈 `{}`로 저장되어 하류가 멈추지 않는다. 영향 받는 스캐너의 후보는 0건이 되지만 나머지 40개는 정상 진행된다.
+
+**[필수] 무결성 검증 (Step 1 진입 전 수행):**
+
+```bash
+JSON_COUNT=$(ls -1 <PATTERN_INDEX_DIR>/*-scanner.json 2>/dev/null | wc -l | tr -d ' ')
+echo "json_count=$JSON_COUNT"
+# 기대값: 41 (scanner-selector.py 실행 전)
+```
+
+`json_count != 41`이면 스크립트 실행 실패. 오류 메시지 확인 후 재실행.
 
 ### Step 1: 프로젝트 스택 파악
 
@@ -140,7 +137,7 @@ echo "stray=$STRAY"
 
 #### Step 2-1: 제외 여부 결정 (자동화 스크립트)
 
-> Step 0-2에서 수신한 카운트 요약은 보관만 하면 되며, 메인 에이전트가 별도 테이블로 출력할 의무는 없다. `scanner-selector.py`가 동일 정보를 더 풍부한 형태로 출력한다.
+> Step 0에서 `run_grep_index.py` stdout의 카운트 요약은 보관만 하면 되며, 메인 에이전트가 별도 테이블로 출력할 의무는 없다. `scanner-selector.py`가 동일 정보를 더 풍부한 형태로 출력한다.
 
 `scanner-selector.py`를 실행하여 grep 인덱스 + 프로젝트 아키텍처 기반으로 자동 선별한다:
 

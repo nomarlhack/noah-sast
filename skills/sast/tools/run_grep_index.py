@@ -5,8 +5,6 @@ Noah SAST grep 인덱싱 스크립트.
 각 스캐너의 phase1.md frontmatter에서 grep_patterns를 추출하여
 프로젝트 전체에 grep을 실행하고, 스캐너별 JSON 인덱스를 저장한다.
 
-기존 grep 에이전트(prompts/grep-agent.md)의 결정적 대체물.
-
 사용:
   python3 run_grep_index.py \\
     --scanners-dir <NOAH_SAST_DIR>/scanners \\
