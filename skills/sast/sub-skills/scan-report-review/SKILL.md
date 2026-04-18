@@ -1,215 +1,49 @@
 ---
 name: scan-report-review
-description: "noah-sast 보고서의 후보/확인됨/이상 없음 판정을 소스코드와 대조해 검증하고 필요 시 수정하는 서브스킬."
+description: "noah-sast 보고서의 후보/확인됨/이상 없음 판정을 소스코드와 대조해 검증하고 필요 시 수정하는 서브스킬. 3모드: evaluate_phase1 / evaluate / review."
 ---
 
-# Scan Report Review — 보고서 정확성 검증
+# Scan Report Review — Dispatcher
 
-이 서브스킬은 세 모드로 동작한다:
+**이 파일은 dispatcher이다.** 에이전트는 이 파일을 읽지 않고 **호출된 mode에 해당하는 파일을 직접 Read**해야 한다. 메인 오케스트레이터(`skills/sast/SKILL.md`)가 모드별 파일 경로를 에이전트 프롬프트에 직접 지정한다.
 
-- **`mode=evaluate_phase1`**: Phase 1 결과 파일의 정적 분석 품질을 검증한다 (신규, Phase 2 낭비 방지). Phase 1 원본 MD를 Read만 하고 Edit·Write하지 않으며, 판정은 별도 `evaluation/<scanner>-eval.md`에 기록한다.
-- **`mode=evaluate`**: Phase 2 결과 파일의 evidence를 해석해 `master-list.json`의 `status` 필드를 할당한다. Phase 1 주장과의 교차 검증도 수행한다 (`checklist.md §10-A`).
-- **`mode=review`**: 조립된 보고서 MD 파일의 기술 정확성을 검증한다 (기존 기능). status는 이미 확정됐으므로 건드리지 않는다.
+## 모드별 진입점
 
-### 호출 파라미터
+| 모드 | 호출 시점 | 진입 파일 | 역할 |
+|------|----------|----------|------|
+| `evaluate_phase1` | Phase 1 정적 분석 + AI 자율 탐색 완료 직후 | `evaluate_phase1.md` | Phase 1 결과 품질 검증, Phase 2 낭비 방지 |
+| `evaluate` | Phase 2 동적 분석 완료 직후 | `evaluate.md` | Phase 2 증거 기반 status 할당 |
+| `review` | 보고서 MD 조립 직후, HTML 변환 전 | `review.md` | 보고서 기술 정확성 검증 |
 
-| 모드 | 입력 | 출력 |
-|------|------|------|
-| **evaluate_phase1** | `PHASE1_RESULTS_DIR`, `master-list.json` | `evaluation/<scanner>-eval.md` + master-list.json `phase1_*` 필드 |
-| **evaluate** | `PHASE1_RESULTS_DIR`, `master-list.json` (Phase 2 결과 포함) | master-list.json `status`/`tag`/`evidence_summary`/`verified_defense`/`rederivation_performed` |
-| **review** | 보고서 MD 경로, 프로젝트 루트 | 보고서 MD 내용 수정 |
+## 공통 레퍼런스
 
-공통 규약: `checklist.md` 참조.
-- evaluate_phase1: §12 필수 적용 (§2·§3·§4·§9), §11-A 스키마
-- evaluate: §10·§11 필수 적용 (§10-A 교차 검증 포함)
-- review: §1~§9 적용
+모든 모드가 진입 직후 Read해야 한다.
 
-> **참고**: 검증 에이전트 프롬프트 본체, 검증 유형별 상세 지침(4-1~4-3), "수정 없음" 결과 자가 검증은 별도 파일 `<NOAH_SAST_DIR>/sub-skills/scan-report-review/checklist.md`에 정의되어 있다. 본 SKILL.md는 메인 오케스트레이션만 다룬다.
+- `_principles.md` — Source 도달성 판정, 부재 주장 검증, 반환 형식 규칙
+- `_contracts.md` — Writer 권한 matrix, exit code, master-list.json/manifest 스키마, DISCARD 보호, 독자 레이어 용어 금지
 
----
+## 호출 방식
 
-## 리뷰 프로세스
-
-> **모드별 Step 1~6 해석**:
->
-> ### mode=evaluate_phase1
-> - Step 1: Phase 1 결과 파일(`<scanner>.md`)을 `blind_read_phase1_md.py`로 마스킹 뷰 로드, master-list.json 파싱
-> - Step 2: 커버리지 = master-list.json의 모든 후보
-> - Step 3: 서브에이전트가 §12-C의 4개 필수 축(§2·§3·§4·§9) 적용, §7·§8 선택 적용
-> - Step 4.5: §9 Source 도달성 ✗ 시 `status: safe` + `tag: "Source 도달성 폐기"` 즉시 할당
-> - Step 5: `evaluation/<scanner>-eval.md` 작성 (CONFIRM/OVERRIDE/DISCARD + phase1_quality_notes) + master-list.json `phase1_validated`/`phase1_discarded_reason`/`phase1_eval_state` 갱신
-> - Step 6: 판정 분포(CONFIRM/OVERRIDE/DISCARD), §12-F 파일 간 일관성 검사 결과 요약
->
-> ### mode=evaluate
-> - Step 1: Phase 2 결과 파일(`*-phase2.md`)과 master-list.json을 파싱
-> - Step 2: 커버리지 = master-list.json의 모든 후보
-> - Step 3: §10 판정 플로우 + §10-A Phase 1 교차 검증
-> - Step 4.5: Source 도달성은 candidate → safe 재분류 트리거
-> - Step 5: `status`/`tag`/`evidence_summary`/`verified_defense`/`rederivation_performed` 갱신. 교차 검증 모순 시 `phase1_eval_state.reopen=true` 기록하여 main에게 evaluate_phase1 재호출 요청
-> - Step 6: 판정 분포, rederivation=false 비율, 모순 건수 요약
->
-> ### mode=review
-> Step 1~6 원래 의미 적용 (보고서 MD 기술 정확성 검증). status/tag는 건드리지 않음.
-
-### Step 1: 보고서 파싱
-
-MD 파일을 Read 도구로 읽어 검증 대상을 추출한다:
-
-1. **후보/확인됨 항목**: `#### N. 제목` 헤딩 하위의 취약점 상세 전체
-2. **이상 없음 스캐너**: `[이상 없음]` 표시된 스캐너의 점검 항목 요약 테이블
-3. **연계 시나리오**: 체인 분석의 Step별 설명과 코드 참조 (있는 경우)
-
-### Step 2: 검증 커버리지 정의
-
-리뷰 시작 전, Step 1에서 추출한 검증 대상의 총 건수를 계산한다:
-- M_candidates: 후보/확인됨 항목 수
-- M_chains: 공격 체인 수 (체인이 0건이면 M_chains = 0)
-- M_safe: 이상 없음 스캐너 수
-
-이 값을 기록하고, Step 6 출력에 "검증 N / 전체 M" 형식으로 보고한다. N == M이 아니면 결과 반환 거부, 추가 검증 후 재시도.
-
-### Step 3: 소스코드 대조 검증 (병렬 서브에이전트)
-
-추출한 항목을 에이전트로 **병렬 검증**한다. 항목 수에 따라 적절히 그룹핑한다 (그룹당 최대 5개 항목). 컨���스트 한도가 우려되면 그룹 크기를 3개 또는 1개까지 축소할 수 있다.
-
-**[필수] 메인 에이전트는 검증 체크리스트 본문을 인라인으로 복사하지 않는다.** 대신 아래 형식의 짧은 프롬프트로 각 검증 서브에이전트를 생성한다.
+에이전트 프롬프트는 모드별 파일을 직접 지정한다:
 
 ```
-<NOAH_SAST_DIR>/sub-skills/scan-report-review/checklist.md를 Read 도구로 읽고
-그 안의 "검증 에이전트 프롬프트 본체" + "검증 유형별 상세 지침"을 정확히 따라
-아래 보고서 항목을 검증하세요.
+[MODE=<X> 전용 에이전트]
 
-PROJECT_ROOT: <PROJECT_ROOT>
-NOAH_SAST_DIR: <NOAH_SAST_DIR>
+진입 즉시 아래 3개 파일을 순서대로 Read하세요:
+1. <NOAH_SAST_DIR>/sub-skills/scan-report-review/<X>.md
+2. <NOAH_SAST_DIR>/sub-skills/scan-report-review/_principles.md
+3. <NOAH_SAST_DIR>/sub-skills/scan-report-review/_contracts.md
 
-## 검증할 항목 (이 그룹에 할당된 최대 5개)
-
-[항목 1 원문]
-[항목 2 원문]
-...
+위 파일의 지시를 정확히 따라 mode=<X> 절차를 수행하세요. 다른 모드의 절차를 수행하면 안 됩니다.
 ```
 
-### Step 4: 검증 유형별 상세 지침
+## 드리프트 방지
 
-검증 서브에이전트가 `checklist.md`의 4-1(후보/확인됨), 4-2(이상 없음), 4-3(연계 시나리오) 지침을 직접 적용한다. 메인 에이전트는 별도 안내를 추가하지 않는다.
+- 각 모드 파일 첫 줄 `MODE GUARD`: 다른 모드 행동 금지, 진입 시 `_principles.md`/`_contracts.md` Read 강제.
+- Writer 권한은 `_contracts.md §1`에 단일 정의. 모드 파일은 자기 권한만 기술.
+- assert 스크립트(`assert_phase1_validated.py`, `assert_status_complete.py`)가 산출물 필드 완결성을 검증한다 (모드가 수행해야 할 필드 갱신이 누락되면 exit 1~7로 차단).
 
-### Step 4.5: Source 도달성 반환 검증
+## 사람용 요약
 
-서브에이전트 반환을 수집한 후, MD 파일 수정(Step 5) 전에 아래 검증을 수행한다.
+3모드의 입출력·흐름도·판정 예시는 `../../docs/review-modes.md` 참조 (실행 문서 아님, 단일 진실 원천은 이 디렉터리의 모드 파일).
 
-**검증 절차:**
-1. 반환된 모든 후보/확인됨 항목에서 `Source 도달성:` 라인을 추출한다.
-2. `Source 도달성:` 라인이 없는 항목을 누락 목록으로 수집한다.
-3. 누락 목록이 비어 있지 않으면:
-   - 해당 항목만 모아 재검증 서브에이전트를 디스패치한다.
-   - 재검증 프롬프트에 "checklist.md의 §9 + §4-1(e) Source 도달성 검증을 수행하고 `Source 도달성:` 라인을 반드시 포함하라"를 명시한다.
-   - 재검증 결과에도 누락이 있으면 메인 에이전트가 직접 해당 항목의 Sink 인자를 역추적하여 판정을 보완한다.
-
-4. **정확성 Spot-check** (✓ 유지 항목 대상):
-   - 전체 ✓ 유지 항목에서 최대 3개를 무작위 샘플링한다.
-   - 각 샘플의 `(source: <표현식>, <파일>:<라인>)`을 메인 에이전트가 Read 도구로 직접 확인한다.
-   - 표현식이 해당 위치에 없거나 의미가 다르면 **허위 증거**로 간주하고, 해당 서브에이전트가 반환한 **모든** ✓ 유지 항목을 재검증 대상으로 추가한다.
-
-**판정 집계** (Step 6에서 사용):
-- 폐기_count: `✗ 폐기` 판정 수
-- 유지_count: `✓ 유지` 판정 수
-- 불명확_count: `? 불명확` 판정 수
-
-### Step 5: MD 파일 수정
-
-검증 에이전트 반환 결과에서 아래 조건 중 하나라도 해당하는 항목을 수집하고 즉시 수정한다:
-1. `판정`이 `✗ 부정확` 또는 `⚠ 부분 수정 필요`
-2. `Source 도달성`이 `✗ 폐기` 또는 `[혼합]` (`판정` 값과 무관하게 수집)
-
-수정 유형별 처리:
-
-| 유형 | 조치 |
-|------|------|
-| 코드 스니펫/라인 번호 오류 | Edit 도구로 해당 부분만 수정 |
-| Source→Sink 흐름 오류 | 해당 "소스코드 분석" 섹션 전체를 수정 |
-| 부재 주장이 거짓 (검증 로직이 실제 존재) | 후보→이상 없음 재분류, 또는 검증 로직을 보고서에 추가 |
-| Source 도달성 실패 (인자가 상수/내부값) | 후보→이상 없음 재분류. 총괄 요약 건수, 취약점 요약 테이블, 해당 스캐너 섹션 모두 갱신 |
-| 이상 없음이 실은 취약 | 이상 없음에서 제거, 후보 상세 섹션 신규 작성 |
-| POC 경로/파라미터 오류 | curl 명령어 수정 |
-
-**재분류 시 반드시 업데이트할 곳:**
-- 총괄 요약의 건수 (후보 N건, 이상 없음 N개 스캐너)
-- 취약점 요약 테이블 (항목 추가/제거)
-- 해당 스캐너 섹션 (상세→요약 또는 요약→상세로 변환)
-- **체인 영향도 검토**: 폐기된 후보가 공격 체인의 구성 요소인 경우, 해당 체인을 재평가한다. 폐기된 후보를 제거한 후 남은 단계만으로 체인이 성립하면 부분 체인/독립 후보로 분리하고, 성립하지 않으면 체인을 삭제한다. 체인 판정 변경 시 총괄 요약의 위험도 등급과 연계 시나리오 섹션도 갱신한다.
-
-**형식 유지**: scan-report의 `assemble_report.py`가 파싱하는 형식(`#### N. 제목`, `**유형**:`, `**상태**:`)을 깨뜨리지 않는다.
-
-**[필수] 각 수정 후 인라인 검증:** Edit 도구로 MD를 수정할 때마다 `#### N. 제목` 헤딩 수를 카운트하여 예상 건수와 대조한다. 불일치 시 즉시 수정한다.
-
-### Step 5.5: 승격 후보 Source 도달성 보완
-
-Step 5에서 이상 없음 → 후보로 승격된 항목이 있으면, 메인 에이전트가 직접 checklist.md §9 + §4-1(e) Source 도달성 검증을 수행한다. `✗ 폐기`이면 승격을 취소하고 이상 없음으로 원복한다. 판정을 Step 4.5의 집계에 반영한다.
-
-### Step 6: 리뷰 결과 요약 출력
-
-**[필수] 이 단계에서 MD 파일을 수정하지 않는다.** 리뷰 결과는 MD 파일이 아닌 **에이전트 반환 텍스트로만** 출력한다. MD 파일에 검증 결과 섹션을 삽입하면 최종 HTML 보고서에 내부 QA 로그가 노출된다.
-
-수정 완료 후, 아래 형식으로 **반환 텍스트**(stdout)에 출력한다:
-
-```
-## 보고서 리뷰 결과
-
-### 검증 커버리지
-
-| 종류 | 검증 / 전체 |
-|------|-----------|
-| 후보/확인됨 | 평가: N / M_candidates + Step5.5_평가_수, 최종: M_candidates_final (승격 +X, 폐기 −Y) |
-| 공격 체인 | N / M_chains |
-| 이상 없음 | N / M_safe |
-
-(N != M인 항목이 있으면 결과 반환 거부)
-
-### 체인 검증 결과 (M_chains > 0인 경우)
-
-| 체인 | R1 | R2 | R3 | R4 | R5 | 데이터 흐름 | 판정 | 조치 |
-|------|----|----|----|----|----|------------|------|------|
-| #1 | - | - | - | - | - | ✓ 입증 | ✓ 통과 | — |
-
-### 후보 검증 결과
-
-검증 항목: M_candidates건
-- ✓ 정확: N건
-- ⚠ 수정: N건 (내용 수정)
-- ✗ 재분류: N건 (후보→안전 또는 안전→후보)
-
-### Source 도달성 검증 결과
-
-| 판정 | 건수 | 항목 |
-|------|------|------|
-| ✗ 폐기 → 안전 재분류 | N건 | [항목명1], [항목명2], ... |
-| ✓ 유지 | N건 | [항목명1] (source: expr, file:line), ... |
-| ? 불명확 (보수적 유지) | N건 | [항목명], ... |
-
-**게이트 1 — 판정 완전성**: 폐기_count + 유지_count + 불명확_count == M_candidates + Step5.5_평가_수
-(모든 원래 후보 + 승격 후보가 Source 도달성 평가를 받았는가)
-
-**게이트 2 — 보고서 일관성**: Step 5에서 각 수정 시 인라인 검증을 수행했으므로, 최종 `#### N. 제목` 헤딩 수를 재카운트하여 M_candidates_final과 일치하는지 확인한다.
-
-두 게이트 중 하나라도 실패하면 검증 미완료로 간주하여 결과 반환 거부
-
-### 수정 내역
-
-| # | 항목 | 수정 유형 | 변경 내용 |
-|---|------|----------|----------|
-| 1 | [항목명] | [유형] | [구체적 변경] |
-```
-
----
-
-## 검증 의무
-
-검증 종류 사이 우선순위 없음. 모든 종류는 동등하게 100% 필수.
-
-| 검증 종류 | 커버리지 |
-|----------|--------|
-| 후보/확인됨 항목 | 100% |
-| 공격 체인 | 100% |
-| 이상 없음 판정 | 100% |
-
-미달 시 결과 반환 거부. "리소스 부족"을 생략 사유로 사용 금지. 자원이 부족하면 검증 그룹을 더 잘게 나누어 병렬 호출 수를 늘린다 (그룹당 최대 5개).

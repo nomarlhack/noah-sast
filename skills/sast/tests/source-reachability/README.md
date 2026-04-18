@@ -1,7 +1,7 @@
 # Source Reachability 수동 회귀 픽스처
 
-`guidelines-phase1.md` 지침 8 및 `scan-report-review/checklist.md` §9·§4-1(e)의
-Source 도달성 판정이 정상 동작하는지 수동으로 검증하기 위한 픽스처.
+`guidelines-phase1.md` 지침 8 및 `scan-report-review/_principles.md` §1 Source 도달성 판정
+(evaluate_phase1/review가 모두 적용)이 정상 동작하는지 수동으로 검증하기 위한 픽스처.
 
 grep-coverage 테스트는 패턴 존재만 본다. Source 도달성은 semantic 판정이므로
 여기서 자동화하지 않고 LLM 에이전트 기반 회귀로 돌린다.
@@ -30,7 +30,7 @@ grep-coverage 테스트는 패턴 존재만 본다. Source 도달성은 semantic
 Phase 1이 `ConstantSink.java` 후보를 잘못 등록했다고 가정한 보고서를 수동으로 작성한 뒤
 `scan-report-review` 스킬을 실행한다.
 
-- checklist §9 / §4-1(e)에서 `Source 도달성 실패`로 판정되어야 한다.
+- `_principles.md §1 Source 도달성 판정`에서 `Source 도달성 실패`로 판정되어야 한다.
 - Step 5에서 후보 → 이상 없음 재분류가 일어나야 한다.
 - Step 6 수정 내역 표에 `Source 도달성 실패` 행이 등장해야 한다.
 
@@ -40,4 +40,4 @@ Phase 1이 `ConstantSink.java` 후보를 잘못 등록했다고 가정한 보고
 grep -rn "Source 도달성\|컴파일 타임 상수\|내부 생성값" skills/sast/prompts skills/sast/sub-skills/scan-report-review
 ```
 
-`guidelines-phase1.md`, `checklist.md`, `SKILL.md` 세 파일에서 공통 용어가 모두 등장해야 한다.
+`guidelines-phase1.md`, `scan-report-review/_principles.md`, `SKILL.md` 세 파일에서 공통 용어가 모두 등장해야 한다.

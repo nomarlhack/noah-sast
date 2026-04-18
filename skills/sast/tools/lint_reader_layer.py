@@ -4,7 +4,7 @@ lint_reader_layer.py — 보고서 MD/HTML의 헤딩 및 개요 필드 검증.
 
 vuln-format.md를 단일 진실 원천으로 사용한다. 두 가지 검증:
 
-1. **헤딩 검사** (h1~h6): checklist.md의 내부 규약 용어(BANNED_PATTERNS)가
+1. **헤딩 검사** (h1~h6): _contracts.md §9의 내부 규약 용어(BANNED_PATTERNS)가
    헤딩 텍스트에 노출되지 않았는지 검사. 정규식 블랙리스트 방식.
 
 2. **개요 필드 검사**: 보고서 최상단 개요 블록의 `**필드명**:` 라인을
@@ -29,7 +29,7 @@ import os
 import re
 import sys
 
-# 금지 토큰 정규식 (헤딩 한정 — checklist.md 내부 규약 용어 차단용)
+# 금지 토큰 정규식 (헤딩 한정 — _contracts.md §9 내부 규약 용어 차단용)
 # 개요 필드명은 블랙리스트가 아니라 vuln-format.md 스펙 기반 화이트리스트로 검사한다.
 BANNED_PATTERNS = [
     (r"§\s*\d+", "§N (checklist 섹션 번호)"),
@@ -392,7 +392,7 @@ def main() -> int:
             print(f"  - {v}", file=sys.stderr)
         print(
             "\n검사 범위:\n"
-            "  1) 헤딩(# ~ ######): checklist.md 내부 규약 용어 차단 — 본문·테이블은 풀이 형태로 허용.\n"
+            "  1) 헤딩(# ~ ######): _contracts.md §9 내부 규약 용어 차단 — 본문·테이블은 풀이 형태로 허용.\n"
             "  2) 개요 필드명: vuln-format.md '통합 보고서 구조' 스펙 단일 출처 기반 화이트리스트.\n"
             "     신규 필드가 필요하면 먼저 vuln-format.md 스펙을 갱신하세요.",
             file=sys.stderr,

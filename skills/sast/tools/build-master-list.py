@@ -83,12 +83,16 @@ def _build_candidate_dict(cid, scanner, cand, md, existing_by_id):
             "reopen": False,
             "retries": 0,
             "conflicts": [],
-            "requires_human_review": False,
         },
         "safe_category": None,
     }
     preserved = existing_by_id.get(cid)
     if preserved:
+        # 레거시 필드 마이그레이션: phase1_eval_state에서 폐기된 키 제거
+        legacy_state = preserved.get("phase1_eval_state")
+        if isinstance(legacy_state, dict):
+            for legacy_key in ("requires_human_review",):
+                legacy_state.pop(legacy_key, None)
         # M3 가드: 동일 ID여도 (file, line)이 바뀌면 다른 sink로 간주하여 eval 필드 보존하지 않는다.
         # 과거 safe/confirmed 판정이 새 위치의 다른 취약점으로 잘못 전이되는 false-carryover를 차단.
         prev_file = preserved.pop("__prev_file", None)

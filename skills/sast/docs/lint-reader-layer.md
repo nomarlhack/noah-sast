@@ -85,7 +85,7 @@
 
 | 토큰 | 설명 |
 |------|------|
-| `§\s*\d+` | checklist.md 섹션 번호 (§N) |
+| `§\s*\d+` | 내부 섹션 번호 (§N) |
 | `\bmode\s*=\s*(evaluate_phase1\|evaluate\|review)\b` | mode명 |
 | `\bevaluate_phase1\b` | evaluate_phase1 |
 | `\b(DISCARD\|OVERRIDE\|CONFIRM)\b` | 내부 판정 라벨 |
@@ -148,7 +148,7 @@ FAIL: 독자 레이어 용어 노출 2건
     vuln-format.md '통합 보고서 구조' 섹션 참조 (현재 허용: [...])
 
 검사 범위:
-  1) 헤딩(# ~ ######): checklist.md 내부 규약 용어 차단 — 본문·테이블은 풀이 형태로 허용.
+  1) 헤딩(# ~ ######): _contracts.md §9 내부 규약 용어 차단 — 본문·테이블은 풀이 형태로 허용.
   2) 개요 필드명: vuln-format.md '통합 보고서 구조' 스펙 단일 출처 기반 화이트리스트.
      신규 필드가 필요하면 먼저 vuln-format.md 스펙을 갱신하세요.
 ```

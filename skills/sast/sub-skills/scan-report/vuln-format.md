@@ -139,7 +139,7 @@ curl -X <METHOD> "<TARGET_HOST>/<API_PATH>" -H "Cookie: <SESSION_COOKIE>" -d "<P
 
 보고서 제목·소제목·대시보드에는 다음 내부 규약 용어를 **절대 노출하지 않는다**:
 
-- `§N` (checklist.md 섹션 번호)
+- `§N` (내부 섹션 번호)
 - mode명 (`evaluate_phase1`, `evaluate`, `review`)
 - 내부 라벨 (`DISCARD`, `OVERRIDE`, `CONFIRM`, `Source 도달성 폐기`, `실질 영향 반증`)
 - 스크립트명 (`assert_status_complete.py` 등)

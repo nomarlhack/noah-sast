@@ -3,17 +3,15 @@
 Step 3-3 (동적 분석 정보 요청) 진입 가드.
 
 evaluate_phase1이 모든 후보에 대해 완료되었는지, eval MD 고아 상태가 없는지,
-human review 에스컬레이션 후보가 명시적으로 승인되었는지 검증한다.
+C1 lint (Phase 1 원본 직접 참조) 위반이 없는지 검증한다.
 
 Usage:
   python3 assert_phase1_validated.py <master-list.json> <phase1_results_dir>
-                                     [--accept-human-review=ID1,ID2,...]
 
-Exit code:
+Exit code (sub-skills/scan-report-review/_contracts.md §2 Exit Code 통일 테이블):
   0: 통과
   1: 평가 미완료 또는 eval MD 고아 상태
-  2: requires_human_review 후보 존재 (명시적 ID 승인 필요)
-  3: C1 lint 실패 (Phase 1 원본 직접 참조 탐지)
+  5: C1 lint 실패 (Phase 1 원본 직접 참조 탐지)
 """
 
 import argparse
@@ -97,11 +95,6 @@ def main() -> int:
     parser.add_argument("master_list")
     parser.add_argument("phase1_dir")
     parser.add_argument(
-        "--accept-human-review",
-        default="",
-        help="쉼표로 구분된 후보 ID 목록. 'all'은 금지.",
-    )
-    parser.add_argument(
         "--skip-lint",
         action="store_true",
         help="C1 lint를 건너뛴다 (개발 시 임시 사용).",
@@ -175,52 +168,18 @@ def main() -> int:
             for v in violations[:20]:
                 print(f"  {v}")
             print("Phase 1 원본 직접 참조 금지. evaluation/*-eval.md로 전환하라.")
-            return 3
-
-    # 4) requires_human_review 후보 + 명시 승인
-    human_review_needed = [
-        c["id"]
-        for c in candidates
-        if c.get("phase1_eval_state", {}).get("requires_human_review")
-    ]
-    if human_review_needed:
-        approved_raw = (args.accept_human_review or "").strip()
-        if approved_raw.lower() == "all":
-            print("FAIL: --accept-human-review=all은 금지. 후보 ID를 명시하라.")
-            return 2
-        approved = {x.strip() for x in approved_raw.split(",") if x.strip()}
-        unapproved = [cid for cid in human_review_needed if cid not in approved]
-        if unapproved:
-            print(
-                f"BLOCK: {len(unapproved)}개 후보가 인간 검토 필요: {unapproved}\n"
-                f"--accept-human-review=ID1,ID2 플래그로 ID 명시 승인 필요 "
-                f"(전역 승인 'all' 금지)"
-            )
-            return 2
-        # 승인 로그
-        log_path = eval_dir / "human_review_approvals.log"
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        from datetime import datetime
-
-        with log_path.open("a", encoding="utf-8") as f:
-            ts = datetime.now().isoformat(timespec="seconds")
-            f.write(f"{ts} approved={sorted(approved)} all_needed={sorted(human_review_needed)}\n")
+            return 5
 
     # 통과 요약
-    dist = {"CONFIRM": 0, "OVERRIDE": 0, "DISCARD": 0, "SAFE": 0, "UNKNOWN": 0}
+    dist = {"SAFE": 0, "VALIDATED": 0}
     for c in candidates:
         if c.get("status") == "safe":
             dist["SAFE"] += 1
-            continue
-        state = c.get("phase1_eval_state", {})
-        # eval MD에서 override 파싱은 비용 커서 생략. state만 요약
-        if state.get("requires_human_review"):
-            dist["UNKNOWN"] += 1
-        else:
-            dist["CONFIRM"] += 1  # 대략적 분포
+        elif c.get("phase1_validated"):
+            dist["VALIDATED"] += 1
     print(
         f"OK: phase1_validated 완결, eval MD 해시 일치, C1 lint 통과. "
-        f"대략 분포 {dist}"
+        f"분포 {dist}"
     )
     return 0
 
