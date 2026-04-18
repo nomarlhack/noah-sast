@@ -29,18 +29,21 @@ flowchart TD
     EV -->|candidate| ML3C["master-list.json\nstatus=candidate + tag"]
     EV -->|safe| ML3S["master-list.json\nstatus=safe + safe_category + verified_defense"]
 
-    ML3 --> Report["보고서 조립\n(assemble_report.py)"]
-    ML3C --> Report
-    ML3S --> Report
-    Skip --> Report
+    ML3 --> Chain["연계 분석"]
+    ML3C --> Chain
+    ML3S --> Chain
+    Skip --> Chain
 
-    Report --> RV["mode=report-review\n기술 정확성 검증"]
-    RV --> Final["최종 보고서\n(브라우저)"]
+    Chain --> RV["mode=report-review\n원천 데이터 cross-check"]
+    RV --> Report["보고서 조립\n(assemble_report.py)"]
+    Report --> Final["최종 보고서\n(브라우저)"]
+    RV -.->|사용자 검토 권장| UserReport["사용자 보고"]
 
     style EP1 fill:#0f3460,stroke:#e94560,color:#eee
     style EV fill:#0f3460,stroke:#e94560,color:#eee
     style RV fill:#0f3460,stroke:#e94560,color:#eee
     style Final fill:#e94560,stroke:#e94560,color:#fff
+    style UserReport fill:#533483,stroke:#533483,color:#fff
 ```
 
 ---
