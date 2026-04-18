@@ -1,0 +1,14 @@
+# 실제 스캔 결과물 (민감정보 포함 — 절대 커밋 금지)
+# 프로젝트별 취약점/세션/내부 경로 등이 포함되므로 public 저장소에 업로드 시 심각한 노출
+noah-sast-report.md
+noah-sast-report.html
+*-scan-report.md
+*-scan-report.html
+
+# 임시 스캔 결과/인덱스
+/tmp/scan_index_*/
+/tmp/phase1_results_*/
+/tmp/chain.json
+/tmp/sr_*.md
+/tmp/skeleton.md
+/tmp/ai_section.md
