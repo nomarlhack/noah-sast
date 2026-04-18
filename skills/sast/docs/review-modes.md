@@ -129,26 +129,24 @@ Phase 1에서 `phase1_discarded_reason != null`로 설정된 후보는 `mode=pha
 
 ## `mode=report-review`
 
-조립된 보고서 MD 파일의 **기술 정확성**을 검증한다. status는 이미 `mode=phase2-review`에서 확정됐으므로 건드리지 않는다.
+보고서 조립 직전 `master-list.json + eval MD + Phase 2 manifest + chain-analysis.md`의 정확성을 독립 에이전트로 cross-check. phase1-review/phase2-review 결과를 재확인하며 특히 **cross-scanner 일관성**을 전담. 쓰기 권한 없음 — 사용자 보고만.
 
 ### 입력
-- 조립된 보고서 MD (`noah-sast-report.md` 등)
-- 프로젝트 루트 (코드 대조용)
+- `master-list.json`, `evaluation/<scanner>-eval.md`, `<scanner>-phase2.md`, `chain-analysis.md`
+- 프로젝트 소스코드 (스팟체크용)
 
-### 검증 축 (9개)
-- 확인됨·후보로 분류된 항목 100%를 실제 파일 Read로 대조
-- 인용된 코드 스니펫이 실제 파일·라인에 존재
-- Source→Sink 흐름의 호출 관계
-- "검증 부재" 주장 재검증
-- 취약점 유형 적합성
-- 이상 없음 판정 근거 타당성
-- 복수 요소 커버리지 (필요 시)
-- 동일 file:line 다층 관점 통합
-- Source 도달성 재확인
+### 스킵 조건
+`status ∈ {confirmed, candidate}` 후보가 0건이면 검증 대상 없음 → 스킵하고 보고서 조립으로 진행.
+
+### 체크리스트 10항목
+- **Cross-scanner 전담**: Item 7 (복수 요소 커버리지), Item 8 (동일 file:line 다층 관점)
+- **스팟체크 (샘플 3개 재확인)**: Items 1~6·9·10 (phase1/phase2-review 판정 재검증)
+- **체인 검증** (M_chains > 0): R1~R5 재적용
 
 ### 조치 범위
-- 오기재·사실 오류 → 보고서 MD **본문 수정**
-- 치명적 오판정 (status 자체가 틀림) → 수정 금지. `mode=phase2-review` 재호출을 통해 반영.
+- 쓰기 권한 없음 (어떤 파일도 수정·생성하지 않음)
+- 이상 발견 시 반환 텍스트 `## 사용자 검토 권장` 섹션에 ID·문제·권장 조치 기재
+- 파이프라인은 어떤 결과에서도 계속 진행 (보고서 조립 → HTML). 사용자가 필요하면 Phase 2 재실행 판단.
 
 ---
 
