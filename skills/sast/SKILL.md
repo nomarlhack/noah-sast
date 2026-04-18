@@ -75,22 +75,27 @@ echo "/tmp/phase1_results_$(basename <PROJECT_ROOT>)_$(date +%s)"
 
 #### Step 0-2: 인덱싱 실행
 
-Bash 도구로 스크립트를 직접 호출한다. `<NOAH_SAST_DIR>`/`<PROJECT_ROOT>`/`<PATTERN_INDEX_DIR>`는 resolve된 실제 경로 문자열로 치환한다.
+**[필수] Bash 블록은 반드시 아래 래퍼 형식으로 실행한다.** 마지막 명령이 `echo`이므로 Bash tool의 최종 exit는 항상 `0` — UI에 "Exit code N" 경고가 뜨지 않는다. 스크립트 exit code는 stdout의 `run_grep_index_exit=N` 줄에서 읽는다.
 
 ```bash
 python3 <NOAH_SAST_DIR>/tools/run_grep_index.py \
   --scanners-dir <NOAH_SAST_DIR>/scanners \
   --project-root <PROJECT_ROOT> \
-  --out-dir <PATTERN_INDEX_DIR>
+  --out-dir <PATTERN_INDEX_DIR> ; RC=$?
+JSON_COUNT=$(ls -1 <PATTERN_INDEX_DIR>/*-scanner.json 2>/dev/null | wc -l | tr -d ' ')
+EXPECTED=$(ls -1d <NOAH_SAST_DIR>/scanners/*-scanner 2>/dev/null | wc -l | tr -d ' ')
+echo "run_grep_index_exit=$RC"
+echo "json_count=$JSON_COUNT"
+echo "expected=$EXPECTED"
 ```
 
-**Exit code별 분기:**
+**분기 판정 (메인 에이전트):**
 
-| exit | 의미 | 조치 |
-|------|------|------|
-| `0` | 모든 스캐너 JSON 정상 저장, 실패 없음 | Step 0-3 진행 |
-| `1` | 환경/CLI 오류 (grep 부재, 경로 오타, 권한 등) | 오류 메시지 확인 후 재실행 |
-| `2` | 부분 실패 (`_failures.json` 생성됨) | 실패 사유 확인 후 조치 |
+| `run_grep_index_exit` | `json_count` vs `expected` | 의미 | 조치 |
+|------|------|------|------|
+| `0` | 일치 | 모든 스캐너 정상 | Step 1 진행 |
+| `2` | 일치 | 부분 실패 (`_failures.json` 존재) | 아래 "실패 사유별 대응" 참조 후 조치 |
+| `1` 또는 불일치 | — | 환경/CLI 오류 또는 무결성 실패 | 원인 파악 후 재실행 |
 
 **exit 2 시 실패 사유별 대응:**
 
@@ -103,16 +108,6 @@ python3 <NOAH_SAST_DIR>/tools/run_grep_index.py \
 - `phase1_md_missing`: 스캐너 디렉토리 구조 오류 (버그 — 이슈 보고)
 
 `yaml_parse_error`, `regex_error`, `phase1_md_missing`은 해당 스캐너의 JSON이 빈 `{}`로 저장되므로 나머지 스캐너는 정상 진행된다.
-
-#### Step 0-3: 무결성 검증
-
-```bash
-JSON_COUNT=$(ls -1 <PATTERN_INDEX_DIR>/*-scanner.json 2>/dev/null | wc -l | tr -d ' ')
-echo "json_count=$JSON_COUNT"
-# 기대값: <NOAH_SAST_DIR>/scanners 하위 -scanner 디렉토리 개수와 동일
-```
-
-일치하지 않으면 재실행.
 
 ### Step 1: 프로젝트 스택 파악
 
