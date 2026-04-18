@@ -59,13 +59,11 @@ flowchart TD
     Conflicts --> ChainCheck
     Eval --> ChainCheck{"안전 제외\n후보 2건+?"}
     ChainCheck -->|Yes| Chain["Step 3-6: 연계 분석\n(R1~R5)"]
-    ChainCheck -->|No| S4
-    Chain --> S4
-    S4 --> Review["mode=report-review\n보고서 정확성 검증\n(체크리스트 1~10)"]
-    Review -->|재평가 요청| RetryDecide{트리거 모드}
-    RetryDecide -->|phase1-review| EvalP1
-    RetryDecide -->|evaluate| Eval
-    Review -->|요청 없음| Open["브라우저에서 보고서 열기"]
+    ChainCheck -->|No| Review
+    Chain --> Review["Step 3-8: mode=report-review\n원천 데이터 cross-check\n(체크리스트 1~10)"]
+    Review --> S4["Step 4: 보고서 조립\n+ safe 4분류 자동 섹션"]
+    Review -.->|사용자 검토 권장| UserReport["사용자 보고\n(Phase 2 재실행 판단)"]
+    S4 --> Open["브라우저에서 보고서 열기"]
 
     style User fill:#e94560,stroke:#e94560,color:#fff
     style AI fill:#e94560,stroke:#e94560,color:#fff
@@ -80,7 +78,7 @@ flowchart TD
     style Check fill:#533483,stroke:#533483,color:#fff
     style ChainCheck fill:#533483,stroke:#533483,color:#fff
     style UserReply fill:#533483,stroke:#533483,color:#fff
-    style RetryDecide fill:#533483,stroke:#533483,color:#fff
+    style UserReport fill:#533483,stroke:#533483,color:#fff
 ```
 
 ## 개요

@@ -109,7 +109,7 @@ def main() -> int:
         )
         print("_contracts.md §9 하위 호환 fallback 위반 (status=safe + safe_category=null 금지).")
         print(
-            "복구: phase1-review을 FORCE_REOPEN="
+            "복구: 해당 후보에 phase1_eval_state.reopen=true 설정 후 phase1-review 재호출: IDs="
             + ",".join(safe_no_cat[:10])
             + (" (…외 추가 후보)" if len(safe_no_cat) > 10 else "")
             + " 인자로 재호출하여 safe_category를 채우거나, "

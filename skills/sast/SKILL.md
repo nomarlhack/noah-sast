@@ -323,17 +323,15 @@ Agent 도구로 평가 에이전트를 생성한다. <NOAH_SAST_DIR>/<PHASE1_RES
 2. <NOAH_SAST_DIR>/sub-skills/scan-report-review/_principles.md (공통 판정 원칙)
 3. <NOAH_SAST_DIR>/sub-skills/scan-report-review/_contracts.md (공통 계약)
 
-위 3개 파일의 지시를 정확히 따라 mode=phase1-review 절차를 수행하세요. 다른 모드(evaluate, review의 절차를 수행하면 안 됩니다.
+위 3개 파일의 지시를 정확히 따라 mode=phase1-review 절차를 수행하세요. 다른 모드(phase2-review, report-review)의 절차를 수행하면 안 됩니다.
 
 변수: NOAH_SAST_DIR=<NOAH_SAST_DIR>, PHASE1_RESULTS_DIR=<PHASE1_RESULTS_DIR>
-대상: master-list.json의 모든 후보
-FORCE_REOPEN: <없음 — 최초 호출> | <재호출 시 쉼표 구분 ID 목록, 예: XSS-2,OAUTH-1>
+대상: master-list.json의 후보 — `phase1_validated != true` 또는 `phase1_eval_state.reopen == true`인 후보
 출력:
   1. <PHASE1_RESULTS_DIR>/evaluation/<scanner-name>-eval.md (각 후보의 Override 판정)
   2. master-list.json의 phase1_validated / phase1_discarded_reason / phase1_eval_state / safe_category 필드 갱신
 
 blind eval 메커니즘(blind_read_phase1_md.py 헬퍼)을 반드시 적용하세요.
-FORCE_REOPEN 인자가 있으면 phase1-review.md의 "재호출 경로 B" 절차에 따라 해당 ID의 phase1_eval_state.reopen을 self-set 후 재평가하세요.
 ```
 
 **완료 후 검증**:
@@ -490,7 +488,7 @@ Exit code별 조치 (`sub-skills/scan-report-review/_contracts.md §2` Exit Code
 exit 4는 "Phase 1 품질 개선 힌트"이며 **파이프라인 차단 아님**. Phase 2 우선 원칙에 따라 status는 phase2-review가 확정했으므로 바로 Step 3-6으로 진행 가능. 품질을 높이고 싶으면 아래를 선택적으로 수행:
 
 1. master-list.json에서 `phase1_eval_state.reopen == true` 후보 목록 수집
-2. `phase1-review`을 해당 후보 한정으로 `FORCE_REOPEN=<ID>,...` 재호출 (eval MD 및 `phase1_validated` 업데이트)
+2. `phase1-review`를 재호출 — 진입 규칙에 따라 reopen=true 후보만 자동 재평가 (eval MD 및 `phase1_validated` 업데이트)
 3. 완료 후 `reopen=false` 리셋 + `retries += 1` 증분. status는 건드리지 않음.
 
 **[필수] 재호출 중 master-list.json의 status 필드는 건드리지 않는다.** phase2-review만 status writer이며, 재호출된 phase1-review은 phase1_* 필드만 갱신한다.
@@ -565,9 +563,34 @@ exit 4는 "Phase 1 품질 개선 힌트"이며 **파이프라인 차단 아님**
 3. **Phase 1 및 AI 자율 탐색에서 발견된 후보 중 누락된 것이 없는가?** — Phase 1 결과와 AI 자율 탐색 결과를 다시 대조한다.
 4. **모든 후보에 실제 URL 경로가 확정되어 있는가?** — 경로가 누락된 항목이 있으면 메인 에이전트가 직접 호출부를 추적한다(Sink 함수명으로 Grep → import하는 컴포넌트 식별 → 라우트 정의를 Read로 읽어 경로 확정). 모든 후보의 경로가 확정된 후에만 Step 4로 진행한다.
 
+#### Step 3-8: report-review (보고서 조립 전 데이터 정확성 검증)
+
+Step 3-6(연계 분석)과 Step 3-7(결과 체크리스트) 완료 후, Step 4(보고서 조립) 진입 전에 `mode=report-review` 에이전트를 실행하여 **조립에 들어갈 원천 데이터**(master-list.json + eval MD + Phase 2 manifest + chain-analysis.md)의 정확성을 독립 cross-check한다.
+
+에이전트 프롬프트:
+
+```
+[MODE=report-review 전용 에이전트]
+
+진입 즉시 아래 3개 파일을 순서대로 Read하세요. 그 외 파일(dispatcher SKILL.md, 다른 모드 파일)은 Read하지 마세요.
+
+1. <NOAH_SAST_DIR>/sub-skills/scan-report-review/report-review.md (MODE GUARD 및 전체 절차)
+2. <NOAH_SAST_DIR>/sub-skills/scan-report-review/_principles.md
+3. <NOAH_SAST_DIR>/sub-skills/scan-report-review/_contracts.md
+
+위 3개 파일의 지시를 정확히 따라 mode=report-review 절차를 수행하세요. 다른 모드의 절차를 수행하면 안 됩니다. master-list.json·eval MD·보고서 MD 어떤 파일도 쓰지 마세요.
+
+변수: NOAH_SAST_DIR=<NOAH_SAST_DIR>, PHASE1_RESULTS_DIR=<PHASE1_RESULTS_DIR>
+프로젝트 루트: <PROJECT_ROOT>
+```
+
+**반환 처리**:
+- `## 사용자 검토 권장` 섹션이 포함되어 있으면 메인 에이전트는 해당 섹션을 **사용자에게 그대로 보고**하고 Step 4로 계속 진행. 자동 재호출/재조립 없음 (사용자가 Phase 2 재실행 여부 판단).
+- 커버리지 게이트 실패(N ≠ M) 반환 시 report-review 재호출 1회. 재차 실패 시 로그만 남기고 진행.
+
 ### Step 4: scan-report 스킬에 결과 전달 및 보고서 생성
 
-> **전제 조건**: Step 3-7(결과 검증)이 완료되었거나, 사용자가 동적 테스트를 명시적으로 거부한 경우에만 이 단계를 수행한다. 정적 분석만 완료된 상태에서 이 단계로 넘어가지 않는다.
+> **전제 조건**: Step 3-7/3-8이 완료되었거나, 사용자가 동적 테스트를 명시적으로 거부한 경우에만 이 단계를 수행한다. 정적 분석만 완료된 상태에서 이 단계로 넘어가지 않는다.
 
 Step 3에서 수집한 모든 개별 스캐너의 결과를 **`scan-report` 스킬(`<NOAH_SAST_DIR>/sub-skills/scan-report/SKILL.md`)에 전달**하여 통합 보고서를 생성한다. **작업 디렉토리에 여러 프로젝트가 존재하더라도 보고서는 반드시 1개(`noah-sast-report.md` + `.html`)만 생성한다. 프로젝트별로 보고서를 분리하지 않는다.**
 
@@ -587,37 +610,7 @@ Step 1에서 추출한 `SANDBOX_DOMAINS`가 있으면, 보고서 서브에이전
 
 scan-report SKILL.md를 읽고, 그 스킬이 정의하는 보고서 작성 프로세스를 수행한다. **noah-sast는 보고서를 직접 작성하지 않는다.**
 
-**[필수] scan-report의 Step 3(MD 조립) 완료 후, Step 4(HTML 변환) 이전에 `mode=report-review` 에이전트를 실행하여 보고서 정확성을 검증한다.** scan-report 에이전트 실패로 메인 에이전트가 직접 보고서를 작성한 fallback 시나리오에서도 이 단계를 건너뛰지 않는다.
-
-에이전트 프롬프트:
-
-```
-[MODE=report-review 전용 에이전트]
-
-진입 즉시 아래 3개 파일을 순서대로 Read하세요. 그 외 파일(dispatcher SKILL.md, 다른 모드 파일)은 Read하지 마세요.
-
-1. <NOAH_SAST_DIR>/sub-skills/scan-report-review/report-review.md (MODE GUARD 및 전체 절차)
-2. <NOAH_SAST_DIR>/sub-skills/scan-report-review/_principles.md (공통 판정 원칙)
-3. <NOAH_SAST_DIR>/sub-skills/scan-report-review/_contracts.md (공통 계약)
-
-위 3개 파일의 지시를 정확히 따라 mode=report-review 절차를 수행하세요. 다른 모드(phase1-review, evaluate)의 절차를 수행하면 안 됩니다. master-list.json의 어떤 필드도 쓰지 마세요.
-
-변수: NOAH_SAST_DIR=<NOAH_SAST_DIR>, PHASE1_RESULTS_DIR=<PHASE1_RESULTS_DIR>
-보고서 MD: <REPORT_MD_PATH>
-프로젝트 루트: <PROJECT_ROOT>
-```
-
-리뷰에서 부정확한 내용이 발견되면 MD 파일이 수정된 후 HTML 변환으로 진행한다.
-
-**[필수] review 반환에 `## 재평가 요청` 섹션이 포함된 경우** 메인 에이전트는 아래 루프를 수행한다:
-
-1. 재평가 요청 섹션에서 후보 ID 목록 추출.
-2. Step 3-2.5의 phase1-review 에이전트를 `FORCE_REOPEN=<IDs>` 인자로 재호출.
-3. 재호출 완료 후 `assert_phase1_validated.py` 재실행 → exit code 처리.
-4. master-list.json이 갱신되었으면 scan-report MD 조립(Step 3)부터 재실행하여 보고서 재조립 → report-review 재호출.
-5. **상한**: `phase1_eval_state.retries == 2` 도달 후보는 phase1-review이 자동으로 재평가 스킵 + `conflicts`에 `retry_limit_reached` 기록. 루프 자연 종료.
-
-**[필수] scan-report-review 완료 후, HTML 변환 직전에 MD 파일에 리뷰 섹션이 잔류하지 않았는지 확인한다.** `grep "^## .*리뷰\|^## .*검증 결과" noah-sast-report.md`를 실행하여 매칭이 있으면 Edit 도구로 해당 섹션을 제거한다. (`md_to_html.py`가 방어적 제거를 수행하지만, MD 원본도 깨끗하게 유지해야 한다.)
+> report-review는 Step 3-8에서 보고서 조립 이전에 이미 수행되었다. Step 4는 조립·HTML 변환·정량/lint 검증만 담당한다.
 
 **Step 4 후처리 (메인 에이전트 수행):**
 

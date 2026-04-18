@@ -148,19 +148,9 @@ eval MD 작성 완료 후 마지막 단계:
 
 ## 재호출 경로
 
-트리거 2가지. 모두 이 파일이 직접 `phase1_eval_state.reopen`을 self-set하여 재평가 (writer 권한 합법).
+트리거: `mode=phase2-review`가 Phase 1↔Phase 2 불일치를 발견하고 `phase1_eval_state.reopen=true`를 사전 설정한 경우. 이 파일이 `reopen == true`인 후보를 선택적으로 재평가한다 (품질 메타데이터 갱신 목적, status 결정은 phase2-review가 이미 확정).
 
-### 경로 A — phase2-review 교차 검증 모순
-
-`mode=phase2-review`가 `phase1_eval_state.reopen=true`를 사전 설정 → 이 파일이 `reopen == true`인 후보 수집.
-
-### 경로 B — report-review 재분류 요청
-
-오케스트레이터가 프롬프트에 `FORCE_REOPEN=ID1,ID2` 인자를 포함하여 재호출 → 이 파일이 해당 ID의 `reopen=true`로 self-set 후 경로 A와 동일 처리.
-
-### 공통 재평가 절차
-
-재평가는 **품질 개선 힌트**이며 status 결정에 영향 없음 (status는 phase2-review가 Phase 2 증거로 확정).
+### 재평가 절차
 
 1. **retries 상한 체크**: `phase1_eval_state.retries >= 2`인 후보는 재평가 스킵 + `phase1_validated=true` 강제 세팅(무한 루프 방지). 이미 `conflicts`에 `retry_limit_reached`가 있으면 재기록하지 않음, 없으면 `{round: retries, description: "retry_limit_reached"}` 1회만 append.
 2. 나머지 대상 후보에 4개 축 재적용.
@@ -174,14 +164,13 @@ eval MD 작성 완료 후 마지막 단계:
 
 ## Step 진행
 
-1. 프롬프트 인자 파싱: `FORCE_REOPEN`이 있으면 해당 ID의 `phase1_eval_state.reopen=true`로 self-set.
-2. master-list.json Read, `phase1_validated != true` 또는 `phase1_eval_state.reopen == true`인 후보 수집.
-3. 각 후보에 대해 blind eval → 4개 축 적용 → 판정.
-4. 축 4에서 ✗ 폐기 판정 시 즉시 `status: safe` 할당 (Phase 2 낭비 방지).
-5. `evaluation/<scanner>-eval.md` 작성.
-6. 파일 간 일관성 검사.
-7. master-list.json 갱신 (재호출이면 `reopen=false` 리셋 + `retries` 증분).
-8. 판정 분포(CONFIRM/OVERRIDE/DISCARD) 및 일관성 검사 결과 요약 반환.
+1. master-list.json Read, `phase1_validated != true` 또는 `phase1_eval_state.reopen == true`인 후보 수집.
+2. 각 후보에 대해 blind eval → 4개 축 적용 → 판정.
+3. 축 4에서 ✗ 폐기 판정 시 즉시 `status: safe` 할당 (Phase 2 낭비 방지).
+4. `evaluation/<scanner>-eval.md` 작성.
+5. 파일 간 일관성 검사.
+6. master-list.json 갱신 (재호출이면 `reopen=false` 리셋 + `retries` 증분).
+7. 판정 분포(CONFIRM/OVERRIDE/DISCARD) 및 일관성 검사 결과 요약 반환.
 
 ---
 
