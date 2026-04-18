@@ -1,10 +1,10 @@
-# MODE GUARD: 이 파일은 mode=review 전용
+# MODE GUARD: 이 파일은 mode=report-review 전용
 
-**[STOP]** 진입 에이전트 프롬프트에 `MODE=review`가 명시되지 않았다면 이 파일의 절차를 수행하지 말고 즉시 종료하라. 잘못 진입한 경우 보고서 MD를 수정하지 말고 메인 에이전트에 "모드 불일치"를 보고한다.
+**[STOP]** 진입 에이전트 프롬프트에 `MODE=report-review`가 명시되지 않았다면 이 파일의 절차를 수행하지 말고 즉시 종료하라. 잘못 진입한 경우 보고서 MD를 수정하지 말고 메인 에이전트에 "모드 불일치"를 보고한다.
 
 **다른 모드라면 해당 파일을 대신 Read하라.**
-- mode=evaluate_phase1 → `evaluate_phase1.md`
-- mode=evaluate → `evaluate.md`
+- mode=phase1-review → `phase1-review.md`
+- mode=phase2-review → `phase2-review.md`
 
 **진입 전 필수 Read**:
 1. `_principles.md` (공통 판정 원칙)
@@ -19,15 +19,15 @@
 **출력**: 보고서 MD 파일 본문만 수정.
 
 **금지**:
-- `master-list.json` 모든 필드 쓰기 금지. 재분류가 필요하면 반환 텍스트에 `## 재평가 요청` 섹션으로 ID·사유 기록 → 오케스트레이터가 `evaluate_phase1`을 `FORCE_REOPEN=<IDs>` 인자로 재호출.
+- `master-list.json` 모든 필드 쓰기 금지. 재분류가 필요하면 반환 텍스트에 `## 재평가 요청` 섹션으로 ID·사유 기록 → 오케스트레이터가 `phase1-review`을 `FORCE_REOPEN=<IDs>` 인자로 재호출.
 - Phase 1 원본 `<scanner>.md` / `ai-discovery.md` 직접 참조 (`_contracts.md §6` C1 lint). `evaluation/<scanner>-eval.md` 참조.
-- 치명적 오판정(status 자체가 틀림) → 보고서 수정 금지. `mode=evaluate` 재호출로 반영.
+- 치명적 오판정(status 자체가 틀림) → 보고서 수정 금지. `mode=phase2-review` 재호출로 반영.
 
 ---
 
-# mode=review
+# mode=report-review
 
-조립된 보고서 MD 파일의 **기술 정확성**을 검증한다. status는 `mode=evaluate`에서 확정됐으므로 건드리지 않는다.
+조립된 보고서 MD 파일의 **기술 정확성**을 검증한다. status는 `mode=phase2-review`에서 확정됐으므로 건드리지 않는다.
 
 ## 호출 시점
 
@@ -119,8 +119,8 @@ MD 수정(Step 5) 전 수행.
 | 코드 스니펫/라인 번호 오류 | Edit 도구로 해당 부분만 수정 |
 | Source→Sink 흐름 오류 | 해당 "소스코드 분석" 섹션 전체 수정 |
 | 부재 주장이 거짓 (검증 로직이 실제 존재) | 후보→이상 없음 재분류, 또는 검증 로직을 보고서에 추가 |
-| Source 도달성 실패 | 후보→이상 없음 재분류 + `## 재평가 요청`에 `evaluate_phase1` 트리거로 ID 기록 |
-| 이상 없음이 실은 취약 | 이상 없음에서 제거, 후보 상세 신규 작성 + `## 재평가 요청`에 `evaluate` 트리거로 ID 기록 |
+| Source 도달성 실패 | 후보→이상 없음 재분류 + `## 재평가 요청`에 `phase1-review` 트리거로 ID 기록 |
+| 이상 없음이 실은 취약 | 이상 없음에서 제거, 후보 상세 신규 작성 + `## 재평가 요청`에 `phase2-review` 트리거로 ID 기록 |
 | POC 경로/파라미터 오류 | curl 명령어 수정 |
 
 ### 재분류 시 동기화
@@ -188,13 +188,13 @@ MD 수정(Step 5) 전 수행.
 ### 재평가 요청 (있는 경우에만 포함)
 | ID | 트리거 모드 | 사유 |
 |----|------------|------|
-| XSS-2 | evaluate_phase1 | Source 도달성 ✗ 폐기: code prop이 static 리터럴 |
+| XSS-2 | phase1-review | Source 도달성 ✗ 폐기: code prop이 static 리터럴 |
 | SSRF-3 | evaluate | 이상 없음 → 후보 승격: URL 파싱 경로 누락 |
 ```
 
 **트리거 모드 선택**:
-- `evaluate_phase1`: Phase 1 정적 주장 오류 → `FORCE_REOPEN=<IDs>` 재호출
-- `evaluate`: status 전환 필요 → 해당 ID 대상 evaluate 재호출
+- `phase1-review`: Phase 1 정적 주장 오류 → `FORCE_REOPEN=<IDs>` 재호출
+- `phase2-review`: status 전환 필요 → 해당 ID 대상 phase2-review 재호출
 
 재호출 후 master-list.json 갱신되면 보고서 재조립.
 

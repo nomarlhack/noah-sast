@@ -2,7 +2,7 @@
 """
 Step 3-3 (동적 분석 정보 요청) 진입 가드.
 
-evaluate_phase1이 모든 후보에 대해 완료되었는지, eval MD 고아 상태가 없는지,
+phase1-review이 모든 후보에 대해 완료되었는지, eval MD 고아 상태가 없는지,
 C1 lint (Phase 1 원본 직접 참조) 위반이 없는지 검증한다.
 
 Usage:
@@ -125,7 +125,7 @@ def main() -> int:
             f"{missing_validated[:10]}"
             f"{' ...' if len(missing_validated) > 10 else ''}"
         )
-        print("evaluate_phase1이 완료되지 않았거나 갱신에 실패했다.")
+        print("phase1-review이 완료되지 않았거나 갱신에 실패했다.")
         return 1
 
     # 2) eval MD 파일 존재 + 해시 일치 (§12-G)
@@ -156,7 +156,7 @@ def main() -> int:
             f"FAIL: {len(hash_mismatch)}개 후보의 eval MD SOURCE_HASH가 Phase 1 원본과 불일치: "
             f"{hash_mismatch[:10]}"
         )
-        print("Phase 1 MD가 변경되었거나 eval MD가 구버전이다. evaluate_phase1 재호출 필요.")
+        print("Phase 1 MD가 변경되었거나 eval MD가 구버전이다. phase1-review 재호출 필요.")
         return 1
 
     # 3) C1 lint: Phase 1 원본 직접 참조 금지 (checklist §12-H)

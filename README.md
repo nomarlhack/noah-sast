@@ -44,7 +44,7 @@ flowchart TD
     S3 --> BML2["build-master-list.py\n결과 검증 + master-list.json"]
     BML2 --> AI["Step 3-2: AI 자율 취약점 탐색\n(내부 3단계)"]
     AI --> MLUpdate2["master-list.json 갱신\n(Phase 1 + AI 후보 통합)"]
-    MLUpdate2 --> EvalP1["Step 3-2.5: mode=evaluate_phase1\n(blind eval, 4축 독립 판정)"]
+    MLUpdate2 --> EvalP1["Step 3-2.5: mode=phase1-review\n(blind eval, 4축 독립 판정)"]
     EvalP1 -->|DISCARD| ML_Safe["status: safe\n(Phase 2 낭비 방지)"]
     EvalP1 -->|CONFIRM / OVERRIDE| Check{후보 발견?}
     ML_Safe --> Check
@@ -54,16 +54,16 @@ flowchart TD
     UserReply -->|정보 제공| Perm["Step 3-4: 도구 권한 확인"]
     UserReply -->|거부| S4
     Perm --> Dynamic["Step 3-5: 동적 분석\n(Tier A/B/C 병렬)"]
-    Dynamic --> Eval["Step 3-5.5: mode=evaluate\nPhase 2 우선 원칙으로\nstatus 확정"]
+    Dynamic --> Eval["Step 3-5.5: mode=phase2-review\nPhase 2 우선 원칙으로\nstatus 확정"]
     Eval -->|불일치 감사 로그| Conflicts["phase1_eval_state.conflicts\n(append-only)"]
     Conflicts --> ChainCheck
     Eval --> ChainCheck{"안전 제외\n후보 2건+?"}
     ChainCheck -->|Yes| Chain["Step 3-6: 연계 분석\n(R1~R5)"]
     ChainCheck -->|No| S4
     Chain --> S4
-    S4 --> Review["mode=review\n보고서 정확성 검증\n(체크리스트 1~10)"]
+    S4 --> Review["mode=report-review\n보고서 정확성 검증\n(체크리스트 1~10)"]
     Review -->|재평가 요청| RetryDecide{트리거 모드}
-    RetryDecide -->|evaluate_phase1| EvalP1
+    RetryDecide -->|phase1-review| EvalP1
     RetryDecide -->|evaluate| Eval
     Review -->|요청 없음| Open["브라우저에서 보고서 열기"]
 
@@ -181,8 +181,8 @@ noah-8719/
 | 평가·리뷰 (dispatcher) | `skills/sast/sub-skills/scan-report-review/SKILL.md` | 3모드 진입점 안내. 모드별 파일을 직접 Read하도록 오케스트레이션 |
 | └ 공통 판정 원칙 | `skills/sast/sub-skills/scan-report-review/_principles.md` | Source 도달성, 부재 주장, 반환 형식 규칙 |
 | └ 공통 계약 | `skills/sast/sub-skills/scan-report-review/_contracts.md` | Writer 권한 matrix, exit code, master-list.json 스키마, DISCARD 보호 |
-| └ Phase 1 품질 평가 | `skills/sast/sub-skills/scan-report-review/evaluate_phase1.md` | blind eval, 4축 독립 판정, DISCARD 시 Phase 2 낭비 방지 |
-| └ Phase 2 증거 해석 | `skills/sast/sub-skills/scan-report-review/evaluate.md` | Phase 2 우선 원칙, status 확정, `conflicts` 감사 로그 |
-| └ 보고서 검증 | `skills/sast/sub-skills/scan-report-review/review.md` | 체크리스트 10항목, 재평가 요청 경로 ([3모드 상세 가이드](skills/sast/docs/review-modes.md)) |
+| └ Phase 1 품질 평가 | `skills/sast/sub-skills/scan-report-review/phase1-review.md` | blind eval, 4축 독립 판정, DISCARD 시 Phase 2 낭비 방지 |
+| └ Phase 2 증거 해석 | `skills/sast/sub-skills/scan-report-review/phase2-review.md` | Phase 2 우선 원칙, status 확정, `conflicts` 감사 로그 |
+| └ 보고서 검증 | `skills/sast/sub-skills/scan-report-review/report-review.md` | 체크리스트 10항목, 재평가 요청 경로 ([3모드 상세 가이드](skills/sast/docs/review-modes.md)) |
 | 연계 분석 | `skills/sast/sub-skills/chain-analysis/SKILL.md` | R1~R5 체인 구성 규칙, 전제조건/연계 매트릭스 |
 | 개별 스캐너 | `skills/sast/scanners/{name}/phase1.md` | Sink 의미론, 안전 패턴, 판정 의사결정, 자주 놓치는 패턴 |

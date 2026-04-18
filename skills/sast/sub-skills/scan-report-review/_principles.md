@@ -1,6 +1,6 @@
 # scan-report-review 공통 판정 원칙
 
-3모드(`evaluate_phase1`, `evaluate`, `review)의 단일 진실 원천. 각 모드 파일이 진입 직후 Read하여 적용한다. 모드 파일에 복제 금지.
+3모드(`phase1-review`, `phase2-review`, `review의 단일 진실 원천. 각 모드 파일이 진입 직후 Read하여 적용한다. 모드 파일에 복제 금지.
 
 ---
 

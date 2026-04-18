@@ -4,7 +4,7 @@
 
 ## 왜 필요한가
 
-보고서는 **개발·운영 리더가 읽고 조치를 결정하는 문서**다. 스킬 내부 파이프라인 서술(grep → Phase 1 → evaluate_phase1 → 조립), 판정 라벨(DISCARD/OVERRIDE/CONFIRM), 스크립트명, checklist 섹션 번호(§N) 같은 **내부 운영 용어**가 독자에게 그대로 노출되면:
+보고서는 **개발·운영 리더가 읽고 조치를 결정하는 문서**다. 스킬 내부 파이프라인 서술(grep → Phase 1 → phase1-review → 조립), 판정 라벨(DISCARD/OVERRIDE/CONFIRM), 스크립트명, checklist 섹션 번호(§N) 같은 **내부 운영 용어**가 독자에게 그대로 노출되면:
 
 - 독자는 용어의 의미를 알지 못해 보고서 이해가 막힌다
 - "프로세스가 어떻게 돌아가는지" 같은 내부 메타 정보가 판단 근거와 뒤섞인다
@@ -86,8 +86,8 @@
 | 토큰 | 설명 |
 |------|------|
 | `§\s*\d+` | 내부 섹션 번호 (§N) |
-| `\bmode\s*=\s*(evaluate_phase1\|evaluate\|review)\b` | mode명 |
-| `\bevaluate_phase1\b` | evaluate_phase1 |
+| `\bmode\s*=\s*(phase1-review\|evaluate\|review\b` | mode명 |
+| `\bphase1-review\b` | phase1-review |
 | `\b(DISCARD\|OVERRIDE\|CONFIRM)\b` | 내부 판정 라벨 |
 | `Source\s*도달성` | 내부 판정 용어 |
 | `실질\s*영향\s*반증` | 내부 판정 용어 |
@@ -209,5 +209,5 @@ FAIL: 독자 레이어 용어 노출 2건
 - `sub-skills/scan-report/vuln-format.md` — **개요 허용 필드 스펙**(단일 진실 원천) + 헤딩 검사 규약
 - `sub-skills/scan-report/validate_report.py` — 정량/구조 검증 (POC 개수, ID 필드, URL 일관성)
 - `sub-skills/scan-report/validate_links.py` — HTML 앵커 링크 검증
-- `docs/review-modes.md` — evaluate/review 모드 상세 가이드
+- `docs/review-modes.md` — phase2-review/report-review 모드 상세 가이드
 

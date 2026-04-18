@@ -94,10 +94,10 @@ curl -X <METHOD> "<TARGET_HOST>/<API_PATH>" -H "Cookie: <SESSION_COOKIE>" -d "<P
 
 | 소분류 제목 | 정의 | 판정 모드 | 대표 근거 |
 |-----------|------|----------|---------|
-| 외부 접근 경로 없음 | 공격자가 해당 코드로 HTTP 요청을 보낼 수 없음 | evaluate_phase1 | dev-only 프록시, 서버 번들 비노출, 내부 전용 라우트 |
+| 외부 접근 경로 없음 | 공격자가 해당 코드로 HTTP 요청을 보낼 수 없음 | phase1-review | dev-only 프록시, 서버 번들 비노출, 내부 전용 라우트 |
 | 방어 계층 작동 확인 | 공격 페이로드를 실제 전송했으나 명시적 방어 코드가 차단 | evaluate | nginx 차단, 프레임워크 이스케이프, 게이트웨이 재작성 |
-| 취약점 성립 조건 미충족 | 공격 경로는 존재하나 취약점의 핵심 요건이 부재 | evaluate_phase1 재호출 또는 evaluate | 민감정보 0건, 공개 자원이라 보호 대상 아님 |
-| 정적 분석 오탐 | Phase 1이 지적한 코드가 실제로는 취약점 sink가 아님 | evaluate_phase1 | 설정 지시자 오인, 방어가 다른 메커니즘으로 존재 |
+| 취약점 성립 조건 미충족 | 공격 경로는 존재하나 취약점의 핵심 요건이 부재 | phase1-review 재호출 또는 evaluate | 민감정보 0건, 공개 자원이라 보호 대상 아님 |
+| 정적 분석 오탐 | Phase 1이 지적한 코드가 실제로는 취약점 sink가 아님 | phase1-review | 설정 지시자 오인, 방어가 다른 메커니즘으로 존재 |
 
 ### 형식 템플릿
 
@@ -140,7 +140,7 @@ curl -X <METHOD> "<TARGET_HOST>/<API_PATH>" -H "Cookie: <SESSION_COOKIE>" -d "<P
 보고서 제목·소제목·대시보드에는 다음 내부 규약 용어를 **절대 노출하지 않는다**:
 
 - `§N` (내부 섹션 번호)
-- mode명 (`evaluate_phase1`, `evaluate`, `review`)
+- mode명 (`phase1-review`, `phase2-review`, `report-review`)
 - 내부 라벨 (`DISCARD`, `OVERRIDE`, `CONFIRM`, `Source 도달성 폐기`, `실질 영향 반증`)
 - 스크립트명 (`assert_status_complete.py` 등)
 

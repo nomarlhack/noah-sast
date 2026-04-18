@@ -1,10 +1,10 @@
-# MODE GUARD: 이 파일은 mode=evaluate 전용
+# MODE GUARD: 이 파일은 mode=phase2-review 전용
 
-**[STOP]** 진입 에이전트 프롬프트에 `MODE=evaluate`가 명시되지 않았다면 이 파일의 절차를 수행하지 말고 즉시 종료하라. 특히 **소스코드를 직접 탐색하는 "보고서 대조 검증" 절차는 review 모드의 영역**이며 이 모드에서 절대 수행 금지. 잘못 진입한 경우 아무 필드도 쓰지 말고 메인 에이전트에 "모드 불일치"를 보고한다.
+**[STOP]** 진입 에이전트 프롬프트에 `MODE=phase2-review`가 명시되지 않았다면 이 파일의 절차를 수행하지 말고 즉시 종료하라. 특히 **소스코드를 직접 탐색하는 "보고서 대조 검증" 절차는 report-review 모드의 영역**이며 이 모드에서 절대 수행 금지. 잘못 진입한 경우 아무 필드도 쓰지 말고 메인 에이전트에 "모드 불일치"를 보고한다.
 
 **다른 모드라면 해당 파일을 대신 Read하라.**
-- mode=evaluate_phase1 → `evaluate_phase1.md`
-- mode=review → `review.md`
+- mode=phase1-review → `phase1-review.md`
+- mode=report-review → `report-review.md`
 
 **진입 전 필수 Read**:
 1. `_principles.md` (공통 판정 원칙)
@@ -15,21 +15,21 @@
   - **AI 후보**(`scanner == "ai-discovery"`): 먼저 `ai-discovery-phase2.md`에서 해당 ID 검색 → 없으면 전체 `*-phase2.md` manifest를 ID로 역탐색하여 매칭되는 파일 사용 (scanner 카테고리 의미 매핑 불필요). 두 경로 모두 부재 시 `candidate + tag: 도구 한계`.
 - `<PHASE1_RESULTS_DIR>/evaluation/<scanner>-eval.md` (Phase 1 평가본)
 - `<PHASE1_RESULTS_DIR>/master-list.json` (Read + 일부 필드 Write)
-- 프로젝트 소스코드 — **오직 `verified_defense` 기록을 위한 방어 코드 Read 확인 시에만 허용**. 그 외의 일반 코드 탐색 금지 (이는 review의 영역).
+- 프로젝트 소스코드 — **오직 `verified_defense` 기록을 위한 방어 코드 Read 확인 시에만 허용**. 그 외의 일반 코드 탐색 금지 (이는 report-review의 영역).
 
 **출력**: `master-list.json`의 다음 필드만 쓴다.
 - `status`, `tag`, `evidence_summary`, `verified_defense`, `rederivation_performed`, `source_phase2_file`, `source_phase2_hash`
 - `phase1_eval_state.reopen` / `conflicts` (Phase 1↔Phase 2 불일치 감사 기록 시)
 
 **금지**:
-- `phase1_validated`, `phase1_discarded_reason`, `phase1_eval_state.retries`, `safe_category` 단독 쓰기 (writer는 evaluate_phase1). 단, `status: safe` 할당 시 `safe_category: defense_verified` 동반 기록은 허용.
+- `phase1_validated`, `phase1_discarded_reason`, `phase1_eval_state.retries`, `safe_category` 단독 쓰기 (writer는 phase1-review. 단, `status: safe` 할당 시 `safe_category: defense_verified` 동반 기록은 허용.
 - Phase 1 원본 `.md` 직접 Read (eval MD만 참조 — `_contracts.md §6`)
-- 보고서 MD 파일 수정 (review의 영역)
+- 보고서 MD 파일 수정 (report-review의 영역)
 - 프로젝트 소스코드의 일반 탐색 (방어 코드 재확인 외)
 
 ---
 
-# mode=evaluate
+# mode=phase2-review
 
 Phase 2 동적 분석이 생산한 evidence를 해석하여 각 후보의 최종 `status`를 확정한다.
 
@@ -53,7 +53,7 @@ Phase 2 동적 분석 완료 직후, Step 3-6(연계 분석) 진입 전.
 
 ## rederivation_performed 필드
 
-- `true`: evaluate가 Phase 2 hint와 **독립적으로** 방어 코드를 Read하여 재확인한 경우
+- `true`: phase2-review가 Phase 2 hint와 **독립적으로** 방어 코드를 Read하여 재확인한 경우
 - `false`: Phase 2 hint를 그대로 승격한 경우 (편향 의심 신호)
 
 `false` 비율이 safe 판정 전체의 30%를 초과하면 `assert_status_complete.py`가 exit 3 (rederivation_warn)을 발생시킨다 (비차단 경고).
@@ -122,7 +122,7 @@ Phase 1 판정과 Phase 2 확정 status가 다르면 `phase1_eval_state.conflict
 7. **reopen reset 규칙**:
    - 모순이 해소되거나 Phase 1과 일관된 status로 확정 → `reopen=false` reset
    - 모순은 여전하나 `source_phase2_hash`가 이전과 동일 (Phase 2 증거에 새 정보 없음) → `reopen=false` reset + `conflicts`에 `{round: N, description: "no_new_evidence"}` append (영구 루프 방지)
-   - 모순 + Phase 2 evidence가 새로 갱신됨 → `reopen=true` 유지 (evaluate_phase1 재호출 대기)
+   - 모순 + Phase 2 evidence가 새로 갱신됨 → `reopen=true` 유지 (phase1-review 재호출 대기)
 8. master-list.json 갱신.
 9. 판정 분포 및 이상 요약 반환.
 
@@ -158,7 +158,7 @@ Phase 1 판정과 Phase 2 확정 status가 다르면 `phase1_eval_state.conflict
 | safe_category | 건수 |
 |---------------|------|
 | defense_verified | N |
-| (그 외는 evaluate_phase1이 부여) | — |
+| (그 외는 phase1-review이 부여) | — |
 
 ### Phase 1 ↔ Phase 2 불일치 로그
 - conflicts 기록: N건 (ID 목록)

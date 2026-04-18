@@ -2,8 +2,7 @@
 """
 scan-report-review 모드 파일 구조 lint.
 
-3모드 파일(evaluate_phase1.md / evaluate.md / review.md)이 다음 불변 속성을
-유지하는지 검사한다:
+3모드 파일(phase1-review.md / phase2-review.md / report-review.md)이 다음 불변 속성을 유지하는지 검사한다:
 
 1. MODE GUARD 첫 줄에 `# MODE GUARD: 이 파일은 mode=<X> 전용` 포함
 2. `[STOP]` 경고 문구 존재 (잘못된 모드 진입 차단)
@@ -22,7 +21,7 @@ Usage:
 import sys
 from pathlib import Path
 
-MODES = ("evaluate_phase1", "evaluate", "review")
+MODES = ("phase1-review", "phase2-review", "report-review")
 
 REQUIRED_PATTERNS = {
     "mode_guard_header": "MODE GUARD: 이 파일은 mode={mode} 전용",

@@ -1,10 +1,10 @@
-# MODE GUARD: 이 파일은 mode=evaluate_phase1 전용
+# MODE GUARD: 이 파일은 mode=phase1-review 전용
 
-**[STOP]** 진입 에이전트 프롬프트에 `MODE=evaluate_phase1`이 명시되지 않았다면 이 파일의 절차를 수행하지 말고 즉시 종료하라. 잘못 진입한 경우 아무 필드도 쓰지 말고 메인 에이전트에 "모드 불일치"를 보고한다.
+**[STOP]** 진입 에이전트 프롬프트에 `MODE=phase1-review`이 명시되지 않았다면 이 파일의 절차를 수행하지 말고 즉시 종료하라. 잘못 진입한 경우 아무 필드도 쓰지 말고 메인 에이전트에 "모드 불일치"를 보고한다.
 
 **다른 모드라면 해당 파일을 대신 Read하라.**
-- mode=evaluate → `evaluate.md`
-- mode=review → `review.md`
+- mode=phase2-review → `phase2-review.md`
+- mode=report-review → `report-review.md`
 
 **진입 전 필수 Read**:
 1. `_principles.md` (공통 판정 원칙: Source 도달성, 부재 주장, 반환 형식)
@@ -21,14 +21,14 @@
 2. `master-list.json`의 `phase1_validated`, `phase1_discarded_reason`, `phase1_eval_state`, `safe_category` 필드 갱신
 
 **금지**:
-- `tag`, `evidence_summary`, `verified_defense`, `rederivation_performed` 필드 쓰기 (writer는 evaluate)
+- `tag`, `evidence_summary`, `verified_defense`, `rederivation_performed` 필드 쓰기 (writer는 phase2-review)
 - `status` 필드 쓰기 — **예외**: 축 4 ✗ 폐기 시 `status: safe` 즉시 할당 (Phase 2 낭비 방지).
 - Phase 1 원본 `.md` 파일 Edit·Write (Read만 허용, 원본 불변)
-- 보고서 MD 파일 수정 (review의 영역)
+- 보고서 MD 파일 수정 (report-review의 영역)
 
 ---
 
-# mode=evaluate_phase1
+# mode=phase1-review
 
 Phase 1이 생산한 후보 목록과 prose 분석의 **정적 분석 품질**을 독립 재판정한다. Phase 2 이전에 수행되어 부정확한 후보를 조기에 정제한다.
 
@@ -152,7 +152,7 @@ eval MD 작성 완료 후 마지막 단계:
 
 ### 경로 A — evaluate 교차 검증 모순
 
-`mode=evaluate`가 `phase1_eval_state.reopen=true`를 사전 설정 → 이 파일이 `reopen == true`인 후보 수집.
+`mode=phase2-review`가 `phase1_eval_state.reopen=true`를 사전 설정 → 이 파일이 `reopen == true`인 후보 수집.
 
 ### 경로 B — review 재분류 요청
 
@@ -160,7 +160,7 @@ eval MD 작성 완료 후 마지막 단계:
 
 ### 공통 재평가 절차
 
-재평가는 **품질 개선 힌트**이며 status 결정에 영향 없음 (status는 evaluate가 Phase 2 증거로 확정).
+재평가는 **품질 개선 힌트**이며 status 결정에 영향 없음 (status는 phase2-review가 Phase 2 증거로 확정).
 
 1. **retries 상한 체크**: `phase1_eval_state.retries >= 2`인 후보는 재평가 스킵 + `phase1_validated=true` 강제 세팅(무한 루프 방지). 이미 `conflicts`에 `retry_limit_reached`가 있으면 재기록하지 않음, 없으면 `{round: retries, description: "retry_limit_reached"}` 1회만 append.
 2. 나머지 대상 후보에 4개 축 재적용.

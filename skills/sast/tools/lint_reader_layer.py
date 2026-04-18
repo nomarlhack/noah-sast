@@ -33,8 +33,7 @@ import sys
 # 개요 필드명은 블랙리스트가 아니라 vuln-format.md 스펙 기반 화이트리스트로 검사한다.
 BANNED_PATTERNS = [
     (r"§\s*\d+", "§N (checklist 섹션 번호)"),
-    (r"\bmode\s*=\s*(evaluate_phase1|evaluate|review)\b", "mode명"),
-    (r"\bevaluate_phase1\b", "evaluate_phase1"),
+    (r"\bmode\s*=\s*(phase1-review|phase2-review|report-review)\b", "mode명"),
     (r"\b(DISCARD|OVERRIDE|CONFIRM)\b", "내부 라벨 (DISCARD/OVERRIDE/CONFIRM)"),
     (r"Source\s*도달성", "Source 도달성"),
     (r"실질\s*영향\s*반증", "실질 영향 반증"),

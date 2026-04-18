@@ -49,7 +49,7 @@ CATEGORIES = {
 def _classify_safe(candidate):
     """safe 후보의 표시 라벨을 반환. safe_category enum이 없으면 "기타".
 
-    safe_category는 evaluate/evaluate_phase1 에이전트가 명시적으로 기록해야 한다.
+    safe_category는 phase2-review/phase1-review 에이전트가 명시적으로 기록해야 한다.
     누락 시 build_safe_section이 safe_bucket_unclassified로 exit 7을 유도한다.
     """
     explicit = candidate.get("safe_category")
@@ -129,7 +129,7 @@ def build_safe_section(master_list_path):
         unclassified_ids = [c.get("id", "") for c in buckets["기타"]]
         print(
             f"WARN: safe_bucket_unclassified {unclassified_count}건: {unclassified_ids}\n"
-            f"      evaluate/evaluate_phase1 에이전트가 safe_category를 "
+            f"      phase2-review/phase1-review 에이전트가 safe_category를 "
             f"명시(no_external_path|defense_verified|not_applicable|false_positive)해야 한다.",
             file=sys.stderr,
         )
