@@ -371,9 +371,9 @@ for line in lines:
                 out.append('<summary><h2>AI 자율 탐색 결과</h2></summary>')
                 out.append('<div class="scanner-body">')
                 state['scanner_results_open'] = True
-            elif title == '공격 시나리오':
+            elif title == '연계 시나리오':
                 out.append('<details class="chain-block" open>')
-                out.append('<summary><h2>공격 시나리오</h2></summary>')
+                out.append('<summary><h2>연계 시나리오</h2></summary>')
                 out.append('<div class="chain-body">')
                 state['chain_open'] = True
             else:

@@ -16,7 +16,7 @@ SCRIPT = os.path.join(
 def _make_report(directory, name, poc_count, chain=False):
     """지정된 POC 건수를 가진 MD/HTML 픽스처 생성."""
     poc_block = "\n".join([f"#### {i+1}. 취약점 {i+1}\n\n**재현 방법 및 POC**:\ncurl ...\n" for i in range(poc_count)])
-    chain_block = "\n## 공격 시나리오\n\n체인 내용\n" if chain else ""
+    chain_block = "\n## 연계 시나리오\n\n체인 내용\n" if chain else ""
     content = f"# 보고서\n\n{poc_block}{chain_block}"
 
     with open(os.path.join(directory, f"{name}.md"), "w", encoding="utf-8") as f:
@@ -55,7 +55,7 @@ class TestValidateReport(unittest.TestCase):
             self.assertFalse(os.path.exists(html_path), "HTML 파일이 삭제되어야 함")
 
     def test_chain_analysis_pass(self):
-        """--chain-analysis + 공격 시나리오 섹션 존재 → PASS"""
+        """--chain-analysis + 연계 시나리오 섹션 존재 → PASS"""
         with tempfile.TemporaryDirectory() as d:
             _make_report(d, "noah-sast-report", 2, chain=True)
             r = self._run(["2", "--chain-analysis"], d)

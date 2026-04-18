@@ -1,23 +1,33 @@
 #!/usr/bin/env python3
-"""validate_report.py — 보고서 정량 검증. FAIL 시 보고서 파일을 삭제한다.
+"""validate_report.py — 보고서 정량 검증 + 구조 경고.
+
+기존 검증 (exit 1 fail, 보고서 파일 삭제):
+  - MD/HTML POC 건수, 심각도 표시 금지, 연계 분석 섹션, safe 섹션 존재
+
+추가 검증 (exit 6 warning, 보고서 파일 유지):
+  - (a) 상세 섹션 **ID** 필드 존재 + master-list 매칭
+  - (b) 상세 ID 집합 ↔ master-list id 집합 양방향 집합 차
+  - (c) POC curl 호스트 일관성 (개요 '테스트 환경' 필드 ↔ POC 호스트)
 
 Usage:
-    python3 validate_report.py [확인됨+후보 건수] [보고서명(선택)] [--chain-analysis] [--master-list <path>]
-    예: python3 validate_report.py 15
-    예: python3 validate_report.py 15 xss-scan-report
-    예: python3 validate_report.py 8 --chain-analysis
-    예: python3 validate_report.py 15 --master-list /tmp/phase1_results_foo/master-list.json
+    python3 validate_report.py [건수] [보고서명] [--chain-analysis]
+        [--master-list <path>] [--json-output <path>]
 """
-import sys, os
+import sys, os, re
 
-# --master-list <path> 추출 (값은 다음 인자)
+# --master-list / --json-output <path> 추출
 master_list_arg = None
+json_output_arg = None
 raw = list(sys.argv[1:])
 cleaned = []
 i = 0
 while i < len(raw):
     if raw[i] == '--master-list' and i + 1 < len(raw):
         master_list_arg = raw[i + 1]
+        i += 2
+        continue
+    if raw[i] == '--json-output' and i + 1 < len(raw):
+        json_output_arg = raw[i + 1]
         i += 2
         continue
     cleaned.append(raw[i])
@@ -76,10 +86,10 @@ if md_content:
 
 # 4. 연계 분석 섹션 검증 (--chain-analysis 플래그 시)
 if check_chain:
-    if md_content and "## 공격 시나리오" not in md_content:
-        errors.append("연계 분석 수행됨(--chain-analysis)이나 '## 공격 시나리오' 섹션이 MD에 없음")
-    if html_content and "공격 시나리오" not in html_content:
-        errors.append("연계 분석 수행됨(--chain-analysis)이나 '공격 시나리오' 섹션이 HTML에 없음")
+    if md_content and "## 연계 시나리오" not in md_content:
+        errors.append("연계 분석 수행됨(--chain-analysis)이나 '## 연계 시나리오' 섹션이 MD에 없음")
+    if html_content and "연계 시나리오" not in html_content:
+        errors.append("연계 분석 수행됨(--chain-analysis)이나 '연계 시나리오' 섹션이 HTML에 없음")
 
 # 5. 안전 판정 항목 섹션 검증 (#25 — safe_category 4분류 자동 생성 여부)
 # master-list.json에 safe 후보가 있으면 보고서에 "## 안전 판정 항목" 섹션이 존재해야 한다.
@@ -118,6 +128,141 @@ if master_list_path and os.path.exists(master_list_path):
     except (OSError, ValueError):
         pass  # master-list.json 읽기 실패는 무시 (레거시 스캔 호환)
 
+warnings = []  # exit 6 경고 (fail 아님). 파일 유지.
+
+# 6. ID 필드 존재/일치 + 양방향 집합 차 + POC 호스트 일관성 (경고 수준)
+# master_list_path가 없으면 이 검증은 스킵.
+if master_list_path and os.path.exists(master_list_path) and md_content:
+    try:
+        import json as _json
+        with open(master_list_path, encoding='utf-8') as f:
+            _ml_full = _json.load(f)
+        _ml_candidates = _ml_full.get('candidates', [])
+        # ID → status 맵 (상세 섹션 파싱 시 safe 판정 skip 용도)
+        _ml_id_status = {
+            c['id']: c.get('status', 'candidate')
+            for c in _ml_candidates if c.get('id')
+        }
+        # confirmed/candidate 대상만 (safe는 별도 테이블 섹션, 상세 검증 대상 아님)
+        _ml_reportable_ids = {
+            vid for vid, status in _ml_id_status.items()
+            if status in ('confirmed', 'candidate', None)
+        }
+
+        # 상세 섹션 파싱: #### N. 제목 다음의 **ID**: 값 추출
+        # 스캐너별 실행 결과 + AI 자율 탐색 결과 범위 내
+        _scanner_section_match = re.search(
+            r'## 스캐너별 실행 결과(.*?)(?=\n## (?!스캐너별|AI 자율)|\Z)',
+            md_content, re.DOTALL
+        )
+        _ai_section_match = re.search(
+            r'## AI 자율 탐색 결과(.*?)(?=\n## (?!AI 자율)|\Z)',
+            md_content, re.DOTALL
+        )
+        _scan_body = _scanner_section_match.group(1) if _scanner_section_match else ''
+        _ai_body = _ai_section_match.group(1) if _ai_section_match else ''
+        _combined_body = _scan_body + '\n' + _ai_body
+
+        # 각 상세 섹션(#### N. 제목)별로 **ID**: 값 추출
+        _section_pat = re.compile(
+            r'^####\s+(\d+)\.\s+(.+?)$(.*?)(?=^####\s+\d+\.|^###\s|\Z)',
+            re.MULTILINE | re.DOTALL
+        )
+        _detail_ids = []  # (section_num, section_title, id_value or None)
+        for sm in _section_pat.finditer(_combined_body):
+            sec_num = sm.group(1)
+            sec_title = sm.group(2).strip()
+            sec_body = sm.group(3)
+            id_lines = re.findall(r'^\*\*ID\*\*:\s*(.+?)\s*$', sec_body, re.MULTILINE)
+            if len(id_lines) == 0:
+                _detail_ids.append((sec_num, sec_title, None))
+            elif len(id_lines) > 1:
+                warnings.append(
+                    f"상세 섹션 #{sec_num} ({sec_title[:50]}): **ID** 필드가 {len(id_lines)}회 등장 (섹션 내 1회만 허용)"
+                )
+                _detail_ids.append((sec_num, sec_title, id_lines[0]))
+            else:
+                _detail_ids.append((sec_num, sec_title, id_lines[0]))
+
+        # (a) ID 필드 존재 + master-list 일치
+        # safe 판정 항목은 별도 "안전 판정 항목" 섹션으로 분리되므로 상세 검증 대상에서 제외
+        # (양방향 집합 차의 양쪽 집합 범위를 confirmed/candidate로 대칭화)
+        _detail_id_set = set()
+        for sec_num, sec_title, vid in _detail_ids:
+            if vid is None:
+                warnings.append(f"상세 섹션 #{sec_num} ({sec_title[:50]}): **ID** 필드 누락")
+                continue
+            # safe 판정 항목은 상세 섹션에 있어도 skip (별도 테이블 섹션 소속)
+            if _ml_id_status.get(vid) == 'safe':
+                continue
+            if vid not in _ml_reportable_ids:
+                warnings.append(
+                    f"상세 섹션 #{sec_num} ({sec_title[:50]}): ID '{vid}'가 master-list에 없음 (오타/고아)"
+                )
+            _detail_id_set.add(vid)
+
+        # (b) 양방향 집합 차: master-list에만 있는 ID (상세에 누락된 후보)
+        _missing_in_detail = _ml_reportable_ids - _detail_id_set
+        for mid in sorted(_missing_in_detail):
+            warnings.append(f"master-list ID '{mid}'가 상세 섹션에 누락됨 (보고서에서 빠짐)")
+
+        # (c) POC curl 호스트 일관성
+        # 개요 **테스트 환경** 필드에서 선언된 호스트 추출
+        _env_match = re.search(
+            r'\*\*테스트 환경\*\*:\s*(.+?)(?:\s*\n|$)',
+            md_content
+        )
+        _declared_host = None
+        if _env_match:
+            _env_value = _env_match.group(1).strip()
+            # "sandbox-developers.kakao.com" 같은 호스트명만 추출
+            _host_match = re.search(r'([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', _env_value)
+            if _host_match:
+                _declared_host = _host_match.group(1).lower()
+
+        # POC curl 명령어의 호스트 추출
+        _curl_hosts = re.findall(
+            r'curl[^\n`]*["\']https?://([a-zA-Z0-9.-]+)',
+            md_content
+        )
+        _host_outliers = {}  # {host: count}
+        for h in _curl_hosts:
+            h_lower = h.lower()
+            # 플레이스홀더 허용
+            if '<' in h_lower or 'target_host' in h_lower or 'attacker' in h_lower:
+                continue
+            if _declared_host and h_lower == _declared_host:
+                continue
+            _host_outliers[h_lower] = _host_outliers.get(h_lower, 0) + 1
+        for host, count in sorted(_host_outliers.items()):
+            if _declared_host:
+                warnings.append(
+                    f"POC 호스트 '{host}' (발견 {count}회) — 개요 '테스트 환경' 호스트 "
+                    f"'{_declared_host}'와 불일치"
+                )
+            else:
+                warnings.append(
+                    f"POC 호스트 '{host}' (발견 {count}회) — 개요 '테스트 환경' 필드에 "
+                    f"호스트 선언 없음. 플레이스홀더 <TARGET_HOST>로 통일 권장"
+                )
+    except (OSError, ValueError, _json.JSONDecodeError):
+        pass  # 검증 스킵 (레거시 호환)
+
+# --json-output: 구조화 로그 덤프
+if json_output_arg:
+    try:
+        import json as _json
+        _jout = {
+            'errors': errors,
+            'warnings': warnings,
+            'passed': len(errors) == 0,
+            'has_warnings': len(warnings) > 0,
+        }
+        with open(json_output_arg, 'w', encoding='utf-8') as f:
+            _json.dump(_jout, f, ensure_ascii=False, indent=2)
+    except (OSError, TypeError) as e:
+        print(f"WARNING: --json-output 저장 실패: {e}", file=sys.stderr)
+
 # 결과 출력
 if errors:
     print("FAIL:")
@@ -132,5 +277,12 @@ else:
     parts = [f"MD {md_poc}/{expected}, HTML {html_poc}/{expected}"]
     if check_chain:
         parts.append("chain-analysis ✓")
+    if warnings:
+        print(f"PASS (경고 {len(warnings)}건): {', '.join(parts)}")
+        for w in warnings[:20]:
+            print(f"  ⚠  {w}")
+        if len(warnings) > 20:
+            print(f"  … 외 {len(warnings) - 20}건")
+        sys.exit(6)  # 경고 수준, 파일 유지
     print(f"PASS: {', '.join(parts)}")
     sys.exit(0)

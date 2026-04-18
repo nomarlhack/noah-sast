@@ -11,7 +11,7 @@ Usage:
 
 설계 원칙:
     요약 테이블은 상세 섹션에서 자동 생성한다 (단일 진실 원천).
-    공격 시나리오 섹션은 chain_analysis 데이터에서 자동 생성한다.
+    연계 시나리오 섹션은 chain_analysis 데이터에서 자동 생성한다.
 """
 import argparse, json, os, re, sys
 
@@ -238,7 +238,7 @@ def build_defense_imbalance_warnings(master_list_path):
 
 
 def build_chain_section(ca):
-    """chain_analysis 데이터에서 ## 공격 시나리오 MD 섹션을 생성한다.
+    """chain_analysis 데이터에서 ## 연계 시나리오 MD 섹션을 생성한다.
 
     Returns:
         str: 생성된 MD 텍스트. 연계 분석 미수행이면 빈 문자열.
@@ -249,7 +249,7 @@ def build_chain_section(ca):
     if isinstance(ca, str):
         ca = json.loads(ca)
 
-    lines = ['## 공격 시나리오', '']
+    lines = ['## 연계 시나리오', '']
 
     chains = ca.get('chains', [])
     independent = ca.get('independent', [])
@@ -284,27 +284,36 @@ def build_chain_section(ca):
     return '\n'.join(lines)
 
 
-def build_table_from_details(report_text):
-    """상세 섹션을 파싱하여 취약점 요약 테이블을 자동 생성한다."""
+def build_table_from_details(report_text, master_list_ids=None):
+    """상세 섹션을 파싱하여 취약점 요약 테이블을 자동 생성한다.
+
+    master_list_ids: master-list.json의 candidates[].id 집합 (set). 제공되면
+    상세 섹션 내 ``**ID**:`` 값의 유효성을 교차검증하고, 매칭되지 않는 ID는
+    ``—`` 폴백으로 처리한다. 미제공 시 ID 값을 그대로 수용 (기존 호출부 호환)."""
     lines = report_text.split('\n')
 
     in_scanner_section = False
     current_scanner = ''
     vulns = []
     current_vuln_title = None
+    current_id = ''
     current_type = ''
     current_status = ''
+
+    def _flush():
+        if current_vuln_title:
+            vulns.append((current_vuln_title, current_id, current_type, current_scanner, current_status))
 
     for line in lines:
         if line.startswith('## 스캐너별 실행 결과') or line.startswith('## AI 자율 탐색 결과'):
             in_scanner_section = True
             continue
         if line.startswith('## ') and in_scanner_section:
-            if current_vuln_title:
-                vulns.append((current_vuln_title, current_type, current_scanner, current_status))
-                current_vuln_title = None
-                current_type = ''
-                current_status = ''
+            _flush()
+            current_vuln_title = None
+            current_id = ''
+            current_type = ''
+            current_status = ''
             in_scanner_section = False
             continue
 
@@ -313,11 +322,11 @@ def build_table_from_details(report_text):
 
         m_scanner = re.match(r'^###\s+(.+?)\s*$', line)
         if m_scanner and not re.match(r'^###\s+\d+\.', line):
-            if current_vuln_title:
-                vulns.append((current_vuln_title, current_type, current_scanner, current_status))
-                current_vuln_title = None
-                current_type = ''
-                current_status = ''
+            _flush()
+            current_vuln_title = None
+            current_id = ''
+            current_type = ''
+            current_status = ''
             scanner_name = m_scanner.group(1).strip()
             parts = [p.strip() for p in scanner_name.split('/')]
             parts = [re.sub(r'\s+', '-', p.lower()) for p in parts]
@@ -326,11 +335,22 @@ def build_table_from_details(report_text):
 
         m_vuln = re.match(r'^#{2,4}\s+(\d+)\.\s+(.+)$', line)
         if m_vuln:
-            if current_vuln_title:
-                vulns.append((current_vuln_title, current_type, current_scanner, current_status))
+            _flush()
             current_vuln_title = m_vuln.group(2).strip()
+            current_id = ''
             current_type = ''
             current_status = ''
+            continue
+
+        # **ID**: <master-list id> — 섹션 범위 내 첫 매치만 수용
+        m_id = re.match(r'^\*\*ID\*\*:\s*(.+?)\s*$', line)
+        if m_id and current_vuln_title and not current_id:
+            raw_id = m_id.group(1).strip()
+            # master_list_ids 제공 시 유효성 검증 후 폴백
+            if master_list_ids is not None:
+                current_id = raw_id if raw_id in master_list_ids else '—'
+            else:
+                current_id = raw_id
             continue
 
         # **유형**: ... 또는 **유형:** ...
@@ -349,8 +369,7 @@ def build_table_from_details(report_text):
                 current_status = '후보'
             continue
 
-    if current_vuln_title:
-        vulns.append((current_vuln_title, current_type, current_scanner, current_status))
+    _flush()
 
     if not vulns:
         return report_text
@@ -365,13 +384,14 @@ def build_table_from_details(report_text):
         title = m.group(2)
         result = result[:m.start()] + f'{hashes} {actual_num}. {title}' + result[m.end():]
 
-    # 요약 테이블 생성
+    # 요약 테이블 생성 (ID 칼럼 추가)
     table_lines = [
-        '| # | 취약점 제목 | 유형 | 스캐너 | 상태 |',
-        '|---|------------|------|--------|------|',
+        '| # | ID | 취약점 제목 | 유형 | 스캐너 | 상태 |',
+        '|---|-----|------------|------|--------|------|',
     ]
-    for idx, (title, vtype, scanner, status) in enumerate(vulns, 1):
-        table_lines.append(f'| {idx} | {title} | {vtype} | {scanner} | {status} |')
+    for idx, (title, vid, vtype, scanner, status) in enumerate(vulns, 1):
+        vid_cell = vid if vid else '—'
+        table_lines.append(f'| {idx} | {vid_cell} | {title} | {vtype} | {scanner} | {status} |')
     new_table = '\n'.join(table_lines)
 
     tbl_section = re.search(
@@ -431,14 +451,14 @@ if __name__ == '__main__':
     full_report = skeleton.replace('<!-- SCANNER_SECTIONS_HERE -->', sections_text)
 
     chain_md = build_chain_section(chain_analysis)
-    # 동일 file:line safe/candidate 혼재 경고를 공격 시나리오 앞에 prepend (있으면)
+    # 동일 file:line safe/candidate 혼재 경고를 연계 시나리오 앞에 prepend (있으면)
     imbalance_md = build_defense_imbalance_warnings(args.master_list)
     if imbalance_md:
         if chain_md:
             chain_md = imbalance_md + chain_md
         else:
-            # chain_analysis 없어도 경고만 삽입되도록 "## 공격 시나리오" 헤더 추가
-            chain_md = '## 공격 시나리오\n\n' + imbalance_md + '연계 분석 수행되지 않음.\n'
+            # chain_analysis 없어도 경고만 삽입되도록 "## 연계 시나리오" 헤더 추가
+            chain_md = '## 연계 시나리오\n\n' + imbalance_md + '연계 분석 수행되지 않음.\n'
     full_report = full_report.replace('<!-- CHAIN_SECTION_HERE -->', chain_md)
 
     if ai_discovery_results.strip():
@@ -451,7 +471,22 @@ if __name__ == '__main__':
             full_report
         )
 
-    full_report = build_table_from_details(full_report)
+    # master-list.json이 제공되면 ID 집합을 로드하여 상세 섹션의 **ID** 값을
+    # 교차검증한다. 미제공 시 build_table_from_details는 ID 값을 그대로 수용.
+    master_list_ids = None
+    if args.master_list and os.path.isfile(args.master_list):
+        try:
+            with open(args.master_list, encoding='utf-8') as f:
+                _ml_data = json.load(f)
+            master_list_ids = {
+                c.get('id') for c in _ml_data.get('candidates', [])
+                if c.get('id')
+            }
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"WARNING: master-list.json 로드 실패, ID 검증 스킵: {e}", file=sys.stderr)
+            master_list_ids = None
+
+    full_report = build_table_from_details(full_report, master_list_ids)
 
     # skeleton과 output이 같은 경로이면 비멱등 조립 위험 차단
     if os.path.abspath(args.skeleton) == os.path.abspath(args.output):
@@ -496,5 +531,5 @@ if __name__ == '__main__':
         sys.exit(7)
 
     poc = full_report.count('재현 방법 및 POC')
-    has_chain = '## 공격 시나리오' in full_report
+    has_chain = '## 연계 시나리오' in full_report
     print(f"조립 완료: {os.path.getsize(args.output)} bytes, POC {poc}건, 공격시나리오={'✓' if has_chain else '✗'}")
