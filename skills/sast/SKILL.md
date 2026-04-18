@@ -441,7 +441,7 @@ sandbox 도메인: <SANDBOX_DOMAIN>
 모든 동적 분석 에이전트가 완료되면, `scan-report-review mode=phase2-review`를 호출하여 Phase 2 결과 파일의 evidence를 해석하고 master-list.json의 status를 갱신한다.
 
 ```
-Agent 도구로 evaluate 에이전트를 생성한다. <NOAH_SAST_DIR>/<PHASE1_RESULTS_DIR>는 resolve된 실제 경로 문자열로 치환.
+Agent 도구로 phase2-review 에이전트를 생성한다. <NOAH_SAST_DIR>/<PHASE1_RESULTS_DIR>는 resolve된 실제 경로 문자열로 치환.
 
 [MODE=phase2-review 전용 에이전트]
 

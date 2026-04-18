@@ -90,8 +90,8 @@ Writer는 §1 테이블 참조.
 | 값 | 정의 | 판정 모드 | 대표 근거 |
 |----|------|----------|---------|
 | `no_external_path` | 공격자가 해당 코드로 HTTP 요청을 보낼 수 없음 | phase1-review | dev-only 프록시, 서버 번들 비노출, 내부 전용 라우트 |
-| `defense_verified` | 공격 페이로드를 실제 전송했으나 명시적 방어 코드가 차단 | evaluate | nginx 차단, 프레임워크 이스케이프, 게이트웨이 재작성 |
-| `not_applicable` | 공격 경로는 존재하나 취약점의 핵심 요건이 부재 | phase1-review 재호출 / evaluate | 민감정보 0건, 공개 자원이라 보호 대상 아님 |
+| `defense_verified` | 공격 페이로드를 실제 전송했으나 명시적 방어 코드가 차단 | phase2-review | nginx 차단, 프레임워크 이스케이프, 게이트웨이 재작성 |
+| `not_applicable` | 공격 경로는 존재하나 취약점의 핵심 요건이 부재 | phase1-review 재호출 / phase2-review | 민감정보 0건, 공개 자원이라 보호 대상 아님 |
 | `false_positive` | Phase 1이 지적한 코드가 실제로는 취약점 sink가 아님 | phase1-review | 설정 지시자 오인, 방어가 다른 메커니즘으로 존재 |
 
 ---

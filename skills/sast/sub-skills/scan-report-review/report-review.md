@@ -189,7 +189,7 @@ MD 수정(Step 5) 전 수행.
 | ID | 트리거 모드 | 사유 |
 |----|------------|------|
 | XSS-2 | phase1-review | Source 도달성 ✗ 폐기: code prop이 static 리터럴 |
-| SSRF-3 | evaluate | 이상 없음 → 후보 승격: URL 파싱 경로 누락 |
+| SSRF-3 | phase2-review | 이상 없음 → 후보 승격: URL 파싱 경로 누락 |
 ```
 
 **트리거 모드 선택**:

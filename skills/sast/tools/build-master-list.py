@@ -8,10 +8,10 @@ Usage:
 
 옵션:
   --merge: 기존 master-list.json이 존재하면 각 후보 id 기준으로 병합.
-           evaluate 결과 필드(status, tag, evidence_summary, verified_defense,
+           phase2-review 결과 필드(status, tag, evidence_summary, verified_defense,
            rederivation_performed, safe_category, phase1_*, phase1_eval_state)를
            보존하고, Phase 1 파싱은 새로 수행한다. 사라진 후보는 삭제,
-           신규 후보는 추가, 동명 후보는 메타데이터만 갱신 + evaluate 필드 보존.
+           신규 후보는 추가, 동명 후보는 메타데이터만 갱신 + phase2-review 필드 보존.
 
 검증 기능:
 - manifest JSON 파싱 실패 시 ERROR
@@ -33,14 +33,14 @@ parser.add_argument("output_json")
 parser.add_argument(
     "--merge",
     action="store_true",
-    help="기존 master-list.json이 존재하면 evaluate 결과 필드를 보존하며 병합",
+    help="기존 master-list.json이 존재하면 phase2-review 결과 필드를 보존하며 병합",
 )
 args = parser.parse_args()
 
 phase1_dir = Path(args.phase1_dir)
 out_path = Path(args.output_json)
 
-# 병합 모드: 기존 master-list.json 로드 (evaluate 결과 보존용)
+# 병합 모드: 기존 master-list.json 로드 (phase2-review 결과 보존용)
 EVAL_FIELDS = {
     "status", "tag", "evidence_summary", "verified_defense", "rederivation_performed",
     "safe_category", "phase1_validated", "phase1_discarded_reason", "phase1_eval_state",
@@ -57,7 +57,7 @@ if args.merge and out_path.is_file():
                 snapshot["__prev_line"] = c.get("line")
                 existing_by_id[cid] = snapshot
         print(
-            f"INFO: --merge 모드, 기존 {len(existing_by_id)}건의 evaluate 결과 필드를 보존합니다.",
+            f"INFO: --merge 모드, 기존 {len(existing_by_id)}건의 phase2-review 결과 필드를 보존합니다.",
             file=sys.stderr,
         )
     except (json.JSONDecodeError, OSError) as e:

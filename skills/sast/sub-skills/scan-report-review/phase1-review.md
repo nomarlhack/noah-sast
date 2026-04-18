@@ -150,11 +150,11 @@ eval MD 작성 완료 후 마지막 단계:
 
 트리거 2가지. 모두 이 파일이 직접 `phase1_eval_state.reopen`을 self-set하여 재평가 (writer 권한 합법).
 
-### 경로 A — evaluate 교차 검증 모순
+### 경로 A — phase2-review 교차 검증 모순
 
 `mode=phase2-review`가 `phase1_eval_state.reopen=true`를 사전 설정 → 이 파일이 `reopen == true`인 후보 수집.
 
-### 경로 B — review 재분류 요청
+### 경로 B — report-review 재분류 요청
 
 오케스트레이터가 프롬프트에 `FORCE_REOPEN=ID1,ID2` 인자를 포함하여 재호출 → 이 파일이 해당 ID의 `reopen=true`로 self-set 후 경로 A와 동일 처리.
 
