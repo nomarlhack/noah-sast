@@ -58,9 +58,9 @@ ${CLAUDE_PLUGIN_ROOT}/skills/sast
   tests/                           ← grep 커버리지 테스트
 ```
 
-### Step 0: 전체 패턴 사전 인덱싱 (`run_grep_index.py`)
+### Step 0: 전체 패턴 사전 인덱싱
 
-**[필수] Step 1 진입 전에 반드시 완료한다.** 개별 취약점 스캐너 에이전트가 코드베이스를 중복 탐색하는 것을 방지하기 위해, **결정적 스크립트 `tools/run_grep_index.py`로 모든 패턴 인덱싱을 수행**한다. 각 스캐너의 `phase1.md` frontmatter에서 `grep_patterns`를 추출해 프로젝트 전체에 grep을 실행하고, 스캐너별 JSON 인덱스를 생성한다.
+**[필수] Step 1 진입 전에 반드시 완료한다.** 개별 취약점 스캐너 에이전트가 코드베이스를 중복 탐색하는 것을 방지하기 위해, 모든 스캐너 패턴을 일괄 인덱싱한다.
 
 #### Step 0-1: 디렉토리 경로 생성
 
@@ -73,7 +73,7 @@ echo "/tmp/phase1_results_$(basename <PROJECT_ROOT>)_$(date +%s)"
 
 출력값을 각각 `PATTERN_INDEX_DIR`, `PHASE1_RESULTS_DIR` 변수로 보관한다. 이후 모든 경로 참조에 사용한다. 서브 에이전트 프롬프트에는 **resolve된 실제 경로 문자열**로 치환하여 삽입한다.
 
-#### Step 0-2: `run_grep_index.py` 실행
+#### Step 0-2: 인덱싱 실행
 
 Bash 도구로 스크립트를 직접 호출한다. `<NOAH_SAST_DIR>`/`<PROJECT_ROOT>`/`<PATTERN_INDEX_DIR>`는 resolve된 실제 경로 문자열로 치환한다.
 
@@ -84,20 +84,13 @@ python3 <NOAH_SAST_DIR>/tools/run_grep_index.py \
   --out-dir <PATTERN_INDEX_DIR>
 ```
 
-스크립트가 수행하는 일:
-- 41개 스캐너의 `phase1.md` frontmatter에서 `grep_patterns` 추출 (YAML 파싱)
-- 각 패턴을 `subprocess.run(["grep", ...], shell=False)` argv로 실행 (shell 인젝션/이스케이프 이슈 없음)
-- 스캐너별 결과를 `<PATTERN_INDEX_DIR>/<스캐너명>.json`에 저장 (형식: `{pattern: ["file:line", ...]}`)
-- 스캐너 단위로 실패 격리: YAML 파싱 오류/regex 오류/grep timeout은 `_failures.json`에 기록하고 다른 스캐너는 계속 처리
-- stdout에 스캐너별 히트 건수 요약 출력
-
 **Exit code별 분기:**
 
 | exit | 의미 | 조치 |
 |------|------|------|
-| `0` | 41개 JSON 모두 정상 저장, 실패 없음 | Step 1 진행 |
+| `0` | 모든 스캐너 JSON 정상 저장, 실패 없음 | Step 0-3 진행 |
 | `1` | 환경/CLI 오류 (grep 부재, 경로 오타, 권한 등) | 오류 메시지 확인 후 재실행 |
-| `2` | 부분 실패 (`_failures.json` 생성됨) | 실패 사유 확인 후 조치 (아래) |
+| `2` | 부분 실패 (`_failures.json` 생성됨) | 실패 사유 확인 후 조치 |
 
 **exit 2 시 실패 사유별 대응:**
 
@@ -109,17 +102,17 @@ python3 <NOAH_SAST_DIR>/tools/run_grep_index.py \
 - `io_error`: 파일 시스템 권한/경로 점검 후 전체 재실행
 - `phase1_md_missing`: 스캐너 디렉토리 구조 오류 (버그 — 이슈 보고)
 
-`yaml_parse_error`, `regex_error`, `phase1_md_missing`은 해당 스캐너의 JSON이 빈 `{}`로 저장되어 하류가 멈추지 않는다. 영향 받는 스캐너의 후보는 0건이 되지만 나머지 40개는 정상 진행된다.
+`yaml_parse_error`, `regex_error`, `phase1_md_missing`은 해당 스캐너의 JSON이 빈 `{}`로 저장되므로 나머지 스캐너는 정상 진행된다.
 
-**[필수] 무결성 검증 (Step 1 진입 전 수행):**
+#### Step 0-3: 무결성 검증
 
 ```bash
 JSON_COUNT=$(ls -1 <PATTERN_INDEX_DIR>/*-scanner.json 2>/dev/null | wc -l | tr -d ' ')
 echo "json_count=$JSON_COUNT"
-# 기대값: 41 (scanner-selector.py 실행 전)
+# 기대값: <NOAH_SAST_DIR>/scanners 하위 -scanner 디렉토리 개수와 동일
 ```
 
-`json_count != 41`이면 스크립트 실행 실패. 오류 메시지 확인 후 재실행.
+일치하지 않으면 재실행.
 
 ### Step 1: 프로젝트 스택 파악
 
