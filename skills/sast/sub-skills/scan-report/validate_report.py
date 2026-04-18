@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""validate_report.py — 보고서 정량 검증 + 구조 경고.
+"""validate_report.py — 보고서 정량·구조 검증.
 
-기존 검증 (exit 1 fail, 보고서 파일 삭제):
-  - MD/HTML POC 건수, 심각도 표시 금지, 연계 분석 섹션, safe 섹션 존재
+Fail 검증 (exit 1, 보고서 파일 삭제):
+  - MD/HTML POC 건수 일치, 심각도 표시 금지, 연계 분석 섹션 존재, safe 섹션 존재
 
-추가 검증 (exit 6 warning, 보고서 파일 유지):
+Warning 검증 (exit 6, 보고서 파일 유지):
   - (a) 상세 섹션 **ID** 필드 존재 + master-list 매칭
   - (b) 상세 ID 집합 ↔ master-list id 집합 양방향 집합 차
   - (c) POC curl 호스트 일관성 (개요 '테스트 환경' 필드 ↔ POC 호스트)
@@ -126,7 +126,7 @@ if master_list_path and os.path.exists(master_list_path):
                     f"master-list.json에 safe 후보 {_safe_count}건 있으나 '안전 판정 항목' 섹션이 HTML에 없음"
                 )
     except (OSError, ValueError):
-        pass  # master-list.json 읽기 실패는 무시 (레거시 스캔 호환)
+        pass  # master-list.json 없거나 읽기 실패 시 이 검증 스킵
 
 warnings = []  # exit 6 경고 (fail 아님). 파일 유지.
 
@@ -246,7 +246,7 @@ if master_list_path and os.path.exists(master_list_path) and md_content:
                     f"호스트 선언 없음. 플레이스홀더 <TARGET_HOST>로 통일 권장"
                 )
     except (OSError, ValueError, _json.JSONDecodeError):
-        pass  # 검증 스킵 (레거시 호환)
+        pass  # master-list.json 읽기 실패 시 이 검증 스킵
 
 # --json-output: 구조화 로그 덤프
 if json_output_arg:

@@ -206,7 +206,7 @@ ALLOWED_FIXED_HEADINGS, ALLOWED_TEMPLATE_HEADINGS = _load_allowed_heading_spec()
 def _heading_matches_spec(level: int, heading: str) -> bool:
     """헤딩이 허용 스펙에 매칭되는지 확인."""
     if ALLOWED_FIXED_HEADINGS is None:
-        return True  # 스펙 파싱 실패 시 검사 스킵 (기존 동작 보존)
+        return True  # 스펙 파싱 실패 시 헤딩 검사 스킵
     full = "#" * level + " " + heading
     if full in ALLOWED_FIXED_HEADINGS:
         return True
@@ -219,12 +219,8 @@ def _heading_matches_spec(level: int, heading: str) -> bool:
 def _extract_overview_block(text: str) -> tuple[str, int]:
     """보고서 최상단의 개요 블록을 추출한다.
 
-    두 가지 형태 지원:
-    1. `# 제목` 직후 바로 `**필드**:`들이 나오는 형태 (레거시)
-    2. `# 제목` → `## 개요` → `**필드**:` 형태 (현재 vuln-format.md 규약)
-
-    범위는 개요 컨텐츠 시작 ~ 첫 `---` 또는 그 다음 `## ...`(개요가 아닌) 이전.
-    개요 블록이 없으면 ('', 0) 반환.
+    `# 제목` → `## 개요`(선택) → `**필드**:` 형태를 인식. 범위는 개요 컨텐츠
+    시작 ~ 첫 `---` 또는 다음 `## ...` 이전. 개요 블록 없으면 ('', 0) 반환.
     """
     m_title = re.search(r"^#\s+.+$", text, re.MULTILINE)
     if not m_title:

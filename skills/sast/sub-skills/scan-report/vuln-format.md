@@ -280,12 +280,6 @@ curl -X <METHOD> "<TARGET_HOST>/<API_PATH>" -H "Cookie: <SESSION_COOKIE>" -d "<P
 | `{SCANNER_NAME}` | `[A-Za-z0-9가-힣/][A-Za-z0-9가-힣/\s\-]*` (공백/하이픈 포함 가능, 첫 글자는 알파벳/한글/숫자) |
 | `{VULN_TITLE}` / `{TITLE}` | `.+` (자유 텍스트) |
 
-### 이중 안전망: 블랙리스트 backup
-
-위 화이트리스트를 통과한 헤딩도 `BANNED_PATTERNS`(내부 규약 용어) 검사를
-한 번 더 수행한다. 예: 취약점 제목에 `DISCARD` 같은 내부 라벨이 들어오면
-`{VULN_TITLE}` 템플릿은 매칭되지만 BANNED backup이 걸러낸다.
-
 ---
 
 ### 통합 HTML 보고서 추가 요소

@@ -27,8 +27,8 @@ for case in A B C D E F; do
 done
 ```
 
-## Round 9 확장 예정
+## 향후 확장
 
-- 대형 현실 규모 fixture (60건 master-list)
+- 대형 규모 fixture (60건 master-list)
 - 유니코드 제목/중복 ID/빈 제목 등 엣지 케이스
 - 자동 assertion 스크립트 (pytest 또는 shell)
