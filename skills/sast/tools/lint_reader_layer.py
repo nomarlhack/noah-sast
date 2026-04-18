@@ -76,8 +76,144 @@ def _load_allowed_overview_fields():
     return [f.strip() for f in fields]
 
 
+# 템플릿 변수 → 정규식 치환 테이블
+TEMPLATE_VAR_REGEX = {
+    "{N}": r"\d+",
+    "{SCANNER_NAME}": r"[A-Za-z0-9가-힣/][A-Za-z0-9가-힣/\s\-]*",
+    "{VULN_TITLE}": r".+",
+    "{TITLE}": r".+",
+}
+
+
+def _load_allowed_heading_spec():
+    """vuln-format.md의 '보고서 섹션 구조' 섹션에서 허용 헤딩 스펙 추출.
+
+    라인 단위 상태 머신으로 파싱한다. 정규식 기반 섹션 추출은 코드블록
+    내부의 `##` 같은 예시 헤딩을 섹션 종료로 오인하므로 부적절.
+
+    반환: (fixed_headings_set, template_regex_list)
+    스펙 파싱 실패 시 (None, None).
+    """
+    spec_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "..", "sub-skills", "scan-report", "vuln-format.md"
+    )
+    if not os.path.isfile(spec_path):
+        return (None, None)
+    with open(spec_path, encoding="utf-8") as f:
+        lines = f.read().split("\n")
+
+    fixed_set = set()
+    template_regexes = []
+
+    # 상태: outside / in_section / in_fixed_block / in_template_block
+    state = "outside"
+    in_code_fence = False
+    subsection = None  # "fixed" | "template" | None
+    section_started = False
+
+    SECTION_HEADING_RE = re.compile(r"^##\s+보고서\s*섹션\s*구조\b")
+    SUB_FIXED_RE = re.compile(r"^###\s+고정\s*헤딩\b")
+    SUB_TEMPLATE_RE = re.compile(r"^###\s+템플릿\s*헤딩\b")
+
+    for line in lines:
+        stripped = line.strip()
+
+        # 1. 섹션 시작 진입
+        if state == "outside":
+            if SECTION_HEADING_RE.match(line):
+                state = "in_section"
+            continue
+
+        # 2. 섹션 내부
+        # 다음 top-level `## ` 헤딩을 만나면 섹션 종료 (단 코드블록 밖일 때만)
+        if not in_code_fence and re.match(r"^##\s+[^#]", line) and not SECTION_HEADING_RE.match(line):
+            break
+
+        # 코드블록 fence 토글
+        if stripped.startswith("```"):
+            if in_code_fence:
+                # 블록 종료
+                in_code_fence = False
+                subsection = None
+            else:
+                in_code_fence = True
+            continue
+
+        # 서브섹션 헤더 (코드블록 밖)
+        if not in_code_fence:
+            if SUB_FIXED_RE.match(line):
+                subsection = "fixed_pending"  # 다음 코드블록이 고정 헤딩
+                continue
+            if SUB_TEMPLATE_RE.match(line):
+                subsection = "template_pending"
+                continue
+            # 다른 서브섹션으로 이동
+            if re.match(r"^###\s+", line):
+                subsection = None
+            continue
+
+        # 코드블록 내부
+        if in_code_fence:
+            # subsection_pending → 실제 수집 상태로 전환 (fence 진입 시)
+            # 위 로직에서 fence 진입 시 subsection은 pending 상태이므로 여기서 처리
+            if subsection == "fixed_pending":
+                subsection = "fixed"
+            elif subsection == "template_pending":
+                subsection = "template"
+
+            if subsection == "fixed":
+                if re.match(r"^#+\s+\S", stripped):
+                    fixed_set.add(stripped)
+            elif subsection == "template":
+                if re.match(r"^#+\s+\S", stripped):
+                    pattern = re.escape(stripped)
+                    for var, var_regex in TEMPLATE_VAR_REGEX.items():
+                        pattern = pattern.replace(re.escape(var), var_regex)
+                    template_regexes.append(re.compile(f"^{pattern}$"))
+
+    if not fixed_set and not template_regexes:
+        return (None, None)
+    return (fixed_set, template_regexes)
+
+
+def _strip_code_blocks(text: str) -> str:
+    """MD 텍스트에서 ```...``` 코드블록 내부를 공백 라인으로 대체.
+
+    헤딩 정규식이 코드블록 내부 `# 주석`을 헤딩으로 오인하지 않도록 전처리.
+    라인 수는 유지하여 라인 번호 계산 정합성 보존.
+    """
+    result = []
+    in_code = False
+    for line in text.split("\n"):
+        stripped = line.lstrip()
+        if stripped.startswith("```"):
+            in_code = not in_code
+            result.append("")  # fence 라인도 비움
+            continue
+        if in_code:
+            result.append("")  # 코드블록 내부는 공백 라인
+        else:
+            result.append(line)
+    return "\n".join(result)
+
+
 # 모듈 로드 시 1회만 스펙 파싱 (단일 진실 원천)
 ALLOWED_OVERVIEW_FIELDS = _load_allowed_overview_fields()
+ALLOWED_FIXED_HEADINGS, ALLOWED_TEMPLATE_HEADINGS = _load_allowed_heading_spec()
+
+
+def _heading_matches_spec(level: int, heading: str) -> bool:
+    """헤딩이 허용 스펙에 매칭되는지 확인."""
+    if ALLOWED_FIXED_HEADINGS is None:
+        return True  # 스펙 파싱 실패 시 검사 스킵 (기존 동작 보존)
+    full = "#" * level + " " + heading
+    if full in ALLOWED_FIXED_HEADINGS:
+        return True
+    for pat in (ALLOWED_TEMPLATE_HEADINGS or []):
+        if pat.match(full):
+            return True
+    return False
 
 
 def _extract_overview_block(text: str) -> tuple[str, int]:
@@ -119,16 +255,29 @@ def check_md(path: str) -> list[str]:
     if not os.path.isfile(path):
         return []
     text = open(path, encoding="utf-8").read()
+    # 코드블록 내부 `# 주석`을 헤딩으로 오인하지 않도록 전처리
+    scan_text = _strip_code_blocks(text)
     violations = []
 
-    # 1. 헤딩 검사
-    for m in MD_HEADING.finditer(text):
+    # 1. 헤딩 검사: (A) 화이트리스트(vuln-format.md 스펙) + (B) 블랙리스트 backup
+    for m in MD_HEADING.finditer(scan_text):
         level = len(m.group(1))
         heading = m.group(2).strip()
+        line_no = scan_text.count("\n", 0, m.start()) + 1
+
+        # (A) 화이트리스트: 스펙 외 헤딩 차단
+        if not _heading_matches_spec(level, heading):
+            violations.append(
+                f"{path}:{line_no} (h{level}): 스펙 외 헤딩 — "
+                f"vuln-format.md '보고서 섹션 구조' 섹션 참조 → \"{heading}\""
+            )
+            continue  # 스펙 외는 BANNED 검사 불필요 (이미 차단)
+
+        # (B) 블랙리스트 backup: 스펙 통과 후에도 내부 규약 용어 검사
+        # 예: `{VULN_TITLE}` 템플릿은 자유 텍스트 허용이라 DISCARD가 들어올 수 있음
         for pattern, label in BANNED_PATTERNS:
             hit = re.search(pattern, heading, re.IGNORECASE)
             if hit:
-                line_no = text.count("\n", 0, m.start()) + 1
                 violations.append(
                     f"{path}:{line_no} (h{level}): 금지 토큰 '{label}' → \"{heading}\""
                 )
@@ -136,7 +285,7 @@ def check_md(path: str) -> list[str]:
     # 2. 개요 섹션 필드명 검사
     # vuln-format.md 스펙에서 파싱한 허용 집합과 대조 (단일 진실 원천).
     # 단어 변형(예: '파이프 구성', '스캔 단계')에도 강건 — 스펙에 없는 필드는 무조건 차단.
-    overview_block, overview_start_line = _extract_overview_block(text)
+    overview_block, overview_start_line = _extract_overview_block(scan_text)
     if overview_block and ALLOWED_OVERVIEW_FIELDS is not None:
         allowed = {f for f in ALLOWED_OVERVIEW_FIELDS}
         for fm in MD_OVERVIEW_FIELD.finditer(overview_block):
@@ -159,16 +308,42 @@ def check_html(path: str) -> list[str]:
     text = open(path, encoding="utf-8").read()
     violations = []
 
-    # 1. 헤딩 검사
+    # vuln-block 내부의 <h3>는 MD의 #### 헤딩이 md_to_html.py 구조적 특이사항으로
+    # 한 단계 승격된 결과이며, MD lint에서 이미 검사했으므로 HTML에서는 스킵한다.
+    vuln_block_regions = [
+        (m.start(), m.end())
+        for m in re.finditer(
+            r'<details class="vuln-block"[^>]*>.*?</details>',
+            text, re.DOTALL
+        )
+    ]
+
+    def _in_vuln_block(pos: int) -> bool:
+        return any(start <= pos < end for start, end in vuln_block_regions)
+
+    # 1. 헤딩 검사: 화이트리스트 + 블랙리스트 backup
     for m in HTML_HEADING.finditer(text):
-        level = m.group(1)
+        if _in_vuln_block(m.start()):
+            continue
+        level_str = m.group(1)
+        level = int(level_str)
         heading = re.sub(r"<[^>]+>", "", m.group(2)).strip()
+        line_no = text.count("\n", 0, m.start()) + 1
+
+        # (A) 화이트리스트
+        if not _heading_matches_spec(level, heading):
+            violations.append(
+                f"{path}:{line_no} (h{level_str}): 스펙 외 헤딩 — "
+                f"vuln-format.md '보고서 섹션 구조' 섹션 참조 → \"{heading}\""
+            )
+            continue
+
+        # (B) 블랙리스트 backup
         for pattern, label in BANNED_PATTERNS:
             hit = re.search(pattern, heading, re.IGNORECASE)
             if hit:
-                line_no = text.count("\n", 0, m.start()) + 1
                 violations.append(
-                    f"{path}:{line_no} (h{level}): 금지 토큰 '{label}' → \"{heading}\""
+                    f"{path}:{line_no} (h{level_str}): 금지 토큰 '{label}' → \"{heading}\""
                 )
 
     # 2. 개요 섹션 필드명 검사 (HTML: <h1> 이후 첫 <h2>/<hr> 전까지)
