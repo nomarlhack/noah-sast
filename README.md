@@ -181,6 +181,6 @@ noah-8719/
 | └ 공통 계약 | `skills/sast/sub-skills/scan-report-review/_contracts.md` | Writer 권한 matrix, exit code, master-list.json 스키마, DISCARD 보호 |
 | └ Phase 1 품질 평가 | `skills/sast/sub-skills/scan-report-review/phase1-review.md` | blind eval, 4축 독립 판정, DISCARD 시 Phase 2 낭비 방지 |
 | └ Phase 2 증거 해석 | `skills/sast/sub-skills/scan-report-review/phase2-review.md` | Phase 2 우선 원칙, status 확정, `conflicts` 감사 로그 |
-| └ 보고서 검증 | `skills/sast/sub-skills/scan-report-review/report-review.md` | 체크리스트 10항목, 재평가 요청 경로 ([3모드 상세 가이드](skills/sast/docs/review-modes.md)) |
+| └ 원천 데이터 cross-check | `skills/sast/sub-skills/scan-report-review/report-review.md` | 보고서 조립 직전 master-list + eval + phase2 + chain 정확성 검증 (cross-scanner 전담, 쓰기 없음) ([3모드 상세 가이드](skills/sast/docs/review-modes.md)) |
 | 연계 분석 | `skills/sast/sub-skills/chain-analysis/SKILL.md` | R1~R5 체인 구성 규칙, 전제조건/연계 매트릭스 |
 | 개별 스캐너 | `skills/sast/scanners/{name}/phase1.md` | Sink 의미론, 안전 패턴, 판정 의사결정, 자주 놓치는 패턴 |
