@@ -86,8 +86,7 @@
 | 토큰 | 설명 |
 |------|------|
 | `§\s*\d+` | 내부 섹션 번호 (§N) |
-| `\bmode\s*=\s*(phase1-review\|evaluate\|review\b` | mode명 |
-| `\bphase1-review\b` | phase1-review |
+| `\bmode\s*=\s*(phase1-review\|phase2-review\|report-review)\b` | mode명 |
 | `\b(DISCARD\|OVERRIDE\|CONFIRM)\b` | 내부 판정 라벨 |
 | `Source\s*도달성` | 내부 판정 용어 |
 | `실질\s*영향\s*반증` | 내부 판정 용어 |
@@ -97,7 +96,7 @@
 
 ### 허용되는 경우 (헤딩)
 
-- **본문/테이블 근거 서술**에서 풀이 형태로 사용: 허용 (예: "evaluate 평가에서 차단으로 판정됨"은 테이블 cell에서 OK)
+- **본문/테이블 근거 서술**에서 풀이 형태로 사용: 허용 (예: "phase2-review 평가에서 차단으로 판정됨"은 테이블 cell에서 OK)
 - **개요 필드의 값** 부분: 허용 (필드명만 검사)
 - **코드 블록·인용 블록**: 헤딩이 아니면 스킵
 

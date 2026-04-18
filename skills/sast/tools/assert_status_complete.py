@@ -238,7 +238,7 @@ def main() -> int:
         ratio = len(no_rederivation) / len(safe_items)
         if ratio > 0.30:
             print(
-                f"WARN: evaluate-safe 판정 중 rederivation_performed=false 비율 "
+                f"WARN: phase2-review-safe 판정 중 rederivation_performed=false 비율 "
                 f"{ratio:.1%} > 30% 경고선."
             )
             print(f"편향 의심 항목: {no_rederivation}")
