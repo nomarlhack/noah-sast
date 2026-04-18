@@ -48,11 +48,11 @@ flowchart TD
     EvalP1 -->|DISCARD| ML_Safe["status: safe\n(Phase 2 낭비 방지)"]
     EvalP1 -->|CONFIRM / OVERRIDE| Check{후보 발견?}
     ML_Safe --> Check
-    Check -->|0건| S4["Step 4: 보고서 생성\n+ safe 4분류 자동 섹션"]
+    Check -->|0건| Review
     Check -->|1건+| Ask["Step 3-3: 동적 테스트 정보 요청"]
     Ask --> UserReply{사용자 응답}
     UserReply -->|정보 제공| Perm["Step 3-4: 도구 권한 확인"]
-    UserReply -->|거부| S4
+    UserReply -->|거부| Review
     Perm --> Dynamic["Step 3-5: 동적 분석\n(Tier A/B/C 병렬)"]
     Dynamic --> Eval["Step 3-5.5: mode=phase2-review\nPhase 2 우선 원칙으로\nstatus 확정"]
     Eval -->|불일치 감사 로그| Conflicts["phase1_eval_state.conflicts\n(append-only)"]
@@ -92,7 +92,7 @@ Noah SAST는 Claude Code의 **스킬(Skill)** 시스템 위에 구축된 통합 
 | **단일 진실 원천** | `master-list.json` 파일이 전체 프로세스의 유일한 상태 저장소. Writer 권한 matrix로 모드별 쓰기 범위 분리 |
 | **Phase 2 우선** | Phase 2는 실증 데이터. Phase 1 정적 주장과 모순 시 항상 Phase 2 증거로 status 확정 (인프라 방어 관측 포함) |
 | **인간 개입 최소화** | 파이프라인 차단 없이 자동 수렴. Phase 1↔Phase 2 불일치는 append-only 감사 로그(`conflicts`)로만 기록 |
-| **오탐 방지** | Sink-first + Source-first 병행 분석, 보고서 작성 후 소스코드 대조 검증 (체크리스트 10항목) |
+| **오탐 방지** | Sink-first + Source-first 병행 분석, 보고서 조립 전 cross-scanner 일관성 검증 (체크리스트 10항목) |
 | **다중 언어 지원** | Node.js, Python, Ruby, Java, Go 매니페스트에서 의존성을 파싱하여 스캐너 선별 |
 
 ## 스캐너 목록
