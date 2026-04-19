@@ -198,6 +198,7 @@ grep_patterns:
 - **nginx `ssl_protocols TLSv1.2 TLSv1.3;`** + 강력한 `ssl_ciphers` 설정
 - **Managed TLS** (AWS ALB/CloudFront, Cloudflare, GCP HTTPS LB 등) — 코드 제어 범위 밖, 판단 불가로 처리
 - **Let's Encrypt 자동 갱신** — 인증서 관리가 자동화된 환경
+- **상위 계층 동등 조치 확인**: 하위 계층(예: 내부 nginx/openresty)에 명시 부재지만, 상위 계층(ingress/ALB/CDN)이 동일 HSTS·프로토콜·cipher를 제공하는 경우 하위 계층은 권고로 격하.
 
 ## 인접 스캐너 분담
 
