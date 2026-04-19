@@ -37,51 +37,51 @@ Claude Code에서 다음 중 하나를 입력합니다:
 
 ```mermaid
 flowchart TD
-    User["사용자: /noah-8719:sast"] --> S0["Step 0: grep 인덱싱"]
-    S0 --> S1["Step 1: 프로젝트 스택 분석"]
-    S1 --> S2["Step 2: 스캐너 선별\n(다국어 의존성 + AI 검토)"]
-    S2 --> S3["Step 3-1: Phase 1 정적 분석\n(그룹 병렬 → 파일 저장)"]
-    S3 --> BML2["phase1_build_master_list.py\n결과 검증 + master-list.json"]
-    BML2 --> AI["Step 3-2: AI 자율 취약점 탐색\n(내부 3단계)"]
-    AI --> MLUpdate2["master-list.json 갱신\n(Phase 1 + AI 후보 통합)"]
-    MLUpdate2 --> EvalP1["Step 3-2.5: mode=phase1-review\n(blind eval, 4축 독립 판정)"]
-    EvalP1 -->|DISCARD| ML_Safe["status: safe\n(Phase 2 낭비 방지)"]
-    EvalP1 -->|CONFIRM / OVERRIDE| Check{후보 발견?}
+    User["사용자: /noah-8719:sast"] --> S1["Step 1: 실행 경로 확정"]
+    S1 --> S2["Step 2: grep 인덱싱"]
+    S2 --> S3["Step 3: 프로젝트 스택 파악"]
+    S3 --> S4["Step 4: 스캐너 선별\n(다국어 의존성 + AI 검토)"]
+    S4 --> S5["Step 5: 정적 분석\n(그룹 병렬 → 파일 저장)"]
+    S5 --> BML2["phase1_build_master_list.py\n결과 검증 + master-list.json"]
+    BML2 --> S6["Step 6: AI 자율 분석\n(내부 3단계)"]
+    S6 --> MLUpdate2["master-list.json 갱신\n(Phase 1 + AI 후보 통합)"]
+    MLUpdate2 --> S7["Step 7: 정적·AI 리뷰\n(phase1-review, blind eval)"]
+    S7 -->|DISCARD| ML_Safe["status: safe\n(Phase 2 낭비 방지)"]
+    S7 -->|CONFIRM / OVERRIDE| Check{후보 발견?}
     ML_Safe --> Check
-    Check -->|0건| S4["Step 4: 보고서 조립\n+ safe 4분류 자동 섹션"]
-    Check -->|1건+| Ask["Step 3-3: 동적 테스트 정보 요청"]
-    Ask --> UserReply{사용자 응답}
-    UserReply -->|정보 제공| Perm["Step 3-4: 도구 권한 확인"]
-    UserReply -->|거부| S4
-    Perm --> Dynamic["Step 3-5: 동적 분석\n(Tier A/B/C 병렬)"]
-    Dynamic --> Eval["Step 3-5.5: mode=phase2-review\nPhase 2 우선 원칙으로\nstatus 확정"]
-    Eval -->|불일치 감사 로그| Conflicts["phase1_eval_state.conflicts\n(append-only)"]
+    Check -->|0건| S12["Step 12: 보고서 생성\n+ safe 4분류 자동 섹션"]
+    Check -->|1건+| S81["Step 8-1: 동적 테스트 정보 요청"]
+    S81 --> UserReply{사용자 응답}
+    UserReply -->|정보 제공| S82["Step 8-2: 도구 권한 확인"]
+    UserReply -->|거부| S12
+    S82 --> S83["Step 8-3: Phase 2 실행\n(Tier A/B/C 병렬)"]
+    S83 --> S9["Step 9: 동적 분석 리뷰\n(phase2-review)"]
+    S9 -->|불일치 감사 로그| Conflicts["phase1_eval_state.conflicts\n(append-only)"]
     Conflicts --> ChainCheck
-    Eval --> ChainCheck{"안전 제외\n후보 2건+?"}
-    ChainCheck -->|Yes| Chain["Step 3-6: 연계 분석\n(R1~R5)"]
-    ChainCheck -->|No| S4
-    Chain --> S4
-    S4 --> ReviewCheck{"후보 1건+?"}
-    ReviewCheck -->|Yes| Review["mode=report-review\n보고서 본문 품질 개선\n(스니펫·POC·원인 분석 보강)"]
-    ReviewCheck -->|No| ValLint
-    Review --> ValLint["validate_report.py\nlint_reader_layer.py\nmd_to_html.py"]
-    ValLint --> Open["브라우저에서 보고서 열기"]
+    S9 --> ChainCheck{"안전 제외\n후보 2건+?"}
+    ChainCheck -->|Yes| S10["Step 10: 연계 분석"]
+    ChainCheck -->|No| S11
+    S10 --> S11["Step 11: 결과 검증"]
+    S11 --> S12
+    S12 --> ReviewCheck{"후보 1건+?"}
+    ReviewCheck -->|Yes| Review["Step 12-1: report-review\n보고서 본문 품질 개선"]
+    ReviewCheck -->|No| Finalize
+    Review --> Finalize["Step 12-2: report_finalize.py\n(validate → lint → html → links → open)"]
 
     style User fill:#e94560,stroke:#e94560,color:#fff
-    style AI fill:#e94560,stroke:#e94560,color:#fff
+    style S6 fill:#e94560,stroke:#e94560,color:#fff
     style MLUpdate2 fill:#0f3460,stroke:#e94560,color:#eee
-    style EvalP1 fill:#0f3460,stroke:#e94560,color:#eee
-    style Eval fill:#0f3460,stroke:#e94560,color:#eee
+    style S7 fill:#0f3460,stroke:#e94560,color:#eee
+    style S9 fill:#0f3460,stroke:#e94560,color:#eee
     style Review fill:#0f3460,stroke:#e94560,color:#eee
     style Conflicts fill:#0f3460,stroke:#e94560,color:#eee
     style ML_Safe fill:#533483,stroke:#533483,color:#fff
-    style Chain fill:#533483,stroke:#533483,color:#fff
-    style Open fill:#e94560,stroke:#e94560,color:#fff
+    style S10 fill:#533483,stroke:#533483,color:#fff
+    style Finalize fill:#e94560,stroke:#e94560,color:#fff
     style Check fill:#533483,stroke:#533483,color:#fff
     style ChainCheck fill:#533483,stroke:#533483,color:#fff
     style ReviewCheck fill:#533483,stroke:#533483,color:#fff
     style UserReply fill:#533483,stroke:#533483,color:#fff
-    style ValLint fill:#0f3460,stroke:#e94560,color:#eee
 ```
 
 ## 개요
@@ -174,7 +174,7 @@ noah-8719/
 
 | 문서 | 경로 | 내용 |
 |------|------|------|
-| 오케스트레이터 | `skills/sast/SKILL.md` | 전체 실행 프로세스 (Step 0~4), 스캐너 그룹 편성, 동적 분석 Tier, 결과 검증 |
+| 오케스트레이터 | `skills/sast/SKILL.md` | 전체 실행 프로세스 (Step 1~12), 스캐너 그룹 편성, 동적 분석 Tier, 결과 검증 |
 | Phase 1 공통 지침 | `skills/sast/prompts/guidelines-phase1.md` | Sink-first + Source-first 분석, 래퍼 추적, 의미 기반 판정, Source 도달성 |
 | Phase 2 공통 지침 | `skills/sast/prompts/guidelines-phase2.md` | 동적 테스트 절차, 에러 핸들링, 차단 응답 처리, 도메인 안전 규칙 |
 | AI 자율 탐색 | `skills/sast/prompts/ai-discovery-agent.md` | 3단계 자율 탐색, 7개 제외 필터, Phase 1 충돌 해소 |

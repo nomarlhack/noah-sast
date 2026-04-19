@@ -124,7 +124,7 @@ python3 tools/lint_reader_layer.py noah-sast-report.md noah-sast-report.html
 | `5` | lint 위반 — 헤딩 금지 토큰 또는 개요 스펙 외 필드 |
 | `1` | CLI 인자 오류 |
 
-보고서 생성 파이프라인(scan-report `Step 4`)에서 lint exit 5가 발생하면 수정 후 재조립 필요.
+보고서 생성 파이프라인(scan-report `Step 12`)에서 lint exit 5가 발생하면 수정 후 재조립 필요.
 
 ## 실행 예시
 

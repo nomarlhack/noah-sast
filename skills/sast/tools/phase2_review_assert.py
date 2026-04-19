@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Step 3-6 (연계 분석) 진입 가드.
+Step 10 (연계 분석) 진입 가드.
 
 모든 후보가 status 필드와 적법한 tag/safe_category enum을 가지는지,
 mode=phase2-review 완료 이후에 연계 분석이 실행되는지 런타임 assert한다.

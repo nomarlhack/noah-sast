@@ -2,7 +2,7 @@
 """
 Phase 1 재개 판별 스크립트.
 
-중단된 Phase 1 파이프라인(Step 3-1 스캐너 그룹 + Step 3-2 AI 자율 탐색)을
+중단된 Phase 1 파이프라인(Step 5 스캐너 그룹 + Step 6 AI 자율 탐색)을
 재개할 때, 파일 시스템 상태를 판별하여 어떤 스캐너를 재dispatch해야 하는지
 결정한다. 메인 에이전트가 수동 판단 없이 이 스크립트 출력만 따라 재개한다.
 
@@ -104,7 +104,7 @@ def main() -> int:
     expected_file = phase1_dir / "_expected_scanners.json"
     if not expected_file.is_file():
         print(f"STATE: pre_expected")
-        print(f"ACTION: select_scanners.py 미실행. Step 2-1부터 재시작.")
+        print(f"ACTION: select_scanners.py 미실행. Step 4-1부터 재시작.")
         return 0
 
     try:
@@ -219,7 +219,7 @@ def main() -> int:
         print(f"  {step}. phase1_build_master_list.py 재실행")
         step += 1
     if state == "complete":
-        print(f"  (진행 필요 없음 — Phase 1 완료. Step 3-2.5로 진행)")
+        print(f"  (진행 필요 없음 — Phase 1 완료. Step 7로 진행)")
     return 0
 
 

@@ -626,7 +626,7 @@ print(f"Tier C: {len(tier_buckets['C'])}개 (독립 인증. Tier 내 순차, Tie
 for s in sorted(tier_buckets["C"]):
     print(f"  - {s}")
 print()
-print("실행 규칙: Tier A/B/C를 동시에 시작. 각 Tier 내부는 순차. 모든 Tier 완료 후 Step 3-6 진행.")
+print("실행 규칙: Tier A/B/C를 동시에 시작. 각 Tier 내부는 순차. 모든 Tier 완료 후 Step 10 진행.")
 
 # 선택적: 적용 스캐너 목록을 JSON 파일로 저장
 for arg in sys.argv[3:]:

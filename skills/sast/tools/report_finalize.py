@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Step 4 후처리 2~6단계를 일괄 실행: validate → lint → html → links → open.
+Step 12 후처리 2~6단계를 일괄 실행: validate → lint → html → links → open.
 조건부 단계인 report-review(1단계)는 메인 에이전트가 별도 수행한다.
 
 Usage:

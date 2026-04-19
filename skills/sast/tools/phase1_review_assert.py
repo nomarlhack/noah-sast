@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Step 3-3 (동적 분석 정보 요청) 진입 가드.
+Step 8-1 (동적 분석 정보 요청) 진입 가드.
 
 phase1-review이 모든 후보에 대해 완료되었는지, eval MD 고아 상태가 없는지,
 C1 lint (Phase 1 원본 직접 참조) 위반이 없는지 검증한다.

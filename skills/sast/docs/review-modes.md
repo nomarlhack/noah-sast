@@ -185,4 +185,4 @@ AI 자율 탐색이 발견한 후보(`AI-N` ID, `scanner=ai-discovery`)는 Phase
 - Writer 권한·스키마·exit code: `skills/sast/sub-skills/scan-report-review/_contracts.md`
 - 모드별 절차: `skills/sast/sub-skills/scan-report-review/phase1-review.md` / `phase2-review.md` / `report-review.md`
 - 보고서 조립 로직: `skills/sast/sub-skills/scan-report/assemble_report.py`
-- 오케스트레이션 Step 매핑: `skills/sast/SKILL.md` Step 3-2.5, 3-5.5, 4
+- 오케스트레이션 Step 매핑: `skills/sast/SKILL.md` Step 7, 9, 12

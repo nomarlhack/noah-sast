@@ -156,7 +156,7 @@ python3 <NOAH_SAST_DIR>/sub-skills/scan-report/assemble_report.py \
 - `clean_section()`: 서브에이전트가 포함한 `## 스캐너별 실행 결과`, `## 미적용 스캐너 목록` 등 자동 제거
 - 플레이스홀더 치환으로 `## 미적용 스캐너 목록`이 항상 마지막에 위치
 
-> **후처리 (scan-report-review, HTML 변환, 링크 검증, 정량 검증, 브라우저 열기)는 메인 오케스트레이터(SKILL.md Step 4)가 수행한다.** scan-report는 MD 조립(Step 3)까지만 담당한다.
+> **후처리 (scan-report-review, HTML 변환, 링크 검증, 정량 검증, 브라우저 열기)는 메인 오케스트레이터(SKILL.md Step 12)가 수행한다.** scan-report는 MD 조립(Step 3)까지만 담당한다.
 
 ---
 
