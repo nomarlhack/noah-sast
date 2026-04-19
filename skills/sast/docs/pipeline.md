@@ -82,8 +82,7 @@ flowchart LR
 | 스크립트 | 시점 |
 |---------|------|
 | `phase1_resume.py` | 중단 후 재개 요청 시 |
-| `lint_review_modes.py` | scan-report-review 3모드 MD 개발 시 |
-| `lint_reader_layer.py` | 보고서 독자 레이어 용어 검증 |
+| `lint_reader_layer.py` | 보고서 독자 레이어 용어 검증 (report_finalize.sh 내부 호출) |
 
 ## 단일 진실 원천
 
