@@ -67,7 +67,7 @@ def main() -> int:
         return 1
 
     # 3. candidate 판정은 tag 필드 필수 + tag enum 검증
-    allowed_tags = {"도구 한계", "정보 부족", "환경 제한", "차단"}
+    allowed_tags = {"도구 한계", "정보 부족", "환경 제한", "차단", "동적 분석 생략"}
     cand_no_tag = [
         c["id"] for c in candidates
         if c["status"] == "candidate"

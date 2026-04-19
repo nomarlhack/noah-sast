@@ -73,7 +73,10 @@ def validate_safe_consistency(candidates):
     ENUM = {"no_external_path", "defense_verified", "not_applicable", "false_positive",
             "platform_default_defense", "low_threat_model", "architectural_rationale_only", None}
     issues = []
-    all_ids = {c.get("id") for c in candidates}
+    all_ids = {c.get("id") for c in candidates if c.get("id")}
+    # master-list에 실제 존재하는 prefix 집합으로만 참조 검증
+    # (RFC-/CVE-/ISO- 등 외부 표준 번호 false positive 방지)
+    allowed_prefixes = {i.split("-")[0] for i in all_ids if "-" in i}
     id_pattern = re.compile(r"[A-Z]{2,}[A-Z0-9]*-\d+")
     for c in candidates:
         if c.get("status") != "safe":
@@ -87,7 +90,9 @@ def validate_safe_consistency(candidates):
         if c.get("phase1_discarded_reason"):
             # architectural_rationale_only는 참조 대상 ID 존재 무결성 추가 검증
             if cat == "architectural_rationale_only":
-                refs = set(id_pattern.findall(c.get("phase1_discarded_reason") or ""))
+                raw_refs = set(id_pattern.findall(c.get("phase1_discarded_reason") or ""))
+                # master-list prefix 집합에 속하는 참조만 검증 대상 (외부 표준 번호 무시)
+                refs = {r for r in raw_refs if r.split("-")[0] in allowed_prefixes}
                 refs.discard(c.get("id"))
                 missing = refs - all_ids
                 if refs and missing:

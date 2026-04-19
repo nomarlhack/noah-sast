@@ -22,9 +22,10 @@ from pathlib import Path
 
 
 STEPS = [
+    # validate_report가 MD·HTML 동기화를 검증하므로 md_to_html을 먼저 실행한다.
+    ("md_to_html", "sub-skills/scan-report/md_to_html.py"),
     ("validate_report", "sub-skills/scan-report/validate_report.py"),
     ("lint_reader_layer", "tools/lint_reader_layer.py"),
-    ("md_to_html", "sub-skills/scan-report/md_to_html.py"),
     ("validate_links", "sub-skills/scan-report/validate_links.py"),
     ("open", None),
 ]

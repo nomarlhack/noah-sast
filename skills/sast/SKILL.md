@@ -393,7 +393,7 @@ sandbox 도메인: <SANDBOX_DOMAIN>
 
 Step 4-2 AI 검토로 복원된 스캐너는 `select_scanners.py` 출력에 포함되지 않으므로, 메인 에이전트는 `<NOAH_SAST_DIR>/tools/select_scanners.py`의 `TIER_A`·`TIER_C` 상수를 확인하여 직접 분류한다 (양쪽 모두 해당하지 않으면 Tier B).
 
-사용자가 동적 테스트를 명시적으로 거부한 경우("동적 테스트 안 해도 돼", "소스코드 분석만 해줘" 등)에만 동적 분석을 건너뛰고 Step 10(연계 분석)으로 진행한다.
+사용자가 동적 테스트를 명시적으로 거부한 경우("동적 테스트 안 해도 돼", "소스코드 분석만 해줘" 등)에만 동적 분석을 건너뛰고 Step 10(연계 분석)으로 진행한다. 이 경로에서 마스터 목록의 미판정 후보는 메인 에이전트가 `status=candidate`, `tag="동적 분석 생략"`으로 직접 설정하고 `evidence_summary`에 거부 사유를 기록한다 (`_contracts.md §5` 참조). 이 태그는 이 경로 전용이며 phase2-review가 설정하지 못한다.
 
 ### Step 9: 동적 분석 결과 리뷰 (phase2-review)
 
@@ -554,7 +554,7 @@ master-list.json의 `status ∈ {confirmed, candidate}` 후보가 1건 이상일
 
 #### Step 12-2: 검증·변환·열기
 
-`python3 <NOAH_SAST_DIR>/tools/report_finalize.py <NOAH_SAST_DIR> <PHASE1_RESULTS_DIR> <확인됨+후보 건수>` — `noah-sast-report.md`가 있는 디렉토리(=`assemble_report.py` 출력 위치)에서 실행한다. 내부 순서 validate → lint → html → links → open. 실패 대응: lint(exit 5)는 review 위반이면 report-review 재호출 1회 허용, links FAIL은 `missing_ids` MD 섹션을 `#### N. 제목`으로 변환 후 HTML 재생성.
+`python3 <NOAH_SAST_DIR>/tools/report_finalize.py <NOAH_SAST_DIR> <PHASE1_RESULTS_DIR> <확인됨+후보 건수>` — `noah-sast-report.md`가 있는 디렉토리(=`assemble_report.py` 출력 위치)에서 실행한다. 내부 순서 html → validate → lint → links → open (validate가 MD·HTML 동기화를 검증하므로 html을 선행). 실패 대응: lint(exit 5)는 review 위반이면 report-review 재호출 1회 허용, links FAIL은 `missing_ids` MD 섹션을 `#### N. 제목`으로 변환 후 HTML 재생성.
 
 ## 유의사항 (메인 에이전트)
 
