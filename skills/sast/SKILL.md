@@ -246,6 +246,14 @@ python3 <NOAH_SAST_DIR>/tools/build-master-list.py <PHASE1_RESULTS_DIR> <PHASE1_
 **ERROR 발생 시**: 해당 스캐너의 그룹 에이전트를 재실행한다.
 **WARNING 발생 시**: 해당 후보의 결과 파일(`<PHASE1_RESULTS_DIR>/<scanner-name>.md`)을 확인하고 필요 시 보완한다.
 
+**중단 후 재개 (토큰 한도 등):** 세션이 토큰 한도·반복 실패 등으로 대기해야 할 때, 메인 에이전트는 다음을 보고하고 재개 요청을 기다린다.
+
+- 완료된 스캐너: `ls <PHASE1_RESULTS_DIR>/*-scanner.md`
+- 남은 스캐너: `_expected_scanners.json`과 위 목록의 차집합
+- `build-master-list.py`가 `NO_MANIFEST`·`COUNT_MISMATCH`로 보고한 스캐너 (부분 기록)
+
+재개 요청이 오면 위 셋을 합친 목록만 `phase1-group-agent`로 재실행한다. 기존 그룹 편성(Step 3-1)의 원 매핑을 따르되, 한 그룹에서 1개만 남았으면 그 1개로 단독 실행한다. 원 편성이 컨텍스트에 없으면 `scanner-selector.py`를 재실행하여 편성을 재생성한다 (결정론적).
+
 **[필수] `DUPLICATE SINK` 경고 발생 시 — AI 자율 탐색(Step 3-2) 진입 전에 즉시 통합 여부를 결정한다:**
 
 1. 두 후보의 Phase 1 결과 파일을 Read하여 관점 차이를 확인한다.
@@ -305,6 +313,8 @@ python3 <NOAH_SAST_DIR>/tools/build-master-list.py <PHASE1_RESULTS_DIR> <PHASE1_
 **Phase 1과의 중복 제거를 수행하지 않는다.** AI 자율 탐색과 Phase 1 스캐너가 같은 취약점을 발견하면 이중 검증으로 간주한다. 보고서에서 AI 자율 탐색 결과는 별도 섹션(`## AI 자율 탐색 결과`)으로 분리되므로 중복이 혼란을 주지 않는다.
 
 AI 자율 탐색에서 후보가 0건이어도 정상이다. 스캐너가 이미 충분히 커버한 경우이며, "AI 자율 탐색: 추가 후보 없음"으로 기록하고 다음 단계로 진행한다.
+
+**중단 후 재개 (토큰 한도 등):** 세션이 대기해야 할 때, 재개 시 `<PHASE1_RESULTS_DIR>/ai-discovery.md` 존재 여부로 판단한다. 파일 없음 → Step 3-2 전체 재실행. 파일 있으나 `[INCOMPLETE]` 이력 있음 → 기존 `[INCOMPLETE]` 후속 탐색 규칙대로 `ai-discovery-continued.md` 디스패치. 파일 있고 완료 → 스킵하고 Step 3-2.5로 진행.
 
 #### Step 3-2.5: Phase 1 결과 평가 (phase1-review
 
