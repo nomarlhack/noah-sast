@@ -62,13 +62,13 @@ flowchart LR
 
 | 단계 | 스크립트 | 역할 |
 |------|---------|------|
-| Step 0 | `grep_index.sh` → `grep_index.py` | grep 패턴 인덱싱 |
+| Step 0 | `grep_index.py` | grep 패턴 인덱싱 (exit 0 + stdout 키워드로 결과 전달) |
 | Step 2 | `select_scanners.py` | 스캐너 선별 + 그룹 편성 + Tier 출력 |
 | Phase 1 후처리 | `phase1_build_master_list.py` | master-list.json 생성 |
 | Step 3-2.5 게이트 | `phase1_review_assert.py` | phase1-review 완료 확인 |
 | Step 3-5.5 게이트 | `phase2_review_assert.py` | phase2-review 완료 확인 |
 | Step 4 ① | `sub-skills/scan-report/assemble_report.py` | 보고서 조립 |
-| Step 4 ② | `report_finalize.sh` | validate → lint → html → links → open |
+| Step 4 ② | `report_finalize.py` | validate → lint → html → links → open |
 
 **에이전트 내부 헬퍼 (파이프라인 밖)**
 
@@ -82,7 +82,7 @@ flowchart LR
 | 스크립트 | 시점 |
 |---------|------|
 | `phase1_resume.py` | 중단 후 재개 요청 시 |
-| `lint_reader_layer.py` | 보고서 독자 레이어 용어 검증 (report_finalize.sh 내부 호출) |
+| `lint_reader_layer.py` | 보고서 독자 레이어 용어 검증 (report_finalize.py 내부 호출) |
 
 ## 단일 진실 원천
 

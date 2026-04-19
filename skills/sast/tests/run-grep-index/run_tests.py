@@ -76,15 +76,32 @@ def run_case(case_dir: Path) -> tuple[bool, list[str]]:
             capture_output=True, text=True,
         )
 
+        # grep_index.py는 항상 exit 0으로 종료하고, 실제 exit code는
+        # stdout의 run_grep_index_exit=N 줄로 전달한다 (Claude Code Bash
+        # tool UI 경고 회피 목적).
+        stdout_rc = None
+        for line in result.stdout.splitlines():
+            if line.startswith("run_grep_index_exit="):
+                try:
+                    stdout_rc = int(line.split("=", 1)[1])
+                except ValueError:
+                    pass
+                break
+
         expect_failures = expected.get("expect_failures", False)
-        if expect_failures and result.returncode != 2:
+        if stdout_rc is None:
             errors.append(
-                f"{name}: exit code 기대 2 (부분 실패), 실제 {result.returncode}\n"
+                f"{name}: run_grep_index_exit 키워드가 stdout에 없음\n"
+                f"  stdout: {result.stdout}\n  stderr: {result.stderr}"
+            )
+        elif expect_failures and stdout_rc != 2:
+            errors.append(
+                f"{name}: run_grep_index_exit 기대 2 (부분 실패), 실제 {stdout_rc}\n"
                 f"  stderr: {result.stderr}"
             )
-        elif not expect_failures and result.returncode != 0:
+        elif not expect_failures and stdout_rc != 0:
             errors.append(
-                f"{name}: exit code 기대 0 (성공), 실제 {result.returncode}\n"
+                f"{name}: run_grep_index_exit 기대 0 (성공), 실제 {stdout_rc}\n"
                 f"  stderr: {result.stderr}"
             )
 

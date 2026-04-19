@@ -269,5 +269,33 @@ def main() -> int:
     return 2 if failures else 0
 
 
+def _emit_summary(rc: int) -> None:
+    """Claude Code Bash tool은 exit code 비0 시 UI에 경고를 띄운다. 정상·부분 실패
+    모두 exit 0으로 종료하고 실제 결과는 stdout 키워드로 전달한다. 메인 에이전트는
+    `run_grep_index_exit=N` 줄을 파싱해 분기 판정한다."""
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--scanners-dir")
+    parser.add_argument("--project-root")
+    parser.add_argument("--out-dir")
+    args, _ = parser.parse_known_args()
+    json_count = 0
+    expected = 0
+    if args.out_dir and Path(args.out_dir).is_dir():
+        json_count = len([
+            p for p in Path(args.out_dir).glob("*-scanner.json")
+            if p.name != "_failures.json"
+        ])
+    if args.scanners_dir and Path(args.scanners_dir).is_dir():
+        expected = len([
+            d for d in Path(args.scanners_dir).iterdir()
+            if d.is_dir() and d.name.endswith("-scanner")
+        ])
+    print(f"run_grep_index_exit={rc}")
+    print(f"json_count={json_count}")
+    print(f"expected={expected}")
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    rc = main()
+    _emit_summary(rc)
+    sys.exit(0)
