@@ -73,6 +73,8 @@ def validate_safe_consistency(candidates):
     ENUM = {"no_external_path", "defense_verified", "not_applicable", "false_positive",
             "platform_default_defense", "low_threat_model", "architectural_rationale_only", None}
     issues = []
+    all_ids = {c.get("id") for c in candidates}
+    id_pattern = re.compile(r"[A-Z]{2,}[A-Z0-9]*-\d+")
     for c in candidates:
         if c.get("status") != "safe":
             continue
@@ -83,6 +85,15 @@ def validate_safe_consistency(candidates):
             continue
         # Phase 1 DISCARD 경로는 면제 (§12-C §9 면제 규칙)
         if c.get("phase1_discarded_reason"):
+            # architectural_rationale_only는 참조 대상 ID 존재 무결성 추가 검증
+            if cat == "architectural_rationale_only":
+                refs = set(id_pattern.findall(c.get("phase1_discarded_reason") or ""))
+                refs.discard(c.get("id"))
+                missing = refs - all_ids
+                if refs and missing:
+                    issues.append(
+                        f"{c.get('id')}: architectural_rationale_only 참조 대상 부재: {sorted(missing)}"
+                    )
             continue
         # defense_verified는 verified_defense + rederivation_performed 필수
         if cat == "defense_verified":
@@ -153,6 +164,9 @@ def build_safe_section(master_list_path):
         "방어 계층 작동 확인": ("방어 메커니즘", "공격 페이로드를 실제 전송했으나 명시적 방어 코드가 차단."),
         "취약점 성립 조건 미충족": ("부재하는 요건", "공격 경로는 존재하나 취약점의 핵심 요건이 부재."),
         "정적 분석 오탐": ("오탐 이유", "Phase 1이 지적한 코드가 실제로는 취약점 sink가 아님."),
+        "플랫폼 기본 방어 확인": ("동등 방어 메커니즘", "브라우저/HTTP/런타임 기본 동작이 동등 효과의 방어를 제공."),
+        "위협 모델 저영향": ("영향 한정 근거", "Source 제어자가 신뢰 당사자이거나 엔드포인트 최대 영향이 낮음."),
+        "아키텍처 근거 중복": ("경로 증거 대상 후보", "다른 후보의 경로 증명용으로 기술된 독립 항목."),
     }
 
     lines = ['## 안전 판정 항목', '']

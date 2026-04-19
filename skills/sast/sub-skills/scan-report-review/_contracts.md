@@ -94,7 +94,7 @@ Writer는 §1 테이블 참조.
 | `not_applicable` | 공격 경로는 존재하나 취약점의 핵심 요건이 부재 | phase1-review 재호출 / phase2-review | 민감정보 0건, 공개 자원이라 보호 대상 아님 |
 | `false_positive` | Phase 1이 지적한 코드가 실제로는 취약점 sink가 아님 | phase1-review | 설정 지시자 오인, 방어가 다른 메커니즘으로 존재 |
 | `platform_default_defense` | 브라우저/HTTP/런타임 기본 동작이 동등 효과의 방어를 제공 | phase1-review | 헤더 명시 부재지만 브라우저 기본값이 동일 효과, 인증 요청은 HTTP 표준상 공유 캐시 차단 |
-| `low_threat_model` | Source 제어자가 신뢰 당사자(관리자/소유자/자기자신) 또는 엔드포인트 최대 영향이 낮음 | phase1-review | 관리자 전제 Stored 결함, 저영향 엔드포인트, 셀프 영향 한정 |
+| `low_threat_model` | Source 제어자가 신뢰 당사자이거나 엔드포인트 최대 영향이 낮음 (단, 피해 범위가 Source 제어자 자신에게 한정되지 않고 타 사용자로 확산되는 경우 제외) | phase1-review | 저영향 엔드포인트, 셀프 영향 한정 |
 | `architectural_rationale_only` | 다른 후보의 경로 증명용으로 기술된 독립 항목 (자체 조치 대상 아님) | phase1-review | 상위 계층 결함의 영향 경로 증거, chain 근거 분리본 |
 
 ---
