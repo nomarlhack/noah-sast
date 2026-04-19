@@ -95,7 +95,7 @@ flowchart LR
 | Phase 2 증거 | `*-phase2.md`의 manifest v2 | Phase 2 에이전트 |
 | 보고서 본문 | `noah-sast-report.md` | `assemble_report.py`, `report-review` |
 
-상세 writer 권한은 `sub-skills/scan-report-review/_contracts.md` §1 참조.
+상세 설명은 `docs/single-source-of-truth.md`, 기계적 계약(Writer 권한, 스키마, enum)은 `sub-skills/scan-report-review/_contracts.md` 참조.
 
 ## 관련 문서
 
@@ -104,6 +104,8 @@ flowchart LR
 | `SKILL.md` | Step별 실행 절차 (메인 에이전트용) |
 | `docs/resume.md` | 중단 후 재개 판별 규칙 |
 | `docs/review-modes.md` | phase1-review / phase2-review / report-review 3모드 |
+| `docs/single-source-of-truth.md` | 각 데이터의 writer/reader 상세 |
 | `docs/lint-reader-layer.md` | 독자 레이어 용어 lint 규칙 |
+| `docs/automation-plan.md` | 자동화된 스크립트의 역할 |
 | `sub-skills/scan-report-review/_contracts.md` | Writer 권한 / Exit code / Schema |
 | `sub-skills/scan-report-review/_principles.md` | Source 도달성 / 부재 주장 검증 원칙 |
