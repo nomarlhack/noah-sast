@@ -43,6 +43,9 @@ CATEGORIES = {
     "defense_verified": "방어 계층 작동 확인",
     "not_applicable": "취약점 성립 조건 미충족",
     "false_positive": "정적 분석 오탐",
+    "platform_default_defense": "플랫폼 기본 방어 확인",
+    "low_threat_model": "위협 모델 저영향",
+    "architectural_rationale_only": "아키텍처 근거 중복",
 }
 
 
@@ -67,7 +70,8 @@ def validate_safe_consistency(candidates):
     Returns:
         list[str]: 위반 메시지 목록 (빈 리스트 = 통과)
     """
-    ENUM = {"no_external_path", "defense_verified", "not_applicable", "false_positive", None}
+    ENUM = {"no_external_path", "defense_verified", "not_applicable", "false_positive",
+            "platform_default_defense", "low_threat_model", "architectural_rationale_only", None}
     issues = []
     for c in candidates:
         if c.get("status") != "safe":
@@ -116,6 +120,9 @@ def build_safe_section(master_list_path):
         "방어 계층 작동 확인": [],
         "취약점 성립 조건 미충족": [],
         "정적 분석 오탐": [],
+        "플랫폼 기본 방어 확인": [],
+        "위협 모델 저영향": [],
+        "아키텍처 근거 중복": [],
         "기타": [],
     }
     for c in candidates:
@@ -129,8 +136,8 @@ def build_safe_section(master_list_path):
         unclassified_ids = [c.get("id", "") for c in buckets["기타"]]
         print(
             f"WARN: safe_bucket_unclassified {unclassified_count}건: {unclassified_ids}\n"
-            f"      phase2-review/phase1-review 에이전트가 safe_category를 "
-            f"명시(no_external_path|defense_verified|not_applicable|false_positive)해야 한다.",
+            f"      phase2-review/phase1-review 에이전트가 safe_category를 명시해야 한다 "
+            f"(_contracts.md §3 enum 참조).",
             file=sys.stderr,
         )
     # "기타"는 보고서에서 제외 (독자 레이어 유출 금지)
