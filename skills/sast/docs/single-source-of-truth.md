@@ -27,7 +27,7 @@ Phase 1 스캐너와 AI 자율 탐색이 발견한 모든 후보의 집합.
 
 ### 2. Phase 1 판정 — `master-list.json`의 `phase1_*` 필드
 
-- **Writer**: `phase1-review` 모드 (blind eval + 4축 독립 판정으로 CONFIRM/OVERRIDE/DISCARD 부여)
+- **Writer**: `phase1-review` 모드 (blind eval + 5축 독립 판정으로 CONFIRM/OVERRIDE/DISCARD 부여)
 - **Readers**: `phase2-review`, `report-review`, 연계 분석
 - **필드**: `phase1_validated` (bool), `phase1_discarded_reason` (string|null), `phase1_eval_state.retries`
 - **DISCARD 결과**: `phase1_discarded_reason` 기록 + `status: safe` + `safe_category` 확정 (Phase 2 낭비 방지)
@@ -38,7 +38,7 @@ Phase 1 스캐너와 AI 자율 탐색이 발견한 모든 후보의 집합.
 - **Writer**: `phase2-review` 모드 (DISCARD 보호 가드 내에서만). Phase 2 에이전트가 수집한 evidence를 해석하여 최종 status 할당.
 - **Readers**: 연계 분석, `report-review`, 보고서 조립
 - **status enum**: `confirmed` / `candidate` / `safe`
-- **tag enum** (candidate 전용): `도구 한계` / `정보 부족` / `환경 제한` / `차단`
+- **tag enum** (candidate 전용): `도구 한계` / `정보 부족` / `환경 제한` / `차단` / `동적 분석 생략` (마지막은 사용자가 동적 테스트를 명시적으로 거부한 경로에서 메인 에이전트 전용)
 - **safe_category enum**: `no_external_path` / `defense_verified` / `not_applicable` / `false_positive`
 - **예외**: `phase1-review`가 DISCARD 시 `safe_category`를 기본값으로 쓸 수 있음 (writer 권한 matrix 예외 허용)
 - **위반 차단**: `phase2_review_assert.py` exit 1 (status 미완결) / exit 7 (safe_category 누락)

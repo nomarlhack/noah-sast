@@ -49,7 +49,7 @@ flowchart TD
     S7 -->|DISCARD| ML_Safe["status: safe\n(Phase 2 낭비 방지)"]
     S7 -->|CONFIRM / OVERRIDE| Check{후보 발견?}
     ML_Safe --> Check
-    Check -->|0건| S12["Step 12: 보고서 생성\n+ safe 4분류 자동 섹션"]
+    Check -->|0건| S12["Step 12: 보고서 생성\n+ safe 분류 자동 섹션"]
     Check -->|1건+| S81["Step 8-1: 동적 테스트 정보 요청"]
     S81 --> UserReply{사용자 응답}
     UserReply -->|정보 제공| S82["Step 8-2: 도구 권한 확인"]
@@ -66,7 +66,7 @@ flowchart TD
     S12 --> ReviewCheck{"후보 1건+?"}
     ReviewCheck -->|Yes| Review["Step 12-1: report-review\n보고서 본문 품질 개선"]
     ReviewCheck -->|No| Finalize
-    Review --> Finalize["Step 12-2: report_finalize.py\n(validate → lint → html → links → open)"]
+    Review --> Finalize["Step 12-2: report_finalize.py\n(html → validate → lint → links → open)"]
 
     style User fill:#e94560,stroke:#e94560,color:#fff
     style S6 fill:#e94560,stroke:#e94560,color:#fff
@@ -178,11 +178,11 @@ noah-8719/
 | Phase 1 공통 지침 | `skills/sast/prompts/guidelines-phase1.md` | Sink-first + Source-first 분석, 래퍼 추적, 의미 기반 판정, Source 도달성 |
 | Phase 2 공통 지침 | `skills/sast/prompts/guidelines-phase2.md` | 동적 테스트 절차, 에러 핸들링, 차단 응답 처리, 도메인 안전 규칙 |
 | AI 자율 탐색 | `skills/sast/prompts/ai-discovery-agent.md` | 3단계 자율 탐색, 7개 제외 필터, Phase 1 충돌 해소 |
-| 보고서 생성 | `skills/sast/sub-skills/scan-report/SKILL.md` | 스켈레톤 → 병렬 작성 → 조립 → HTML 변환 → 검증. safe 4분류 섹션 자동 생성 |
+| 보고서 생성 | `skills/sast/sub-skills/scan-report/SKILL.md` | 스켈레톤 → 병렬 작성 → 조립 → HTML 변환 → 검증. safe 분류(7종) 섹션 자동 생성 |
 | 평가·리뷰 (dispatcher) | `skills/sast/sub-skills/scan-report-review/SKILL.md` | 3모드 진입점 안내. 모드별 파일을 직접 Read하도록 오케스트레이션 |
 | └ 공통 판정 원칙 | `skills/sast/sub-skills/scan-report-review/_principles.md` | Source 도달성, 부재 주장, 반환 형식 규칙 |
 | └ 공통 계약 | `skills/sast/sub-skills/scan-report-review/_contracts.md` | Writer 권한 matrix, exit code, master-list.json 스키마, DISCARD 보호 |
-| └ Phase 1 품질 평가 | `skills/sast/sub-skills/scan-report-review/phase1-review.md` | blind eval, 4축 독립 판정, DISCARD 시 Phase 2 낭비 방지 |
+| └ Phase 1 품질 평가 | `skills/sast/sub-skills/scan-report-review/phase1-review.md` | blind eval, 5축 독립 판정(축 5: 현실 영향 가중치), DISCARD 시 Phase 2 낭비 방지 |
 | └ Phase 2 증거 해석 | `skills/sast/sub-skills/scan-report-review/phase2-review.md` | Phase 2 우선 원칙, status 확정, `conflicts` 감사 로그 |
 | └ 보고서 본문 품질 개선 | `skills/sast/sub-skills/scan-report-review/report-review.md` | 조립된 MD 본문 설명 보강 — 스니펫·POC 교정, 중복 통합, 원인 분석·권장 조치 보강 (판정 필드 불변) ([3모드 상세 가이드](skills/sast/docs/review-modes.md)) |
 | 연계 분석 | `skills/sast/sub-skills/chain-analysis/SKILL.md` | R1~R5 체인 구성 규칙, 전제조건/연계 매트릭스 |

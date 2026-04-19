@@ -66,7 +66,7 @@ flowchart LR
 | Step 7 게이트 | `phase1_review_assert.py` | phase1-review 완료 확인 |
 | Step 9 게이트 | `phase2_review_assert.py` | phase2-review 완료 확인 |
 | Step 12 ① | `sub-skills/scan-report/assemble_report.py` | 보고서 조립 |
-| Step 12 ② | `report_finalize.py` | validate → lint → html → links → open |
+| Step 12 ② | `report_finalize.py` | html → validate → lint → links → open |
 
 **에이전트 내부 헬퍼 (파이프라인 밖)**
 

@@ -16,7 +16,7 @@
 flowchart TD
     P1["Phase 1 정적 분석\n+ AI 자율 탐색"]
     P1 --> ML1["master-list.json\n(phase1_validated=false)"]
-    ML1 --> EP1["mode=phase1-review\nblind eval + 4축 독립 판정"]
+    ML1 --> EP1["mode=phase1-review\nblind eval + 5축 독립 판정"]
     EP1 -->|CONFIRM| ML2["master-list.json\n(phase1_validated=true)"]
     EP1 -->|OVERRIDE| ML2
     EP1 -->|DISCARD| ML2S["master-list.json\nstatus=safe + phase1_discarded_reason\n+ safe_category"]
@@ -117,7 +117,7 @@ Phase 1은 코드만 보기 때문에 인프라(WAF, 프록시 정규화, 프레
 | `evidence_summary` | confirmed 전용 (재현 가능한 증거 요약) |
 | `verified_defense` | safe + defense_verified 전용. `{file, lines, content_hash}` |
 | `rederivation_performed` | safe + defense_verified 전용. Phase 1 이후 방어 코드 재확인 여부 |
-| `safe_category` | safe 전용. enum 4분류 중 하나 필수 |
+| `safe_category` | safe 전용. enum 7분류 중 하나 필수 (`_contracts.md §3` 참조) |
 
 ### DISCARD 보호
 Phase 1에서 `phase1_discarded_reason != null`로 설정된 후보는 `mode=phase2-review`가 status를 덮어쓰지 않는다. Phase 2 결과가 남아 있더라도 무시된다.
