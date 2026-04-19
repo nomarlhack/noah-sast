@@ -18,6 +18,18 @@ grep_patterns:
   - "Object\\.setPrototypeOf"
   - "hoek\\.merge"
   - "hoek\\.applyToDefaults"
+  - "multer"
+  - "formidable"
+  - "busboy"
+  - "koa-body"
+  - "koa-multer"
+  - "@koa/multer"
+  - "multiparty"
+  - "qs\\.parse"
+  - "allowPrototypes"
+  - "bodyParser\\.urlencoded"
+  - "express\\.urlencoded"
+  - "urlencoded\\s*\\(\\{"
 ---
 
 > ## 핵심 원칙: "프로토타입이 오염되지 않으면 취약점이 아니다"
@@ -35,12 +47,15 @@ Prototype Pollution sink는 "사용자 제어 키가 객체 속성 키 위치(`o
 | 직접 키 할당 | `obj[req.body.key] = val`, `obj[a][b] = c` (a 또는 b가 사용자 입력) |
 | JSON 파서 | 일부 보안 JSON 파서는 `__proto__` 키 제거, 일반 `JSON.parse`는 그대로 둠 |
 | 쿼리 파서 | `qs` 라이브러리 (express 기본 `extended:true`)의 중첩 객체 + `__proto__` 키 |
+| **입력 파서 (Source-side sink)** | **multipart/form/urlencoded 파서가 `__proto__.key=value` 필드를 객체 키로 reconstruct → Object.prototype 직접 오염. parser 내부가 구조적 sink이며 sink 함수 호출 형태가 없음.** |
 
 `Object.assign`은 1-depth만 복사 → 직접 sink 아님. 단 중첩 객체에서 래핑되면 위험.
 
 ## Source-first 추가 패턴
 
 - `req.body` (JSON 파싱 후) — 가장 흔함
+- **`req.body` / `ctx.request.body` (multipart/urlencoded 파싱 후)** — multer/formidable/busboy/koa-body가 `__proto__.key=value` 필드를 객체에 그대로 할당
+- **`ctx.req.files` / `req.files`** — 파일 필드 메타데이터 객체 키에 `__proto__` 혼입 가능
 - `req.query` (`qs` 파서가 중첩 객체 지원)
 - URL path 파라미터
 - WebSocket 메시지 payload
@@ -49,6 +64,7 @@ Prototype Pollution sink는 "사용자 제어 키가 객체 속성 키 위치(`o
 
 ## 자주 놓치는 패턴 (Frequently Missed)
 
+- **multipart/urlencoded 파서의 `__proto__` 키 수용**: `multer`/`formidable`/`busboy`/`koa-body`/`express.urlencoded({extended:true})` 등이 키 필터링 없이 body를 plain object로 구성. `qs` 우회와 동일 경로, sink 함수 호출 불필요.
 - **`qs` 파서의 `__proto__` 우회**: `qs.parse('__proto__[isAdmin]=true')` → 객체에 `__proto__.isAdmin = true`. Express 4.x 기본 `qs` 사용.
 - **MongoDB `$` 연산자와 동시 차단 미흡**: NoSQLi 방어로 `$` prefix는 막아도 `__proto__`는 안 막는 케이스.
 - **서버 가젯 (가장 영향도 큼)**:
@@ -85,10 +101,12 @@ Prototype Pollution sink는 "사용자 제어 키가 객체 속성 키 위치(`o
 | 사용자 입력 → 재귀 merge sink + `__proto__` 차단 없음 | 후보 |
 | `lodash.set(obj, userPath, val)` + path 화이트리스트 없음 | 후보 |
 | `obj[req.body.key] = val` + key 검증 없음 | 후보 |
+| **multipart/urlencoded 파서 사용 + `__proto__` 키 필터링 없음 + body가 plain object로 downstream 전달** | **후보 (라벨: `INPUT_PARSER`)** |
+| **`qs.parse` with `allowPrototypes: true`** 또는 Express 기본 query parser 사용 + query 객체 downstream 전달 | 후보 (라벨: `INPUT_PARSER`) |
 | `Object.create(null)` 또는 `Map` 사용 확인 | 제외 |
 | 키 차단 (`__proto__`/`constructor`/`prototype`) 코드 확인 | 제외 |
 | 오염은 가능하나 가젯 부재 (영향 없음) | 후보 유지 (라벨: `NO_GADGET`) — 후속 코드 변경으로 가젯 발생 가능 |
-| 오염 + 가젯 식별 (RCE/auth bypass/sanitizer 우회) | 후보 (라벨: `WITH_GADGET`) |
+| 오염 + 가젯 식별 (RCE/auth bypass/sanitizer 우회 등) | 후보 (라벨: `WITH_GADGET`) |
 | 라이브러리 알려진 CVE이지만 호출 경로 도달 불가 | 제외 |
 
 ## 후보 판정 제한

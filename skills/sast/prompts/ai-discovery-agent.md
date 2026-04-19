@@ -32,6 +32,7 @@
 - 설정 취약점: 디버그 모드 활성화, CORS 과다 허용, 보안 헤더 미설정
 - 암호화 결함: 약한 알고리즘, 하드코딩된 키/시크릿, 불충분한 랜덤성
 - 의존성 관련: 알려진 취약한 버전 사용 (package.json/pom.xml 등에서 확인 가능한 경우)
+- Parser-level attack surface: multipart/urlencoded/query 파서가 `__proto__`/`constructor` 키를 수용하여 파서 자체가 sink가 되는 Prototype Pollution, 타입 캐스팅(`as UserDTO`)만으로 받은 입력의 Mass Assignment
 
 **탐색 제외 대상:**
 
