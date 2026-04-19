@@ -280,7 +280,7 @@ Phase 1 마스터 목록: <PHASE1_RESULTS_DIR>/master-list.json (Read 도구로 
 **`[INCOMPLETE]` 후속 탐색**: 반환에 `[INCOMPLETE]`이 포함된 경우, 탐색이 컨텍스트 한계로 중단된 것이다. 메인 에이전트는 반환의 "미탐색 영역" 정보를 활용하여 후속 탐색 에이전트를 디스패치한다. 후속 에이전트 프롬프트에는:
 - 동일한 `ai-discovery-agent.md` Read 지시
 - 이전 에이전트가 저장한 `ai-discovery.md`를 Read하여 이미 발견된 후보와 탐색 범위를 파악하라는 지시
-- **이전 에이전트의 마지막 AI-N 번호**를 명시 (continued 에이전트가 `AI-(N+1)`부터 이어서 번호 매김)
+- 이전 에이전트의 마지막 AI-N 번호를 명시 (continued 에이전트의 번호 매김 근거)
 - "미탐색 영역을 중심으로 자율 탐색하되, 이전 에이전트가 발견한 후보와 중복되지 않는 새로운 발견에 집중하라"는 안내
 
 후속 에이전트의 결과는 `ai-discovery-continued.md`에 저장하고, 메인 에이전트가 두 파일의 후보를 `ai-discovery.md`로 통합한다 (ID가 이어서 부여되므로 충돌 없이 append). 후속 에이전트도 `[INCOMPLETE]`를 반환하면 저장된 후보만으로 진행한다 (무한 재시도 방지).
