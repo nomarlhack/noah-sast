@@ -6,7 +6,7 @@ Noah SAST grep 인덱싱 스크립트.
 프로젝트 전체에 grep을 실행하고, 스캐너별 JSON 인덱스를 저장한다.
 
 사용:
-  python3 run_grep_index.py \\
+  python3 grep_index.py \\
     --scanners-dir <NOAH_SAST_DIR>/scanners \\
     --project-root <PROJECT_ROOT> \\
     --out-dir <PATTERN_INDEX_DIR>

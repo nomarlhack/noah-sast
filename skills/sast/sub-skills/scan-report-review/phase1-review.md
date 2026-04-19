@@ -44,7 +44,7 @@ Phase 1이 **Sink 패턴 매칭** 중심이었다면, 이 모드는 **Source 역
 
 ## blind eval 메커니즘
 
-1. Phase 1 MD를 `tools/blind_read_phase1_md.py`로 로드. 헬퍼가 다음 섹션을 `<MASKED until independent judgment>`로 대체한 뷰를 반환:
+1. Phase 1 MD를 `tools/phase1_review_blind_read.py`로 로드. 헬퍼가 다음 섹션을 `<MASKED until independent judgment>`로 대체한 뷰를 반환:
    - `### Decision`
    - `### Confidence`
    - `### 판정 요약`

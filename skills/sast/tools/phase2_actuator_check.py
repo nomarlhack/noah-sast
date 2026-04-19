@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""validate_actuator.py — actuator endpoint 동적 테스트 전 URL 안전성 검증.
+"""phase2_actuator_check.py — actuator endpoint 동적 테스트 전 URL 안전성 검증.
 
 Usage:
-    python3 validate_actuator.py <URL>
+    python3 phase2_actuator_check.py <URL>
 
 Exit code:
     0 — 테스트 허용
@@ -28,7 +28,7 @@ def is_forbidden(url):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python3 validate_actuator.py <URL>", file=sys.stderr)
+        print("Usage: python3 phase2_actuator_check.py <URL>", file=sys.stderr)
         sys.exit(1)
     url = sys.argv[1]
     forbidden, matched = is_forbidden(url)

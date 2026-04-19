@@ -9,7 +9,7 @@ Phase 2 우선 원칙에 따라 Phase 1↔Phase 2 불일치는 phase2-review가 
 증거로 status를 확정하므로 인간 개입 차단 경로(exit 2)는 사용하지 않는다.
 
 Usage:
-  python3 assert_status_complete.py <master-list.json> <phase1_results_dir>
+  python3 phase2_review_assert.py <master-list.json> <phase1_results_dir>
 
 Exit code (sub-skills/scan-report-review/_contracts.md §2 Exit Code 통일 테이블):
   0: 통과

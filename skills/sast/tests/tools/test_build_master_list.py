@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""build-master-list.py 기본 테스트.
+"""phase1_build_master_list.py 기본 테스트.
 
 테스트 케이스:
   1. 정상 manifest → JSON 생성 + exit 0
@@ -10,7 +10,7 @@ import json, os, subprocess, tempfile, unittest
 from pathlib import Path
 
 SCRIPT = os.path.join(
-    os.path.dirname(__file__), "..", "..", "tools", "build-master-list.py"
+    os.path.dirname(__file__), "..", "..", "tools", "phase1_build_master_list.py"
 )
 
 VALID_MD = """\

@@ -15,7 +15,7 @@ Exit code:
   2: CLI 인자 오류
 
 Usage:
-  python3 lint_mode_files.py <scan-report-review-dir>
+  python3 lint_review_modes.py <scan-report-review-dir>
 """
 
 import sys

@@ -6,7 +6,7 @@ manifest JSON 내 `candidates[].id`와 prose `## AI-PENDING-N:` 헤더를 함께
 Idempotent — 이미 AI-1, AI-2 형태로 번호가 부여된 경우 no-op.
 
 Usage:
-  python3 renumber_ai_candidates.py <ai-discovery.md 경로>
+  python3 phase1_ai_renumber.py <ai-discovery.md 경로>
 
 Exit code:
   0: 재번호 완료 또는 no-op
@@ -27,7 +27,7 @@ PENDING_HEADER_RE = re.compile(r"^## AI-PENDING-(\d+):", re.M)
 
 def main() -> int:
     if len(sys.argv) != 2:
-        print("Usage: renumber_ai_candidates.py <ai-discovery.md 경로>", file=sys.stderr)
+        print("Usage: phase1_ai_renumber.py <ai-discovery.md 경로>", file=sys.stderr)
         return 1
 
     path = Path(sys.argv[1])

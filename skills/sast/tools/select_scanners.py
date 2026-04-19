@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""scanner-selector.py — grep 인덱스 + 프로젝트 파일 기반 41개 스캐너 자동 선별.
+"""select_scanners.py — grep 인덱스 + 프로젝트 파일 기반 41개 스캐너 자동 선별.
 
 Usage:
-    python3 scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT> [--write-expected-file=PATH]
+    python3 select_scanners.py <PATTERN_INDEX_DIR> <PROJECT_ROOT> [--write-expected-file=PATH]
 
 Options:
-    --write-expected-file=PATH  적용 스캐너 목록을 JSON 파일로 저장 (build-master-list.py가 읽음)
+    --write-expected-file=PATH  적용 스캐너 목록을 JSON 파일로 저장 (phase1_build_master_list.py가 읽음)
 
 Output:
     - 적용/제외 판정 테이블 (grep 히트 건수 + 사유 포함)
@@ -16,7 +16,7 @@ import json, os, re, sys, glob
 from pathlib import Path
 
 if len(sys.argv) < 3:
-    print("Usage: python3 scanner-selector.py <PATTERN_INDEX_DIR> <PROJECT_ROOT>")
+    print("Usage: python3 select_scanners.py <PATTERN_INDEX_DIR> <PROJECT_ROOT>")
     sys.exit(1)
 
 INDEX_DIR = sys.argv[1]

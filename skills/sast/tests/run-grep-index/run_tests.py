@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-run_grep_index.py 합성 fixture 회귀 테스트.
+grep_index.py 합성 fixture 회귀 테스트.
 
 각 case 디렉토리 구조:
   case_XX_name/
@@ -10,7 +10,7 @@ run_grep_index.py 합성 fixture 회귀 테스트.
 
 실행 흐름:
   1. tmp 출력 디렉토리 생성
-  2. run_grep_index.py 실행 (--scanners-dir, --project-root, --out-dir)
+  2. grep_index.py 실행 (--scanners-dir, --project-root, --out-dir)
   3. expected.json과 실제 생성 JSON 비교
   4. expected.json에 expect_failures=true면 _failures.json 존재 및 reason 검증
 
@@ -26,7 +26,7 @@ from pathlib import Path
 
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
-SCRIPT_PATH = Path(__file__).parent.parent.parent / "tools" / "run_grep_index.py"
+SCRIPT_PATH = Path(__file__).parent.parent.parent / "tools" / "grep_index.py"
 
 
 def relativize(matches: list[str], project_root: Path) -> list[str]:

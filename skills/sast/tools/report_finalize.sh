@@ -3,7 +3,7 @@
 # 조건부 단계인 report-review(1단계)는 메인 에이전트가 별도 수행 후 이 스크립트 호출.
 #
 # Usage:
-#   finalize_report.sh <NOAH_SAST_DIR> <PHASE1_RESULTS_DIR> <confirmed_candidate_count>
+#   report_finalize.sh <NOAH_SAST_DIR> <PHASE1_RESULTS_DIR> <confirmed_candidate_count>
 #
 # Exit code:
 #   0: 모든 단계 통과

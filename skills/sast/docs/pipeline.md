@@ -7,10 +7,10 @@ Noah SAST 실행 단계를 한눈에 보여주는 문서. 각 Step의 상세 절
 ```mermaid
 flowchart TD
     S0["Step 0<br/>grep 패턴 인덱싱"] --> S1["Step 1<br/>프로젝트 스택 파악"]
-    S1 --> S2["Step 2<br/>scanner-selector.py<br/>그룹 편성 결정"]
+    S1 --> S2["Step 2<br/>select_scanners.py<br/>그룹 편성 결정"]
     S2 --> S31["Step 3-1<br/>phase1-group-agent<br/>(병렬)"]
     S31 --> S32["Step 3-2<br/>AI 자율 탐색"]
-    S32 --> ML["build-master-list.py"]
+    S32 --> ML["phase1_build_master_list.py"]
     ML --> S325["Step 3-2.5<br/>phase1-review<br/>(blind eval)"]
     S325 --> S33["Step 3-3<br/>사용자에게<br/>동적 테스트 정보 요청"]
     S33 -->|정보 제공| S34["Step 3-4<br/>도구 권한 확인"]
@@ -57,11 +57,41 @@ flowchart LR
 | B | 공유 세션 사용 (주요 테스트) | xss, sqli, ssrf, idor, csrf 등 대부분 |
 | C | 독립 인증 컨텍스트 | oauth, saml, jwt |
 
+## 스크립트 실행 순서
+
+**메인 파이프라인 (순차)**
+
+| 단계 | 스크립트 | 역할 |
+|------|---------|------|
+| Step 0 | `grep_index.sh` → `grep_index.py` | grep 패턴 인덱싱 |
+| Step 2 | `select_scanners.py` | 스캐너 선별 + 그룹 편성 + Tier 출력 |
+| Phase 1 후처리 ① | `phase1_ai_renumber.py` | AI-PENDING-N → AI-N |
+| Phase 1 후처리 ② | `phase1_build_master_list.py` | master-list.json 생성 |
+| Step 3-2.5 게이트 | `phase1_review_assert.py` | phase1-review 완료 확인 |
+| Step 3-5.5 게이트 | `phase2_review_assert.py` | phase2-review 완료 확인 |
+| Step 4 ① | `sub-skills/scan-report/assemble_report.py` | 보고서 조립 |
+| Step 4 ② | `report_finalize.sh` | validate → lint → html → links → open |
+
+**에이전트 내부 헬퍼 (파이프라인 밖)**
+
+| 스크립트 | 호출 주체 |
+|---------|---------|
+| `phase1_review_blind_read.py` | phase1-review 에이전트 (blind eval) |
+| `phase2_actuator_check.py` | Spring Boot hardening 스캐너 (URL 안전성) |
+
+**재개·개발용**
+
+| 스크립트 | 시점 |
+|---------|------|
+| `phase1_resume.py` | 중단 후 재개 요청 시 |
+| `lint_review_modes.py` | scan-report-review 3모드 MD 개발 시 |
+| `lint_reader_layer.py` | 보고서 독자 레이어 용어 검증 |
+
 ## 단일 진실 원천
 
 | 대상 | 원천 | Writer |
 |------|------|--------|
-| 후보 메타데이터 | `master-list.json` | `build-master-list.py` (Phase 1 파싱) |
+| 후보 메타데이터 | `master-list.json` | `phase1_build_master_list.py` (Phase 1 파싱) |
 | Phase 1 판정 | `master-list.json`의 `phase1_*` 필드 | `phase1-review` |
 | 최종 status | `master-list.json`의 `status/tag/evidence_summary` | `phase2-review` |
 | Phase 2 증거 | `*-phase2.md`의 manifest v2 | Phase 2 에이전트 |

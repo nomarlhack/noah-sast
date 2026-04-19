@@ -142,7 +142,7 @@ curl -X <METHOD> "<TARGET_HOST>/<API_PATH>" -H "Cookie: <SESSION_COOKIE>" -d "<P
 - `§N` (내부 섹션 번호)
 - mode명 (`phase1-review`, `phase2-review`, `report-review`)
 - 내부 라벨 (`DISCARD`, `OVERRIDE`, `CONFIRM`, `Source 도달성 폐기`, `실질 영향 반증`)
-- 스크립트명 (`assert_status_complete.py` 등)
+- 스크립트명 (`phase2_review_assert.py` 등)
 
 이들은 **근거 서술 본문에서 필요 시에만** 풀이와 함께 쓴다. 헤딩·카테고리 라벨로는 쓰지 않는다.
 

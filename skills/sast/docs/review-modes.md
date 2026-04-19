@@ -52,11 +52,11 @@ flowchart TD
 Phase 1이 생산한 후보 목록과 prose 분석의 **품질**을 독립 재판정한다. 판정 결과가 DISCARD면 Phase 2를 건너뛴다.
 
 ### 입력
-- `PHASE1_RESULTS_DIR/<scanner>.md` — Phase 1 원본. **`phase1-review`만 이 파일을 읽는다.** 이후 단계(`phase2-review`·`report-review`·보고서 조립)는 원본 대신 `evaluation/<scanner>-eval.md`(평가본)를 참조해야 한다. 원본을 직접 읽는 경로가 감시 도구(`assert_phase1_validated.py`)에 걸리면 exit 5로 차단된다.
+- `PHASE1_RESULTS_DIR/<scanner>.md` — Phase 1 원본. **`phase1-review`만 이 파일을 읽는다.** 이후 단계(`phase2-review`·`report-review`·보고서 조립)는 원본 대신 `evaluation/<scanner>-eval.md`(평가본)를 참조해야 한다. 원본을 직접 읽는 경로가 감시 도구(`phase1_review_assert.py`)에 걸리면 exit 5로 차단된다.
 - `PHASE1_RESULTS_DIR/master-list.json` — 후보 메타데이터
 
 ### blind eval 절차
-1. `tools/blind_read_phase1_md.py`로 Phase 1 MD 로드. `### Decision`·`### Confidence`·`### 판정 요약` 섹션이 `<MASKED>`로 치환된 뷰 반환.
+1. `tools/phase1_review_blind_read.py`로 Phase 1 MD 로드. `### Decision`·`### Confidence`·`### 판정 요약` 섹션이 `<MASKED>`로 치환된 뷰 반환.
 2. 마스킹된 뷰만으로 4개 검증 축을 독립 적용:
    - **코드 스니펫 정확성**: Phase 1이 인용한 코드가 실제 파일·라인에 존재하는가
    - **Source→Sink 흐름**: 입력 지점에서 sink까지 호출 관계가 끊기지 않는가, 중간에 검증·이스케이프가 있는가

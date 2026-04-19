@@ -56,7 +56,7 @@ Phase 2 동적 분석 완료 직후, Step 3-6(연계 분석) 진입 전.
 - `true`: phase2-review가 Phase 2 hint와 **독립적으로** 방어 코드를 Read하여 재확인한 경우
 - `false`: Phase 2 hint를 그대로 승격한 경우 (편향 의심 신호)
 
-`false` 비율이 safe 판정 전체의 30%를 초과하면 `assert_status_complete.py`가 exit 3 (rederivation_warn)을 발생시킨다 (비차단 경고).
+`false` 비율이 safe 판정 전체의 30%를 초과하면 `phase2_review_assert.py`가 exit 3 (rederivation_warn)을 발생시킨다 (비차단 경고).
 
 ---
 

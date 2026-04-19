@@ -1,9 +1,9 @@
 #!/bin/bash
-# run_grep_index.py 래퍼. exit code + JSON 카운트 + 예상 카운트를 stdout으로 출력.
+# grep_index.py 래퍼. exit code + JSON 카운트 + 예상 카운트를 stdout으로 출력.
 # Bash tool 최종 exit는 항상 0 (UI의 "Exit code N" 경고 방지). 실제 결과는 stdout 파싱.
 #
 # Usage:
-#   run_grep_index.sh <NOAH_SAST_DIR> <PROJECT_ROOT> <PATTERN_INDEX_DIR>
+#   grep_index.sh <NOAH_SAST_DIR> <PROJECT_ROOT> <PATTERN_INDEX_DIR>
 #
 # Output:
 #   run_grep_index_exit=<0|1|2>
@@ -19,7 +19,7 @@ NOAH_SAST_DIR="$1"
 PROJECT_ROOT="$2"
 OUT_DIR="$3"
 
-python3 "$NOAH_SAST_DIR/tools/run_grep_index.py" \
+python3 "$NOAH_SAST_DIR/tools/grep_index.py" \
     --scanners-dir "$NOAH_SAST_DIR/scanners" \
     --project-root "$PROJECT_ROOT" \
     --out-dir "$OUT_DIR"
