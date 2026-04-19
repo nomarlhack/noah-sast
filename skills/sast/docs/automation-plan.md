@@ -180,7 +180,10 @@ meta 설명(exit 0 트릭) 제거.
 
 ---
 
-## 항목 C: `phase1_ai_renumber.py`
+## 항목 C: `phase1_ai_renumber.py` (철회됨)
+
+> **철회 근거**: 단일 탐색이 기본 시나리오인데 모든 경우에 적용되는 renumber 단계는 과잉 설계로 재평가. `ai-discovery-agent.md`가 처음부터 `AI-1, AI-2, ...`를 직접 부여하고, `[INCOMPLETE]` 후속 탐색 시 메인 에이전트가 "이전 마지막 AI-N"을 continued 에이전트에 전달하여 ID 충돌을 회피하는 방식으로 전환.
+
 
 ### 현재 지침 (SKILL.md Step 3-2, 약 3줄)
 

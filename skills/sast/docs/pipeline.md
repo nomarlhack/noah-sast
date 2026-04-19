@@ -64,8 +64,7 @@ flowchart LR
 |------|---------|------|
 | Step 0 | `grep_index.sh` → `grep_index.py` | grep 패턴 인덱싱 |
 | Step 2 | `select_scanners.py` | 스캐너 선별 + 그룹 편성 + Tier 출력 |
-| Phase 1 후처리 ① | `phase1_ai_renumber.py` | AI-PENDING-N → AI-N |
-| Phase 1 후처리 ② | `phase1_build_master_list.py` | master-list.json 생성 |
+| Phase 1 후처리 | `phase1_build_master_list.py` | master-list.json 생성 |
 | Step 3-2.5 게이트 | `phase1_review_assert.py` | phase1-review 완료 확인 |
 | Step 3-5.5 게이트 | `phase2_review_assert.py` | phase2-review 완료 확인 |
 | Step 4 ① | `sub-skills/scan-report/assemble_report.py` | 보고서 조립 |
