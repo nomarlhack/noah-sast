@@ -1,6 +1,6 @@
 # 취약점 상세 형식 / 통합 보고서 구조 / 공통 HTML 사양
 
-이 파일은 `scan-report/SKILL.md`에서 분리되었다. **scan-report Step 2의 서브에이전트**와 **scan-report Step 4 직접 변환 fallback**에서만 Read한다. 메인 에이전트는 이 파일을 직접 Read할 필요가 없다.
+이 파일은 `scan-report/SKILL.md`에서 분리되었다. **scan-report Step 2의 서브에이전트**와 **scan-report Step 3(assemble_report.py) fallback**에서만 Read한다. 메인 에이전트는 이 파일을 직접 Read할 필요가 없다.
 
 ---
 

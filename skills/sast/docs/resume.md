@@ -38,7 +38,7 @@ flowchart TD
     RP1 --> C4{"evaluation/*-eval.md<br/>assert exit 0?"}
     C4 -->|No| R3["Step 7 재호출<br/>phase1-review"]
     C4 -->|Yes| C5{"Phase 2 결과 수집<br/>+ status 할당 완료?"}
-    C5 -->|No| R4["Step 8-1 ~ 3-6<br/>사용자 정보 재요청 또는<br/>남은 스캐너 Phase 2"]
+    C5 -->|No| R4["Step 8-1 ~ 8-3<br/>사용자 정보 재요청 또는<br/>남은 스캐너 Phase 2"]
     C5 -->|Yes| C6{"phase2_review_assert.py<br/>exit 0?"}
     C6 -->|No| R5["Step 9 재호출<br/>phase2-review"]
     C6 -->|Yes| C7{"chain-analysis.md<br/>완료?"}
