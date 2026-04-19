@@ -1,4 +1,5 @@
 ---
+id_prefix: DESER
 grep_patterns:
   - "pickle\\.loads\\s*\\("
   - "pickle\\.load\\s*\\("

@@ -1,4 +1,5 @@
 ---
+id_prefix: NOSQLI
 grep_patterns:
   - "collection\\.find\\s*\\("
   - "collection\\.findOne\\s*\\("

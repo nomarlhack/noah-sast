@@ -1,4 +1,5 @@
 ---
+id_prefix: XSS
 grep_patterns:
   - "innerHTML"
   - "dangerouslySetInnerHTML"

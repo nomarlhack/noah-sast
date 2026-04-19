@@ -115,7 +115,24 @@ MANIFEST_RE = re.compile(
     r"<!-- NOAH-SAST MANIFEST v1 -->\s*```json\s*(\{.*?\})\s*```\s*<!-- /NOAH-SAST MANIFEST -->",
     re.S,
 )
-CANDIDATE_HEADER_RE = re.compile(r"^## ([A-Z]{2,}[A-Z0-9]*-\d+):\s*", re.M)
+CANDIDATE_HEADER_RE = re.compile(r"^## ([A-Z][A-Z0-9]*-\d+):\s*", re.M)
+ID_PREFIX_RE = re.compile(r"^id_prefix:\s*([A-Z][A-Z0-9]*)\s*$", re.M)
+
+
+def _read_scanner_prefix(scanner_name: str) -> str | None:
+    """스캐너의 phase1.md frontmatter에서 id_prefix를 읽는다.
+    ai-discovery 등 스캐너가 아닌 결과 파일은 None 반환."""
+    # grep_index.py와 동일 위치 규약
+    import os as _os
+    here = Path(_os.path.dirname(_os.path.abspath(__file__))).parent
+    phase1_md = here / "scanners" / scanner_name / "phase1.md"
+    if not phase1_md.is_file():
+        return None
+    try:
+        m = ID_PREFIX_RE.search(phase1_md.read_text(encoding="utf-8"))
+        return m.group(1) if m else None
+    except OSError:
+        return None
 
 # Source→Sink Flow / Vulnerability Flow 섹션이 선택적인 스캐너 (설정/구성 기반)
 FLOW_OPTIONAL_SCANNERS = {
@@ -192,11 +209,23 @@ for md in md_files:
         clean_scanners.append(scanner)
         continue
 
-    # 3. 각 후보: manifest ID ↔ prose header 대조 + 섹션 품질 검증
+    # 3. 각 후보: manifest ID ↔ prose header 대조 + 섹션 품질 검증 + id_prefix 검증
     prose_ids = set(CANDIDATE_HEADER_RE.findall(text))
+    expected_prefix = _read_scanner_prefix(scanner)
+    prefix_re = (
+        re.compile(rf"^{re.escape(expected_prefix)}-\d+$") if expected_prefix else None
+    )
 
     for cand in cands:
         cid = cand.get("id", "UNKNOWN")
+
+        # id_prefix 규약 검증 (phase1.md frontmatter의 id_prefix와 일치해야 함)
+        if prefix_re and not prefix_re.match(cid):
+            errors.append(
+                f"{scanner}/{cid}: ID_PREFIX_MISMATCH — 기대 `{expected_prefix}-N`, "
+                f"실제 `{cid}`. phase1.md frontmatter의 id_prefix를 따르세요."
+            )
+            continue
 
         # manifest ID가 prose에도 있는지
         if cid not in prose_ids:

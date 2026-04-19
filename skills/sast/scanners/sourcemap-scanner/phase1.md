@@ -1,4 +1,5 @@
 ---
+id_prefix: SRCMAP
 grep_patterns:
   - "devtool"
   - "sourcemap"

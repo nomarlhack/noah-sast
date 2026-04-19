@@ -1,4 +1,5 @@
 ---
+id_prefix: GRAPHQL
 grep_patterns:
   - "graphql"
   - "GraphQL"

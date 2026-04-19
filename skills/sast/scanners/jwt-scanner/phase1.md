@@ -1,4 +1,5 @@
 ---
+id_prefix: JWT
 grep_patterns:
   - "jwt\\.verify\\s*\\("
   - "jwt\\.decode\\s*\\("

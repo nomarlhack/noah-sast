@@ -1,4 +1,5 @@
 ---
+id_prefix: CSRF
 grep_patterns:
   - "csrf_exempt"
   - "skip_before_action.*verify_authenticity_token"

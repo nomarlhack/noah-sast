@@ -1,4 +1,5 @@
 ---
+id_prefix: WSOCK
 grep_patterns:
   - "new WebSocket\\s*\\("
   - "socket\\.io"

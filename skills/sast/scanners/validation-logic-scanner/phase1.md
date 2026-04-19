@@ -1,4 +1,5 @@
 ---
+id_prefix: VAL
 grep_patterns:
   # Loose equality (type confusion sink)
   - "==\\s*null"

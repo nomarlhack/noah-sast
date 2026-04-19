@@ -1,4 +1,5 @@
 ---
+id_prefix: IDOR
 grep_patterns:
   - "@PathVariable"
   - "@RequestParam"

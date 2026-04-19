@@ -1,4 +1,5 @@
 ---
+id_prefix: PROTO
 grep_patterns:
   - "__proto__"
   - "constructor\\.prototype"

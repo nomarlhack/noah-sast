@@ -1,4 +1,5 @@
 ---
+id_prefix: CSSI
 grep_patterns:
   - "style\\s*="
   - "cssText"

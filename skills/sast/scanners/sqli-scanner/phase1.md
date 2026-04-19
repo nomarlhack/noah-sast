@@ -1,4 +1,5 @@
 ---
+id_prefix: SQLI
 grep_patterns:
   - "connection\\.query\\s*\\("
   - "sequelize\\.query\\s*\\("

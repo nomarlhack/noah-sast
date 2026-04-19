@@ -1,4 +1,5 @@
 ---
+id_prefix: DOMXSS
 grep_patterns:
   - "location\\.hash"
   - "location\\.search"

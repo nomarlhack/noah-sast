@@ -1,4 +1,5 @@
 ---
+id_prefix: COOKIE
 grep_patterns:
   - "Set-Cookie"
   - "set-cookie"

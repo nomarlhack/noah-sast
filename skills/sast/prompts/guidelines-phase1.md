@@ -45,6 +45,8 @@ manifest JSON 필드:
 - `declared_count`: 파일 내 후보 수 (정수). `## <ID>:` 헤더 수와 반드시 일치.
 - `candidates`: 후보 배열. 각 요소: `id`, `title`, `file`(경로), `line`(정수), `url_path`, `source`, `sink`, `test_prereq`(없으면 null).
 
+**후보 ID 규약**: 각 스캐너의 `phase1.md` frontmatter에 선언된 `id_prefix` 값을 사용하여 `<id_prefix>-1, <id_prefix>-2, ...` 형식으로 순서대로 부여한다. 예: `id_prefix: XSS`이면 `XSS-1, XSS-2, ...`. 스스로 prefix를 추론하지 않는다. 불일치 시 `phase1_build_master_list.py`가 ERROR로 차단.
+
 **이상 없음인 경우에도 파일을 생성**하고, 이상 없음 항목 1줄 요약 + `{"declared_count": 0, "candidates": []}` manifest를 포함한다.
 
 ### 3-C: 반환 형식

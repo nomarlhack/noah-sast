@@ -1,4 +1,5 @@
 ---
+id_prefix: SSTI
 grep_patterns:
   - "ejs\\.render\\s*\\("
   - "pug\\.render\\s*\\("
