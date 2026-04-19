@@ -6,10 +6,10 @@ Noah SAST 실행 단계를 한눈에 보여주는 문서. 각 Step의 상세 절
 
 ```mermaid
 flowchart TD
-    S1["Step 1<br/>실행 경로 확정"] --> S2["Step 2<br/>grep 패턴 인덱싱"]
+    S1["Step 1<br/>실행 경로 확정"] --> S2["Step 2<br/>grep 인덱싱"]
     S2 --> S3["Step 3<br/>프로젝트 스택 파악"]
     S3 --> S4["Step 4<br/>스캐너 선별"]
-    S4 --> S5["Step 5<br/>정적 분석<br/>(phase1-group-agent 병렬)"]
+    S4 --> S5["Step 5<br/>정적 분석"]
     S5 --> S6["Step 6<br/>AI 자율 분석"]
     S6 --> ML["phase1_build_master_list.py"]
     ML --> S7["Step 7<br/>정적·AI 리뷰<br/>(phase1-review)"]
