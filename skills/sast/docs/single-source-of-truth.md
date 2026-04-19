@@ -22,6 +22,7 @@ Phase 1 스캐너와 AI 자율 탐색이 발견한 모든 후보의 집합.
 - **소스 입력**: `<scanner-name>.md` 파일들의 manifest v1 블록 + `ai-discovery.md`
 - **스키마**: `_contracts.md` §3
 - **핵심 필드** (메타데이터): `id`, `title`, `scanner`, `file`, `line`, `url_path`, `source`, `sink`, `phase1_path`
+- **id 규약**: `<id_prefix>-N` — `id_prefix`는 각 스캐너의 `phase1.md` frontmatter에서 선언. 에이전트가 임의로 정하지 않는다. 불일치 시 빌드 스크립트가 `ID_PREFIX_MISMATCH` ERROR로 차단. AI 자율 탐색은 고정 prefix `AI` 사용.
 - **재생성 조건**: `--merge` 플래그로 기존 phase2-review 필드를 보존하며 메타데이터만 재파싱
 
 ### 2. Phase 1 판정 — `master-list.json`의 `phase1_*` 필드

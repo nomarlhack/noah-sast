@@ -9,7 +9,7 @@
 
 그 후 메인 에이전트가 프롬프트에 나열한 스캐너를 **순서대로** 실행하세요. 각 스캐너마다:
 1. **기존 결과 파일 스킵 검사 (재개 대비)**: 지정된 결과 파일 경로가 이미 존재하면 Read로 파일 끝의 manifest를 확인한다. `declared_count`(정수)와 `candidates` 배열 길이가 일치하면 **해당 스캐너 분석을 스킵**하고 반환 요약에 `[SKIP: 기존 결과 유효]`로 표기한다. 불일치·manifest 부재·JSON 파싱 실패면 정상 분석을 수행하여 덮어쓴다.
-2. 해당 스캐너의 phase1.md를 Read
+2. 해당 스캐너의 phase1.md를 Read. frontmatter의 `id_prefix` 값을 확인하여 후보 ID 형식(`<id_prefix>-1, <id_prefix>-2, ...`)을 결정한다 (guidelines-phase1.md 지침 3-B).
 3. 해당 스캐너의 패턴 인덱스 JSON을 Read
 4. guidelines-phase1.md와 phase1.md의 지침을 그대로 따라 분석 수행
 5. 분석 결과를 Write 도구로 지정된 결과 파일 경로에 저장 (guidelines-phase1.md 지침 3 형식)

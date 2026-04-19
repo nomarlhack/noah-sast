@@ -30,7 +30,7 @@ MANIFEST_RE = re.compile(
     r"<!-- NOAH-SAST MANIFEST v1 -->\s*```json\s*(\{.*?\})\s*```\s*<!-- /NOAH-SAST MANIFEST -->",
     re.S,
 )
-CANDIDATE_HEADER_RE = re.compile(r"^## ([A-Z]{2,}[A-Z0-9]*-\d+):\s*", re.M)
+CANDIDATE_HEADER_RE = re.compile(r"^## ([A-Z][A-Z0-9]*-\d+):\s*", re.M)
 
 
 def classify_scanner_file(path: Path) -> tuple[str, str]:
