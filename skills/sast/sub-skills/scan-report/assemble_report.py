@@ -163,21 +163,20 @@ def build_safe_section(master_list_path):
 
     # 카테고리별 테이블 컬럼 지정
     COLUMNS = {
-        "외부 접근 경로 없음": ("근거", "공격자가 해당 코드로 HTTP 요청을 보낼 수 없음."),
-        "방어 계층 작동 확인": ("방어 메커니즘", "공격 페이로드를 실제 전송했으나 명시적 방어 코드가 차단."),
-        "취약점 성립 조건 미충족": ("부재하는 요건", "공격 경로는 존재하나 취약점의 핵심 요건이 부재."),
-        "정적 분석 오탐": ("오탐 이유", "Phase 1이 지적한 코드가 실제로는 취약점 sink가 아님."),
-        "최신 플랫폼 방어": ("동등 방어 근거", "대상 브라우저·런타임·HTTP 표준이 명시적으로 동등 효과 방어를 제공."),
-        "아키텍처 근거 중복": ("경로 증거 대상 후보", "다른 후보의 경로 증명용으로 기술된 독립 항목."),
+        "외부 접근 경로 없음": "근거",
+        "방어 계층 작동 확인": "방어 메커니즘",
+        "취약점 성립 조건 미충족": "부재하는 요건",
+        "정적 분석 오탐": "오탐 이유",
+        "최신 플랫폼 방어": "동등 방어 근거",
+        "아키텍처 근거 중복": "경로 증거 대상 후보",
     }
 
     lines = ['## 안전 판정 항목', '']
     for cat, items in buckets.items():
         if not items:
             continue
-        col_header, description = COLUMNS[cat]
+        col_header = COLUMNS[cat]
         lines.append(f'### {cat} ({len(items)}건)')
-        lines.append(description)
         lines.append('')
         lines.append(f'| ID | 제목 | {col_header} |')
         lines.append(f'|----|------|{"-" * max(len(col_header), 4)}|')
