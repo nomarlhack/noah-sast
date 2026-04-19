@@ -117,7 +117,7 @@ Phase 1은 코드만 보기 때문에 인프라(WAF, 프록시 정규화, 프레
 | `evidence_summary` | confirmed 전용 (재현 가능한 증거 요약) |
 | `verified_defense` | safe + defense_verified 전용. `{file, lines, content_hash}` |
 | `rederivation_performed` | safe + defense_verified 전용. Phase 1 이후 방어 코드 재확인 여부 |
-| `safe_category` | safe 전용. enum 7분류 중 하나 필수 (`_contracts.md §3` 참조) |
+| `safe_category` | safe 전용. enum 6분류 중 하나 필수 (`_contracts.md §3` 참조) |
 
 ### DISCARD 보호
 Phase 1에서 `phase1_discarded_reason != null`로 설정된 후보는 `mode=phase2-review`가 status를 덮어쓰지 않는다. Phase 2 결과가 남아 있더라도 무시된다.

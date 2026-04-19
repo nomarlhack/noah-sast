@@ -96,7 +96,7 @@ def main() -> int:
     allowed_safe_cats = {
         "no_external_path", "defense_verified",
         "not_applicable", "false_positive",
-        "platform_default_defense", "low_threat_model",
+        "platform_default_defense",
         "architectural_rationale_only",
     }
     safe_no_cat = [
