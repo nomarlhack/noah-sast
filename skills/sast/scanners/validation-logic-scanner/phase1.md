@@ -43,7 +43,7 @@ grep_patterns:
 
 이 스캐너의 "Sink"는 **사용자 입력이 검증 로직을 거쳐 비즈니스 로직에 도달하는 지점으로, 검증 불일치·타입 혼동·null 처리 결함·스키마 검증 누락이 보안에 영향을 미치는 곳**이다.
 
-### V-1: 유효성 검사 로직 불일치 (VALIDATION_MISMATCH)
+### VALIDATION_MISMATCH — 유효성 검사 로직 불일치
 
 | 카테고리 | 패턴 |
 |---|---|
@@ -52,7 +52,7 @@ grep_patterns:
 | 조건부 검증 | 특정 조건(역할, 플랜 등)에서만 검증이 활성화되어 우회 가능 |
 | API 라우트 검증 누락 | 일부 엔드포인트에만 validation middleware가 적용되고 나머지는 미적용 |
 
-### V-2: 타입 혼동 (TYPE_CONFUSION)
+### TYPE_CONFUSION — 타입 혼동
 
 | 카테고리 | 패턴 |
 |---|---|
@@ -62,7 +62,7 @@ grep_patterns:
 | 숫자 파싱 차이 | `parseInt("123abc") === 123` (JavaScript), 선행 0이 8진수로 해석 |
 | Boolean 강제 변환 | `"false"` 문자열이 truthy로 평가, `0`과 빈 문자열의 falsy 동작 |
 
-### V-3: Null 안전성 결함 (NULL_SAFETY)
+### NULL_SAFETY — Null 안전성 결함
 
 | 카테고리 | 패턴 |
 |---|---|
@@ -72,7 +72,7 @@ grep_patterns:
 | null 병합 연산자 오용 | `value ?? defaultValue` — `0`이나 `""`는 null이 아니므로 통과하지만 `value || defaultValue`에서는 기본값으로 대체 |
 | 필수 파라미터에 null 전달 | API에서 필수 필드에 `null`을 전달하면 ORM이 NULL 저장, 이후 비교 로직에서 `NULL != anything` |
 
-### V-4: 스키마/모델 검증 결함 (SCHEMA_DEFECT)
+### SCHEMA_DEFECT — 스키마/모델 검증 결함
 
 | 카테고리 | 패턴 |
 |---|---|

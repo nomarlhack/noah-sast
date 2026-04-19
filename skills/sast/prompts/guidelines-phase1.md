@@ -47,6 +47,8 @@ manifest JSON 필드:
 
 **후보 ID 규약**: 각 스캐너의 `phase1.md` frontmatter에 선언된 `id_prefix` 값을 사용하여 `<id_prefix>-1, <id_prefix>-2, ...` 형식으로 순서대로 부여한다. 예: `id_prefix: XSS`이면 `XSS-1, XSS-2, ...`. 스스로 prefix를 추론하지 않는다. 불일치 시 `phase1_build_master_list.py`가 ERROR로 차단.
 
+**카테고리 헤더 규약**: 스캐너 정의 문서(`phase1.md`)에서 취약점 유형을 구분할 때 `### V-1`, `### D-1` 같은 **숫자+하이픈 형식을 사용하지 않는다**. 카테고리 이름(UPPER_SNAKE_CASE)을 그대로 헤더로 쓴다. 숫자+하이픈 형식은 후보 ID 전용으로 예약되어 있어 혼동을 일으킨다.
+
 **이상 없음인 경우에도 파일을 생성**하고, 이상 없음 항목 1줄 요약 + `{"declared_count": 0, "candidates": []}` manifest를 포함한다.
 
 ### 3-C: 반환 형식
