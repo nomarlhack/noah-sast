@@ -510,6 +510,27 @@ print("--- 적용 스캐너 목록 ---")
 for s, c in included:
     print(s)
 
+# --- Tier 분류 (Phase 2 실행 시 인증 컨텍스트 기반 병렬화) ---
+
+# Tier A: 인증 불요 (헤더/설정 검사). Tier 내 순차, 다른 Tier와 병렬
+TIER_A = {
+    "security-headers-scanner", "http-smuggling-scanner", "host-header-scanner",
+    "http-method-tampering-scanner", "crlf-injection-scanner", "sourcemap-scanner",
+    "subdomain-takeover-scanner", "tls-scanner",
+}
+# Tier C: 독립 인증 컨텍스트. Tier 내 순차, Tier B와 병렬
+TIER_C = {"oauth-scanner", "saml-scanner", "jwt-scanner"}
+# Tier B: 공유 세션 (Tier A/C가 아닌 모든 스캐너)
+
+
+def tier_of(scanner: str) -> str:
+    if scanner in TIER_A:
+        return "A"
+    if scanner in TIER_C:
+        return "C"
+    return "B"
+
+
 # --- 그룹 리밸런싱 ---
 
 # 기본 그룹 정의 (의미적 연관성 기반)
@@ -582,9 +603,30 @@ balanced_groups = rebalance_groups()
 print()
 print("--- 그룹 편성 ---")
 for gname, members in balanced_groups.items():
+    tiers = {tier_of(s) for s in members}
+    tier_label = "/".join(sorted(tiers)) if len(tiers) > 1 else next(iter(tiers))
     member_strs = [f"{s}({included_hits.get(s, 0)})" for s in members]
     total = sum(included_hits.get(s, 0) for s in members)
-    print(f"Group ({gname}): {', '.join(member_strs)} [총 {total}건]")
+    print(f"Group ({gname}, Tier {tier_label}): {', '.join(member_strs)} [총 {total}건]")
+
+# --- Tier 요약 (Phase 2 병렬 실행 지침) ---
+tier_buckets: dict[str, list[str]] = {"A": [], "B": [], "C": []}
+for scanner in included_set:
+    tier_buckets[tier_of(scanner)].append(scanner)
+
+print()
+print("--- Tier 요약 (Phase 2 실행) ---")
+print(f"Tier A: {len(tier_buckets['A'])}개 (인증 불요. Tier 내 순차, 다른 Tier와 병렬)")
+for s in sorted(tier_buckets["A"]):
+    print(f"  - {s}")
+print(f"Tier B: {len(tier_buckets['B'])}개 (공유 세션. Tier 내 순차)")
+for s in sorted(tier_buckets["B"]):
+    print(f"  - {s}")
+print(f"Tier C: {len(tier_buckets['C'])}개 (독립 인증. Tier 내 순차, Tier B와 병렬)")
+for s in sorted(tier_buckets["C"]):
+    print(f"  - {s}")
+print()
+print("실행 규칙: Tier A/B/C를 동시에 시작. 각 Tier 내부는 순차. 모든 Tier 완료 후 Step 3-6 진행.")
 
 # 선택적: 적용 스캐너 목록을 JSON 파일로 저장
 for arg in sys.argv[3:]:
