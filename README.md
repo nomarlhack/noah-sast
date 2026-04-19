@@ -41,7 +41,7 @@ flowchart TD
     S0 --> S1["Step 1: 프로젝트 스택 분석"]
     S1 --> S2["Step 2: 스캐너 선별\n(다국어 의존성 + AI 검토)"]
     S2 --> S3["Step 3-1: Phase 1 정적 분석\n(그룹 병렬 → 파일 저장)"]
-    S3 --> BML2["build-master-list.py\n결과 검증 + master-list.json"]
+    S3 --> BML2["phase1_build_master_list.py\n결과 검증 + master-list.json"]
     BML2 --> AI["Step 3-2: AI 자율 취약점 탐색\n(내부 3단계)"]
     AI --> MLUpdate2["master-list.json 갱신\n(Phase 1 + AI 후보 통합)"]
     MLUpdate2 --> EvalP1["Step 3-2.5: mode=phase1-review\n(blind eval, 4축 독립 판정)"]

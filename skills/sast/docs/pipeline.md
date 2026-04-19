@@ -16,8 +16,7 @@ flowchart TD
     S33 -->|정보 제공| S34["Step 3-4<br/>도구 권한 확인"]
     S33 -->|거부| Skip["Phase 2 스킵"]
     S34 --> S35["Step 3-5<br/>Phase 2 동적 분석<br/>(Tier A/B/C 병렬)"]
-    S35 --> UP2["update-phase2-status.py"]
-    UP2 --> S355["Step 3-5.5<br/>phase2-review"]
+    S35 --> S355["Step 3-5.5<br/>phase2-review<br/>(증거 해석 → status 갱신)"]
     S355 --> S36["Step 3-6<br/>연계 분석"]
     Skip --> S36
     S36 --> S4["Step 4<br/>보고서 조립"]
